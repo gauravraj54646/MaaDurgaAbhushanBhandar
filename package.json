@@ -5,7 +5,7 @@
   "description": "Full-Stack MERN E-Commerce App",
   "scripts": {
     "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
-    "build": "cd frontend && npm install && npm run build",
+    "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend",
     "start": "cd backend && npm start",
     "dev": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
     "start:backend": "npm --prefix backend run dev",
