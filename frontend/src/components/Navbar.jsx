@@ -19,11 +19,12 @@ const Navbar = () => {
       <div className="navbar-brand">
         <Link to="/">
           <img src="/ShopNestLogo.png" alt="ShopNest" style={{ height: '36px', width: '36px', borderRadius: '8px', objectFit: 'cover', filter: 'drop-shadow(0 2px 8px rgba(249, 115, 22, 0.35))' }} />
-          ShopNest
+          Maa Durga Abhushan Bhandar
         </Link>
       </div>
       <ul className="navbar-links">
         <li><Link to="/shop">Shop</Link></li>
+        <li><Link to="/loan">Loan</Link></li>
         <li><Link to="/cart">Cart ({cartItems.length})</Link></li>
         {user ? (
           <>

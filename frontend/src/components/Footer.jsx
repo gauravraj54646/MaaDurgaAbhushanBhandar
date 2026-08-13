@@ -19,8 +19,9 @@ const Footer = () => {
         gap: '20px'
       }}>
         <div>
-          <h3 style={{ color: '#f97316', marginBottom: '10px' }}>ShopNest</h3>
-          <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>Premium E-Commerce Platform.</p>
+          <h3 style={{ color: '#f97316', marginBottom: '10px' }}>Maa Durga Abhushan Bhandar</h3>
+          <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}> <Link to="/loan" style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>Loan.</Link></p>
+          <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>Premium Jewellery Platform.</p>        
         </div>
         
         <div style={{ display: 'flex', gap: '20px' }}>
@@ -30,7 +31,7 @@ const Footer = () => {
         </div>
         
         <div style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>
-          &copy; {new Date().getFullYear()} ShopNest. All rights reserved.
+          &copy; {new Date().getFullYear()} MDAB. All rights reserved.
         </div>
       </div>
     </footer>

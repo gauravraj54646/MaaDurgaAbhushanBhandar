@@ -15,9 +15,13 @@ import About from './pages/About';
 import Disclaimer from './pages/Disclaimer';
 import ReturnPolicy from './pages/ReturnPolicy';
 import AdminDashboard from './admin/AdminDashboard';
+import AdminLoanDashboard from './admin/AdminLoanDashboard';
 import AddProduct from './admin/AddProduct';
+import AddLoanProduct from './admin/AddLoanProduct';
 import AdminProducts from './admin/AdminProducts';
+import AdminLoanProduct from './admin/AdminLoanProduct';
 import EditProduct from './admin/EditProduct';
+import EditLoanProduct from './admin/EditLoanProduct';
 import AdminOrders from './admin/AdminOrders';
 import AdminUsers from './admin/AdminUsers';
 
@@ -40,9 +44,13 @@ function App() {
           <Route path="/disclaimer" element={<Disclaimer />} />
           <Route path="/return" element={<ReturnPolicy />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/loan" element={<AdminLoanDashboard />} />
           <Route path="/admin/add-product" element={<AddProduct />} />
+          <Route path="/admin/loan/add-product" element={<AddLoanProduct />} />
           <Route path="/admin/products" element={<AdminProducts />} />
+          <Route path="/admin/loan/products" element={<AdminLoanProduct />} />
           <Route path="/admin/edit-product/:id" element={<EditProduct />} />
+          <Route path="/admin/loan/edit-loan/:id" element={<EditLoanProduct />} />
           <Route path="/admin/orders" element={<AdminOrders />} />
           <Route path="/admin/users" element={<AdminUsers />} />
         </Routes>
