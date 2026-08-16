@@ -28,10 +28,7 @@ const AdminLoanDashboard = () => {
           setStats({
             totalLoans: 0,
             availableLoans: 0,
-            signedLoans: 0,
-            totalLoanAmount: 0,
-            totalInterest: 0,
-            totalOutstanding: 0
+            signedLoans: 0
           });
         }
       } catch (error) {
@@ -74,25 +71,15 @@ const AdminLoanDashboard = () => {
             <h4 style={{ color: '#a1a1aa', fontSize: '1rem' }}>Total Loans</h4>
             <div style={numberStyle}>{stats.totalLoans}</div>
           </div>
+
           <div style={cardStyle}>
             <h4 style={{ color: '#a1a1aa', fontSize: '1rem' }}>Available Loans</h4>
             <div style={numberStyle}>{stats.availableLoans}</div>
           </div>
+
           <div style={cardStyle}>
             <h4 style={{ color: '#a1a1aa', fontSize: '1rem' }}>Signed Loans</h4>
             <div style={numberStyle}>{stats.signedLoans}</div>
-          </div>
-          <div style={cardStyle}>
-            <h4 style={{ color: '#a1a1aa', fontSize: '1rem' }}>Total Loan Amount</h4>
-            <div style={numberStyle}>₹{stats.totalLoanAmount.toFixed(2)}</div>
-          </div>
-          <div style={cardStyle}>
-            <h4 style={{ color: '#a1a1aa', fontSize: '1rem' }}>Total Interest</h4>
-            <div style={numberStyle}>₹{stats.totalInterest.toFixed(2)}</div>
-          </div>
-          <div style={cardStyle}>
-            <h4 style={{ color: '#a1a1aa', fontSize: '1rem' }}>Total Outstanding</h4>
-            <div style={numberStyle}>₹{stats.totalOutstanding.toFixed(2)}</div>
           </div>
         </div>
       ) : (
@@ -103,7 +90,7 @@ const AdminLoanDashboard = () => {
         <h3 style={{ marginBottom: '25px', color: '#f97316' }}>Administrative Controls</h3>
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
           <button className="btn" onClick={() => navigate('/admin/loan/add-loan')}>+ Add Loan</button>
-          <button className="btn" onClick={() => navigate('/admin/loans')} style={{ background: '#3f3f46' }}>📄 Manage Loans</button>
+          <button className="btn" onClick={() => navigate('/admin/loan/products')} style={{ background: '#3f3f46' }}>📄 Manage Loans</button>
         </div>
       </div>
     </div>

@@ -1,16 +1,83 @@
-const LoanProduct = require("../models/LoanProduct");
-const { getLoanSummary } = require("../utils/loanCalculations");
+const bcrypt = require('bcryptjs');
+const LoanProduct = require('../models/LoanProduct');
+const User = require('../models/User');
+const { getLoanSummary } = require('../utils/loanCalculations');
 
 const getLoans = async (req, res) => {
   try {
-    const loans = await LoanProduct.find({});
+    const {
+      page = 1,
+      limit = 20,
+      name, // partial, case-insensitive match
+      fromDate, // inclusive lower bound on loan.date
+      toDate, // inclusive upper bound on loan.date
+      minAmount, // inclusive lower bound on loanAmount
+      maxAmount, // inclusive upper bound on loanAmount
+      sortBy = 'date', // 'date' | 'loanAmount' | 'name'
+      sortOrder = 'desc', // 'asc' | 'desc'
+    } = req.query;
 
-    const withSummaries = loans.map((loan) => ({
-      ...loan.toObject(),
-      summary: getLoanSummary(loan),
-    }));
+    const filter = {};
 
-    res.json(withSummaries);
+    if (name) {
+      filter.name = { $regex: name.trim(), $options: 'i' };
+    }
+
+    if (fromDate || toDate) {
+      filter.date = {};
+
+      if (fromDate) {
+        filter.date.$gte = new Date(fromDate);
+      }
+
+      if (toDate) {
+        // include the whole day for the "to" bound
+        const end = new Date(toDate);
+        end.setHours(23, 59, 59, 999);
+        filter.date.$lte = end;
+      }
+    }
+
+    if (minAmount || maxAmount) {
+      filter.loanAmount = {};
+
+      if (minAmount) {
+        filter.loanAmount.$gte = Number(minAmount);
+      }
+
+      if (maxAmount) {
+        filter.loanAmount.$lte = Number(maxAmount);
+      }
+    }
+
+    // Only these fields may be sorted on — prevents arbitrary/unsafe
+    // sort keys being passed in via query string.
+    const allowedSortFields = ['date', 'loanAmount', 'name'];
+    const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'date';
+    const sortDirection = sortOrder === 'asc' ? 1 : -1;
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [loans, total] = await Promise.all([
+      LoanProduct.find(filter)
+        // Manage Loans list only needs name/date/amount — keep the
+        // payload light instead of shipping full documents.
+        .select('name date loanAmount customerId')
+        .sort({ [sortField]: sortDirection })
+        .skip(skip)
+        .limit(limitNum),
+      LoanProduct.countDocuments(filter),
+    ]);
+
+    res.json({
+      loans,
+      page: pageNum,
+      limit: limitNum,
+      total,
+      totalPages: Math.ceil(total / limitNum) || 1,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -26,7 +93,7 @@ const getLoanById = async (req, res) => {
         summary: getLoanSummary(loan),
       });
     } else {
-      res.status(404).json({ message: "Loan not found" });
+      res.status(404).json({ message: 'Loan not found' });
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -36,23 +103,11 @@ const getLoanById = async (req, res) => {
 const createLoan = async (req, res) => {
   try {
     const {
-      name,
-      address,
-      customerId,
-      mobileNo,
-      description,
-      goldWeight,
-      silverWeight,
-      date,
-      dueDate,
-      available,
-      roi,
-      dissolveDate,
-      loanAmount,
-      signed,
-      finalSettlement,
-      reloans,
-      payments,
+      name, address, customerId, mobileNo, description,
+      goldWeight, silverWeight,
+      date, dueDate, available, roi, dissolveDate,
+      loanAmount, signed, finalSettlement,
+      reloans, payments,
     } = req.body;
 
     const loan = new LoanProduct({
@@ -95,23 +150,11 @@ const createLoan = async (req, res) => {
 const updateLoan = async (req, res) => {
   try {
     const {
-      name,
-      address,
-      customerId,
-      mobileNo,
-      description,
-      goldWeight,
-      silverWeight,
-      date,
-      dueDate,
-      available,
-      roi,
-      dissolveDate,
-      loanAmount,
-      signed,
-      finalSettlement,
-      reloans,
-      payments,
+      name, address, customerId, mobileNo, description,
+      goldWeight, silverWeight,
+      date, dueDate, available, roi, dissolveDate,
+      loanAmount, signed, finalSettlement,
+      reloans, payments,
     } = req.body;
 
     const loan = await LoanProduct.findById(req.params.id);
@@ -155,10 +198,86 @@ const updateLoan = async (req, res) => {
         summary: getLoanSummary(updatedLoan),
       });
     } else {
-      res.status(404).json({ message: "Loan not found" });
+      res.status(404).json({ message: 'Loan not found' });
     }
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+};
+
+const getLoanAnalytics = async (req, res) => {
+  try {
+    // Dashboard now only needs counts — the financial totals (loan
+    // amount / interest / outstanding) moved to Manage Loans behind
+    // a password check, see getLoanFinancials below.
+    const [totalLoans, availableLoans, signedLoans] = await Promise.all([
+      LoanProduct.countDocuments({}),
+      LoanProduct.countDocuments({ available: 'yes' }),
+      LoanProduct.countDocuments({ signed: 'yes' }),
+    ]);
+
+    res.json({ totalLoans, availableLoans, signedLoans });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// -----------------------------------------------------------
+// Re-verifies the logged-in admin's password before releasing the
+// financial totals (loan amount / interest / outstanding). Being
+// logged in as admin already gates this route (see routes file),
+// but this adds an extra "confirm it's really you" step for the
+// most sensitive numbers, similar to a banking app's re-auth prompt.
+//
+// NOTE: assumes your User model stores a bcrypt-hashed `password`
+// field with `select: false`, and that `protect` middleware sets
+// `req.user` from the JWT. Adjust the bcrypt.compare call below if
+// your User model already exposes its own comparison method
+// (e.g. `user.matchPassword(...)`) instead.
+// -----------------------------------------------------------
+const getLoanFinancials = async (req, res) => {
+  try {
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ message: 'Password is required.' });
+    }
+
+    const admin = await User.findById(req.user._id).select('+password');
+
+    if (!admin) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const isMatch = await bcrypt.compare(password, admin.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Incorrect password.' });
+    }
+
+    const loans = await LoanProduct.find({}).select(
+      'loanAmount date roi reloans payments',
+    );
+
+    let totalLoanAmount = 0;
+    let totalInterest = 0;
+    let totalOutstanding = 0;
+
+    loans.forEach((loan) => {
+      const summary = getLoanSummary(loan);
+
+      totalLoanAmount += summary.grandLoanAmount;
+      totalInterest += summary.grandInterest;
+      totalOutstanding += summary.finalAmount;
+    });
+
+    res.json({
+      totalLoanAmount: Number(totalLoanAmount.toFixed(2)),
+      totalInterest: Number(totalInterest.toFixed(2)),
+      totalOutstanding: Number(totalOutstanding.toFixed(2)),
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -168,13 +287,21 @@ const deleteLoan = async (req, res) => {
 
     if (loan) {
       await loan.deleteOne();
-      res.json({ message: "Loan removed" });
+      res.json({ message: 'Loan removed' });
     } else {
-      res.status(404).json({ message: "Loan not found" });
+      res.status(404).json({ message: 'Loan not found' });
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-module.exports = { getLoans, getLoanById, createLoan, updateLoan, deleteLoan };
+module.exports = {
+  getLoans,
+  getLoanById,
+  createLoan,
+  updateLoan,
+  deleteLoan,
+  getLoanAnalytics,
+  getLoanFinancials,
+};

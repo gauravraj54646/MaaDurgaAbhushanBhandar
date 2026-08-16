@@ -619,19 +619,31 @@ const AddLoanProduct = () => {
         body: JSON.stringify(submitData),
       });
 
+      const contentType = res.headers.get("content-type") || "";
+
+      if (!contentType.includes("application/json")) {
+        // The server didn't return JSON at all — usually means the
+        // request never reached the backend (wrong URL, proxy not
+        // configured, or backend not running) and hit something
+        // returning an HTML page instead.
+        throw new Error(
+          `Server did not return JSON (status ${res.status}). Check that the API server is running and the request URL/proxy is correct.`,
+        );
+      }
+
       const responseData = await res.json();
 
       if (res.ok) {
         alert("Loan created successfully!");
 
-        navigate("/admin/loans");
+        navigate("/admin/loan/products");
       } else {
         alert(responseData.message || "Error creating loan");
       }
     } catch (error) {
       console.error("Error creating loan:", error);
 
-      alert("Something went wrong while creating the loan.");
+      alert(error.message || "Something went wrong while creating the loan.");
     } finally {
       setLoading(false);
     }
@@ -662,16 +674,44 @@ const AddLoanProduct = () => {
         boxSizing: "border-box",
       }}
     >
-      <h2
+      <div
         style={{
-          color: "#f97316",
-          marginTop: 0,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          flexWrap: "wrap",
+          gap: "12px",
           marginBottom: "26px",
-          fontSize: "22px",
         }}
       >
-        Add New Loan
-      </h2>
+        <h2
+          style={{
+            color: "#f97316",
+            margin: 0,
+            fontSize: "22px",
+          }}
+        >
+          Add New Loan
+        </h2>
+
+        <button
+          type="button"
+          onClick={() => navigate("/admin/loan/products")}
+          style={{
+            padding: "10px 18px",
+            borderRadius: "7px",
+            border: "none",
+            background: "#3f3f46",
+            color: "#fff",
+            fontSize: "13.5px",
+            fontWeight: "600",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          📄 Manage Loans
+        </button>
+      </div>
 
       <form
         onSubmit={handleSubmit}
