@@ -8,7 +8,7 @@ const {
   deleteLoan,
   getLoanAnalytics,
   getLoanFinancials,
-} = require('../controllers/loanController');
+} = require('../controllers/LoanController');
 const { protect } = require('../middleware/authMiddleware');
 const { admin } = require('../middleware/adminMiddleware');
 
