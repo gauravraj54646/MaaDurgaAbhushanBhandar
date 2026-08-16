@@ -20,6 +20,7 @@ const EditLoanProduct = () => {
     dueDate: '',
     available: 'yes',
     roi: 5,
+    returnDate: '',
     dissolveDate: '',
     loanAmount: '',
     interest: '',
@@ -50,7 +51,8 @@ const EditLoanProduct = () => {
         date: data.date ? data.date.substring(0, 10) : '',
         dueDate: data.dueDate ? data.dueDate.substring(0, 10) : '',
         available: data.available || 'yes',
-        roi: data.roi ?? 5,
+        roi: data.roi ?? 5,        
+        returnDate: data.returnDate ? data.returnDate.substring(0, 10) : '',
         dissolveDate: data.dissolveDate ? data.dissolveDate.substring(0, 10) : '',
         loanAmount: data.loanAmount ?? '',
         interest: data.interest ?? '',
@@ -228,7 +230,11 @@ const EditLoanProduct = () => {
               onChange={(e) => handleChange('roi', e.target.value)} style={inputStyle} />
           </div>
         </div>
-
+        <div>
+          <label style={labelStyle}>Return Date</label>
+          <input type="date" value={formData.returnDate}
+            onChange={(e) => handleChange('returnDate', e.target.value)} style={inputStyle} />
+        </div>
         <div>
           <label style={labelStyle}>Dissolve Date</label>
           <input type="date" value={formData.dissolveDate}

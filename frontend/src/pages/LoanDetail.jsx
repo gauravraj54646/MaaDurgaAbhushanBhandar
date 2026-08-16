@@ -35,6 +35,7 @@ const LoanDetail = () => {
     dueDate = '',
     available = 'yes',
     roi = 5,
+    returnDate= '',
     dissolveDate = '',
     loanAmount = 0,
     interest = 0,
@@ -117,6 +118,10 @@ const LoanDetail = () => {
           <div>
             <h4 style={{ color: '#fff', marginBottom: '6px', fontSize: '0.9rem' }}>Due Date</h4>
             <p style={{ color: '#a1a1aa' }}>{formatDate(dueDate)}</p>
+          </div>
+          <div>
+            <h4 style={{ color: '#fff', marginBottom: '6px', fontSize: '0.9rem' }}>Return Date</h4>
+            <p style={{ color: '#a1a1aa' }}>{formatDate(returnDate)}</p>
           </div>
           <div>
             <h4 style={{ color: '#fff', marginBottom: '6px', fontSize: '0.9rem' }}>Dissolve Date</h4>

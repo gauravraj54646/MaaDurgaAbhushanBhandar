@@ -105,7 +105,7 @@ const createLoan = async (req, res) => {
     const {
       name, address, customerId, mobileNo, description,
       goldWeight, silverWeight,
-      date, dueDate, available, roi, dissolveDate,
+      date, dueDate, available, roi, returnDate, dissolveDate,
       loanAmount, signed, finalSettlement,
       reloans, payments,
     } = req.body;
@@ -122,6 +122,7 @@ const createLoan = async (req, res) => {
       dueDate,
       available,
       roi,
+      returnDate,
       dissolveDate,
       loanAmount,
       signed,
@@ -152,7 +153,7 @@ const updateLoan = async (req, res) => {
     const {
       name, address, customerId, mobileNo, description,
       goldWeight, silverWeight,
-      date, dueDate, available, roi, dissolveDate,
+      date, dueDate, available, roi, returnDate, dissolveDate,
       loanAmount, signed, finalSettlement,
       reloans, payments,
     } = req.body;
@@ -171,6 +172,7 @@ const updateLoan = async (req, res) => {
       loan.dueDate = dueDate ?? loan.dueDate;
       loan.available = available ?? loan.available;
       loan.roi = roi ?? loan.roi;
+      loan.returnDate = returnDate ?? loan.returnDate;
       loan.dissolveDate = dissolveDate ?? loan.dissolveDate;
       loan.loanAmount = loanAmount ?? loan.loanAmount;
       loan.signed = signed ?? loan.signed;

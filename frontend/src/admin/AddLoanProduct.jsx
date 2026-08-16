@@ -22,7 +22,9 @@ const AddLoanProduct = () => {
     date.setFullYear(date.getFullYear() + 3);
     return date.toISOString().split("T")[0];
   };
-
+  const getReturnDate = () => {
+    return ;
+  }
   const getDissolveDate = () => {
     const date = new Date();
     date.setFullYear(date.getFullYear() + 3);
@@ -146,7 +148,7 @@ const AddLoanProduct = () => {
     available: "yes",
 
     roi: 5,
-
+    returnDate:'',// getReturnDate(),
     dissolveDate: getDissolveDate(),
 
     // Original loan
@@ -724,7 +726,6 @@ const AddLoanProduct = () => {
         {/* =====================================================
             NAME
         ====================================================== */}
-
         <div>
           <label style={labelStyle}>Name</label>
 
@@ -739,11 +740,9 @@ const AddLoanProduct = () => {
 
           <FieldError msg={errors.name} />
         </div>
-
         {/* =====================================================
             ADDRESS
         ====================================================== */}
-
         <div>
           <label style={labelStyle}>Address</label>
 
@@ -758,11 +757,9 @@ const AddLoanProduct = () => {
 
           <FieldError msg={errors.address} />
         </div>
-
         {/* =====================================================
             CUSTOMER ID + MOBILE
         ====================================================== */}
-
         <div className="two-col" style={twoColGridStyle}>
           <div>
             <label style={labelStyle}>Customer ID (max 8 characters)</label>
@@ -805,11 +802,9 @@ const AddLoanProduct = () => {
             <FieldError msg={errors.mobileNo} />
           </div>
         </div>
-
         {/* =====================================================
             GOLD / SILVER WEIGHT
         ====================================================== */}
-
         <div className="two-col" style={twoColGridStyle}>
           <div>
             <label style={labelStyle}>Gold Weight (g)</label>
@@ -841,11 +836,9 @@ const AddLoanProduct = () => {
             />
           </div>
         </div>
-
         {/* =====================================================
             DESCRIPTION
         ====================================================== */}
-
         <div>
           <label style={labelStyle}>Description</label>
 
@@ -860,11 +853,9 @@ const AddLoanProduct = () => {
 
           <FieldError msg={errors.description} />
         </div>
-
         {/* =====================================================
             ISSUE DATE + DUE DATE
         ====================================================== */}
-
         <div className="two-col" style={twoColGridStyle}>
           <div>
             <label style={labelStyle}>Issue Date</label>
@@ -900,11 +891,9 @@ const AddLoanProduct = () => {
             <FieldError msg={errors.dueDate} />
           </div>
         </div>
-
         {/* =====================================================
             AVAILABLE + ROI
         ====================================================== */}
-
         <div className="two-col" style={twoColGridStyle}>
           <div>
             <label style={labelStyle}>Available</label>
@@ -937,10 +926,28 @@ const AddLoanProduct = () => {
           </div>
         </div>
 
+        {/*    ===================================================
+          Return Date
+        ================================================ */}
+<div className="two-col" style={twoColGridStyle}>
+        <div>
+          <label style={labelStyle}>Return Date</label>
+
+          <input
+            type="date"
+            value={formData.returnDate}
+            onChange={(e) => handleChange("returnDate", e.target.value)}
+            style={{
+              ...inputStyle,
+              cursor: "pointer",
+              maxWidth: "320px",
+            }}
+          />
+        </div>{" "}
+
         {/* =====================================================
             DISSOLVE DATE
         ====================================================== */}
-
         <div>
           <label style={labelStyle}>Dissolve Date</label>
 
@@ -955,11 +962,10 @@ const AddLoanProduct = () => {
             }}
           />
         </div>
-
+        </div>
         {/* =====================================================
             ORIGINAL LOAN
         ====================================================== */}
-
         <SectionCard>
           <SectionHeader title="Original Loan" />
 
@@ -1039,11 +1045,9 @@ const AddLoanProduct = () => {
             </div>
           )}
         </SectionCard>
-
         {/* =====================================================
             RELOANS
         ====================================================== */}
-
         <SectionCard>
           <div
             style={{
@@ -1228,11 +1232,9 @@ const AddLoanProduct = () => {
             </div>
           )}
         </SectionCard>
-
         {/* =====================================================
             PAYMENTS - SEPARATE FROM RELOANS
         ====================================================== */}
-
         <SectionCard>
           <div
             style={{
@@ -1379,11 +1381,9 @@ const AddLoanProduct = () => {
 
           {errors.payments && <SmallError msg={errors.payments} />}
         </SectionCard>
-
         {/* =====================================================
             FINAL SUMMARY
         ====================================================== */}
-
         <div
           style={{
             padding: "20px",
@@ -1431,11 +1431,9 @@ const AddLoanProduct = () => {
             />
           </div>
         </div>
-
         {/* =====================================================
             SIGNED
         ====================================================== */}
-
         <div>
           <label style={labelStyle}>Signed</label>
 
@@ -1449,11 +1447,9 @@ const AddLoanProduct = () => {
             <option value="yes">Yes</option>
           </select>
         </div>
-
         {/* =====================================================
             FINAL SETTLEMENT
         ====================================================== */}
-
         <div>
           <label style={labelStyle}>Final Settlement</label>
 
@@ -1467,11 +1463,9 @@ const AddLoanProduct = () => {
 
           <FieldError msg={errors.finalSettlement} />
         </div>
-
         {/* =====================================================
             SUBMIT
         ====================================================== */}
-
         <button
           type="submit"
           disabled={loading}

@@ -78,6 +78,9 @@ const loanProductSchema = new mongoose.Schema(
     dissolveDate: {
       type: Date,
     },
+    returnDate:{
+      type : Date,
+    },
     loanAmount: {
       type: Number,
       required: true,
