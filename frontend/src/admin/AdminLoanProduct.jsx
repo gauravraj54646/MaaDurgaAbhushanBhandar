@@ -2,7 +2,10 @@ import React, { useState, useEffect, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 12;
+
+// Change this if your admin loan dashboard lives at a different route.
+const ADMIN_LOAN_DASHBOARD_PATH = "/admin/loan";
 
 const formatDisplayDate = (isoDate) => {
   if (!isoDate) return "-";
@@ -17,6 +20,87 @@ const formatDisplayDate = (isoDate) => {
     year: "numeric",
   });
 };
+
+// True if the loan's due date has already passed (compares whole
+// days only, so a due date of "today" is not yet overdue).
+const isOverdue = (dueDate) => {
+  if (!dueDate) return false;
+
+  const due = new Date(dueDate);
+  const today = new Date();
+
+  due.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+
+  return due.getTime() < today.getTime();
+};
+
+// True if the loan's dissolve date has already passed — flagged
+// separately from "overdue" since it means the pledged item is past
+// the point it should have been auctioned/forfeited, a distinct and
+// more serious situation.
+const isPastDissolve = (dissolveDate) => {
+  if (!dissolveDate) return false;
+
+  const dissolve = new Date(dissolveDate);
+  const today = new Date();
+
+  dissolve.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+
+  return dissolve.getTime() < today.getTime();
+};
+
+// -----------------------------------------------------------
+// Back arrow button — fixed 38x38 hit target, 18px stroke icon,
+// centered precisely so the glyph doesn't look off-balance inside
+// the box at any screen size.
+// -----------------------------------------------------------
+const BackButton = ({ onClick, title = "Back" }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    title={title}
+    aria-label={title}
+    style={{
+      flexShrink: 0,
+      width: "38px",
+      height: "38px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: "8px",
+      border: "1px solid #3f3f46",
+      background: "transparent",
+      color: "#e4e4e7",
+      cursor: "pointer",
+      padding: 0,
+      transition: "border-color 0.15s ease, color 0.15s ease, background 0.15s ease",
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.borderColor = "#f97316";
+      e.currentTarget.style.color = "#f97316";
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.borderColor = "#3f3f46";
+      e.currentTarget.style.color = "#e4e4e7";
+    }}
+  >
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M19 12H5" />
+      <path d="M12 19l-7-7 7-7" />
+    </svg>
+  </button>
+);
 
 const AdminLoanProduct = () => {
   const { user } = useContext(AuthContext);
@@ -37,22 +121,32 @@ const AdminLoanProduct = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
 
+  
+
   // Filters — controlled inputs; committed to actual query params
   // via a short debounce so we don't fire a request on every keystroke.
-  const [nameInput, setNameInput] = useState("");
-  const [fromDateInput, setFromDateInput] = useState("");
-  const [toDateInput, setToDateInput] = useState("");
+  const getToday = () => {
+  const today = new Date();
+  return today.toISOString().split("T")[0];
+};
+
+  const [toDateInput, setToDateInput] = useState(getToday());
+const [nameInput, setNameInput] = useState("");
+const [customerIdInput, setCustomerIdInput] = useState("");
+const [loanIdInput, setLoanIdInput] = useState("");
+const [fromDateInput, setFromDateInput] = useState("");
   const [minAmountInput, setMinAmountInput] = useState("");
   const [maxAmountInput, setMaxAmountInput] = useState("");
 
-  const [appliedFilters, setAppliedFilters] = useState({
-    name: "",
-    fromDate: "",
-    toDate: "",
-    minAmount: "",
-    maxAmount: "",
-  });
-
+const [appliedFilters, setAppliedFilters] = useState({
+  name: "",
+  customerId: "",
+  loanId:"",
+  fromDate: "",
+  toDate: "",
+  minAmount: "",
+  maxAmount: "",
+});
   // Default: newest loan first ("now to before date")
   const [sortBy, setSortBy] = useState("date");
   const [sortOrder, setSortOrder] = useState("desc");
@@ -65,6 +159,8 @@ const AdminLoanProduct = () => {
       setPage(1);
       setAppliedFilters({
         name: nameInput.trim(),
+        customerId: customerIdInput.trim().toUpperCase(),
+        loanId: loanIdInput.trim().toUpperCase(),
         fromDate: fromDateInput,
         toDate: toDateInput,
         minAmount: minAmountInput,
@@ -73,7 +169,7 @@ const AdminLoanProduct = () => {
     }, 400);
 
     return () => clearTimeout(timeout);
-  }, [nameInput, fromDateInput, toDateInput, minAmountInput, maxAmountInput]);
+  }, [nameInput, customerIdInput, loanIdInput, fromDateInput, toDateInput, minAmountInput, maxAmountInput]);
 
   // -----------------------------------------------------------
   // Fetch loans whenever page / filters / sort changes
@@ -90,11 +186,25 @@ const AdminLoanProduct = () => {
       params.set("sortBy", sortBy);
       params.set("sortOrder", sortOrder);
 
-      if (appliedFilters.name) params.set("name", appliedFilters.name);
-      if (appliedFilters.fromDate) params.set("fromDate", appliedFilters.fromDate);
+if (appliedFilters.name) {
+  params.set("name", appliedFilters.name);
+}
+
+if (appliedFilters.customerId) {
+  params.set("customerId", appliedFilters.customerId);
+}
+
+if (appliedFilters.loanId) {
+  params.set("loanId", appliedFilters.loanId);
+}
+
+if (appliedFilters.fromDate)
+  params.set("fromDate", appliedFilters.fromDate);
       if (appliedFilters.toDate) params.set("toDate", appliedFilters.toDate);
-      if (appliedFilters.minAmount) params.set("minAmount", appliedFilters.minAmount);
-      if (appliedFilters.maxAmount) params.set("maxAmount", appliedFilters.maxAmount);
+      if (appliedFilters.minAmount)
+        params.set("minAmount", appliedFilters.minAmount);
+      if (appliedFilters.maxAmount)
+        params.set("maxAmount", appliedFilters.maxAmount);
 
       const res = await fetch(`/api/loans?${params.toString()}`, {
         headers: {
@@ -154,6 +264,8 @@ const AdminLoanProduct = () => {
 
   const clearFilters = () => {
     setNameInput("");
+    setCustomerIdInput("");
+    setLoanIdInput("");
     setFromDateInput("");
     setToDateInput("");
     setMinAmountInput("");
@@ -223,6 +335,8 @@ const AdminLoanProduct = () => {
 
   const hasActiveFilters =
     appliedFilters.name ||
+  appliedFilters.customerId ||
+  appliedFilters.loanId ||
     appliedFilters.fromDate ||
     appliedFilters.toDate ||
     appliedFilters.minAmount ||
@@ -252,17 +366,49 @@ const AdminLoanProduct = () => {
           marginBottom: "6px",
         }}
       >
-        <h2
+        <div
           style={{
-            color: "#f97316",
-            margin: 0,
-            fontSize: "22px",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
           }}
         >
-          Manage Loans
-        </h2>
+          <BackButton
+            onClick={() => navigate(ADMIN_LOAN_DASHBOARD_PATH)}
+            title="Back to Admin Loan Dashboard"
+          />
+
+          <h2
+            style={{
+              color: "#f97316",
+              margin: 0,
+              fontSize: "22px",
+            }}
+          >
+            Manage Loans
+          </h2>
+        </div>
 
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => navigate("/admin/loan/analytics")}
+            style={{
+              padding: "10px 18px",
+              borderRadius: "7px",
+              border: "1px solid #3f3f46",
+              background: "transparent",
+              color: "#e4e4e7",
+              fontSize: "13.5px",
+              fontWeight: "600",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            ℹ️ Analytics Info
+          </button>
+
+
           <button
             type="button"
             onClick={openFinancials}
@@ -315,98 +461,212 @@ const AdminLoanProduct = () => {
           FILTERS
       ====================================================== */}
 
+     {/* =====================================================
+    FILTERS
+====================================================== */}
+
+<div
+  style={{
+    background: "#0f0f11",
+    border: "1px solid #27272a",
+    borderRadius: "12px",
+    padding: "18px",
+    marginBottom: "14px",
+  }}
+>
+  {/* Header */}
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: "14px",
+    }}
+  >
+    <div>
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "1.5fr 1fr 1fr 1fr 1fr auto",
-          gap: "12px",
-          alignItems: "end",
-          padding: "18px",
-          background: "#111113",
-          border: "1px solid #27272a",
-          borderRadius: "10px",
-          marginBottom: "20px",
+          color: "#e4e4e7",
+          fontSize: "13px",
+          fontWeight: "700",
+          letterSpacing: "0.02em",
         }}
-        className="filters-grid"
       >
-        <div>
-          <label style={labelStyle}>Search by Name</label>
-          <input
-            type="text"
-            placeholder="Customer name"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            style={inputStyle}
-          />
-        </div>
-
-        <div>
-          <label style={labelStyle}>From Date</label>
-          <input
-            type="date"
-            value={fromDateInput}
-            onChange={(e) => setFromDateInput(e.target.value)}
-            style={{ ...inputStyle, cursor: "pointer" }}
-          />
-        </div>
-
-        <div>
-          <label style={labelStyle}>To Date</label>
-          <input
-            type="date"
-            value={toDateInput}
-            onChange={(e) => setToDateInput(e.target.value)}
-            style={{ ...inputStyle, cursor: "pointer" }}
-          />
-        </div>
-
-        <div>
-          <label style={labelStyle}>Min Amount</label>
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="₹0"
-            value={minAmountInput}
-            onChange={(e) =>
-              setMinAmountInput(e.target.value.replace(/\D/g, ""))
-            }
-            style={inputStyle}
-          />
-        </div>
-
-        <div>
-          <label style={labelStyle}>Max Amount</label>
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="Any"
-            value={maxAmountInput}
-            onChange={(e) =>
-              setMaxAmountInput(e.target.value.replace(/\D/g, ""))
-            }
-            style={inputStyle}
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={clearFilters}
-          disabled={!hasActiveFilters}
-          style={{
-            padding: "12px 16px",
-            borderRadius: "7px",
-            border: "1px solid #3f3f46",
-            background: "transparent",
-            color: hasActiveFilters ? "#e4e4e7" : "#52525b",
-            fontSize: "13px",
-            fontWeight: "600",
-            cursor: hasActiveFilters ? "pointer" : "not-allowed",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Clear
-        </button>
+        SEARCH LOANS
       </div>
+
+      <div
+        style={{
+          color: "#52525b",
+          fontSize: "10px",
+          marginTop: "3px",
+        }}
+      >
+        Find loans by customer, ID, date or amount
+      </div>
+    </div>
+  </div>
+
+  {/* Customer Search */}
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "2fr 1fr 1fr",
+      gap: "12px",
+    }}
+  >
+    {/* Customer Name */}
+    <div>
+      <label style={labelStyle}>Customer Name</label>
+
+      <input
+        type="text"
+        placeholder="🔍  Search customer name"
+        value={nameInput}
+        onChange={(e) => setNameInput(e.target.value)}
+        style={inputStyle}
+      />
+    </div>
+
+    {/* Customer ID */}
+    <div>
+      <label style={labelStyle}>Customer ID</label>
+
+      <input
+        type="text"
+        placeholder="e.g. ABC123"
+        value={customerIdInput}
+        maxLength={8}
+        onChange={(e) =>
+          setCustomerIdInput(
+            e.target.value
+              .replace(/[^a-zA-Z0-9]/g, "")
+              .toUpperCase()
+          )
+        }
+        style={inputStyle}
+      />
+    </div>
+
+    {/* Loan ID */}
+    <div>
+      <label style={labelStyle}>Loan ID</label>
+
+      <input
+        type="text"
+        placeholder="e.g. LN1024"
+        value={loanIdInput}
+        maxLength={8}
+        onChange={(e) =>
+          setLoanIdInput(
+            e.target.value
+              .replace(/[^a-zA-Z0-9]/g, "")
+              .toUpperCase()
+          )
+        }
+        style={inputStyle}
+      />
+    </div>
+  </div>
+
+  {/* Date + Amount */}
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr 1fr 1fr 52px",
+      gap: "12px",
+      marginTop: "14px",
+      alignItems: "end",
+    }}
+  >
+    {/* From Date */}
+    <div>
+      <label style={labelStyle}>From Date</label>
+
+      <input
+        type="date"
+        value={fromDateInput}
+        onChange={(e) => setFromDateInput(e.target.value)}
+        style={{
+          ...inputStyle,
+          cursor: "pointer",
+        }}
+      />
+    </div>
+
+    {/* To Date */}
+    <div>
+      <label style={labelStyle}>To Date</label>
+
+      <input
+        type="date"
+        value={toDateInput}
+        onChange={(e) => setToDateInput(e.target.value)}
+        style={{
+          ...inputStyle,
+          cursor: "pointer",
+        }}
+      />
+    </div>
+
+    {/* Min Amount */}
+    <div>
+      <label style={labelStyle}>Min Amount</label>
+
+      <input
+        type="number"
+        placeholder="₹ Minimum"
+        value={minAmountInput}
+        onChange={(e) => setMinAmountInput(e.target.value)}
+        style={inputStyle}
+      />
+    </div>
+
+    {/* Max Amount */}
+    <div>
+      <label style={labelStyle}>Max Amount</label>
+
+      <input
+        type="number"
+        placeholder="₹ Maximum"
+        value={maxAmountInput}
+        onChange={(e) => setMaxAmountInput(e.target.value)}
+        style={inputStyle}
+      />
+    </div>
+
+    {/* Clear */}
+    <button
+      type="button"
+      onClick={clearFilters}
+      title="Clear all filters"
+      style={{
+        width: "52px",
+        height: "44px",
+        border: "1px solid #3f3f46",
+        borderRadius: "7px",
+        background: "#18181b",
+        color: "#a1a1aa",
+        cursor: "pointer",
+        fontSize: "18px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "all 0.2s ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = "#f97316";
+        e.currentTarget.style.color = "#f97316";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "#3f3f46";
+        e.currentTarget.style.color = "#a1a1aa";
+      }}
+    >
+      ↻
+    </button>
+  </div>
+</div>
 
       {/* =====================================================
           TABLE
@@ -420,10 +680,7 @@ const AdminLoanProduct = () => {
           background: "#111113",
         }}
       >
-        <div
-          className="loan-row loan-header-row"
-          style={tableRowStyle}
-        >
+        <div className="loan-row loan-header-row" style={tableRowStyle}>
           <button
             type="button"
             onClick={() => handleSort("name")}
@@ -449,9 +706,7 @@ const AdminLoanProduct = () => {
           </button>
         </div>
 
-        {loading && (
-          <div style={emptyStateStyle}>Loading loans...</div>
-        )}
+        {loading && <div style={emptyStateStyle}>Loading loans...</div>}
 
         {!loading && error && (
           <div style={{ ...emptyStateStyle, color: "#ef4444" }}>{error}</div>
@@ -467,37 +722,132 @@ const AdminLoanProduct = () => {
 
         {!loading &&
           !error &&
-          loans.map((loan) => (
-            <div
-              key={loan._id}
-              className="loan-row"
-              style={{
-                ...tableRowStyle,
-                cursor: "pointer",
-                borderTop: "1px solid #1f1f23",
-              }}
-              onClick={() => navigate(`/admin/loan/edit-loan/${loan._id}`)}
-            >
-              <div style={{ color: "#fff", fontSize: "14px" }}>
-                {loan.name}
-              </div>
+          loans.map((loan) => {
+            const overdue = isOverdue(loan.dueDate);
+            const pastDissolve = isPastDissolve(loan.dissolveDate);
 
-              <div style={{ color: "#a1a1aa", fontSize: "13px" }}>
-                {formatDisplayDate(loan.date)}
-              </div>
-
+            return (
               <div
+                key={loan._id}
+                className="loan-row"
                 style={{
-                  color: "#22c55e",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  textAlign: "right",
+                  ...tableRowStyle,
+                  cursor: "pointer",
+                  borderTop: "1px solid #1f1f23",
+                  background: overdue
+                    ? "rgba(239, 68, 68, 0.08)"
+                    : "transparent",
+                  borderLeft: overdue
+                    ? "3px solid #ef4444"
+                    : "3px solid transparent",
                 }}
+                onClick={() => navigate(`/admin/loan/edit-loan/${loan._id}`)}
               >
-                ₹{Number(loan.loanAmount || 0).toFixed(2)}
+<div style={{ color: "#fff", fontSize: "14px" }}>
+  {loan.name}
+
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: "10px",
+      marginTop: "5px",
+      fontSize: "10.5px",
+    }}
+  >
+    <span style={{ color: "#71717a" }}>
+      Customer ID:
+      <b style={{ color: "#a1a1aa", marginLeft: "4px" }}>
+        {loan.customerId || "-"}
+      </b>
+    </span>
+
+    <span
+      style={{
+        width: "1px",
+        height: "12px",
+        background: "#3f3f46",
+      }}
+    />
+
+    <span style={{ color: "#71717a" }}>
+      Loan ID:
+      <b style={{ color: "#a1a1aa", marginLeft: "4px" }}>
+        {loan.loanId || "-"}
+      </b>
+    </span>
+  </div>
+
+  {pastDissolve && (
+    <span
+      title="Dissolve date has passed"
+      style={{
+        marginLeft: "7px",
+        fontSize: "11px",
+        fontWeight: "700",
+        color: "#a855f7",
+        border: "1px solid #a855f7",
+        borderRadius: "4px",
+        padding: "1px 6px",
+        cursor: "help",
+      }}
+    >
+      T
+    </span>
+  )}
+</div>
+                <div
+                  className="date-hover-wrap"
+                  style={{
+                    position: "relative",
+                    color: overdue ? "#ef4444" : "#a1a1aa",
+                    fontSize: "13px",
+                    fontWeight: overdue ? "600" : "400",
+                    width: "fit-content",
+                  }}
+                >
+                  {formatDisplayDate(loan.date)}
+                  {overdue && (
+                    <span
+                      style={{
+                        marginLeft: "8px",
+                        fontSize: "10.5px",
+                        color: "#ef4444",
+                        border: "1px solid #ef4444",
+                        borderRadius: "4px",
+                        padding: "1px 6px",
+                        verticalAlign: "middle",
+                      }}
+                    >
+                      OVERDUE
+                    </span>
+                  )}
+
+                  <div className="date-hover-tooltip">
+                    <div className="date-hover-row">
+                      <span>Due Date</span>
+                      <b>{formatDisplayDate(loan.dueDate)}</b>
+                    </div>
+                    <div className="date-hover-row">
+                      <span>Dissolve Date</span>
+                      <b>{formatDisplayDate(loan.dissolveDate)}</b>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    color: "#22c55e",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    textAlign: "right",
+                  }}
+                >
+                  ₹{Number(loan.loanAmount || 0).toFixed(2)}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
       </div>
 
       {/* =====================================================
@@ -574,6 +924,43 @@ const AdminLoanProduct = () => {
         input:focus {
           border-color: #f97316 !important;
         }
+
+        .date-hover-tooltip {
+          position: absolute;
+          bottom: calc(100% + 8px);
+          left: 0;
+          background: #09090b;
+          border: 1px solid #3f3f46;
+          border-radius: 8px;
+          padding: 10px 14px;
+          min-width: 190px;
+          box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+          opacity: 0;
+          pointer-events: none;
+          transform: translateY(4px);
+          transition: opacity 0.15s ease, transform 0.15s ease;
+          z-index: 30;
+        }
+
+        .date-hover-wrap:hover .date-hover-tooltip {
+          opacity: 1;
+          transform: translateY(0);
+        }
+
+        .date-hover-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 4px 0;
+          color: #a1a1aa;
+          font-size: 12px;
+          font-weight: 400;
+        }
+
+        .date-hover-row b {
+          color: #fff;
+          font-weight: 600;
+        }
       `}</style>
     </div>
   );
@@ -607,7 +994,9 @@ const FinancialsInfoModal = ({
       onClick={(e) => e.stopPropagation()}
       style={{
         width: "100%",
-        maxWidth: "400px",
+        maxWidth: "440px",
+        maxHeight: "88vh",
+        overflowY: "auto",
         background: "#18181b",
         border: "1px solid #27272a",
         borderRadius: "12px",
@@ -659,8 +1048,8 @@ const FinancialsInfoModal = ({
               marginBottom: "18px",
             }}
           >
-            Enter your admin password to view loan amount, interest, and
-            outstanding totals.
+            Enter your admin password to view loan totals, this month's
+            activity, and overdue / past-dissolve counts.
           </div>
 
           <form onSubmit={onSubmit}>
@@ -738,13 +1127,120 @@ const FinancialsInfoModal = ({
             value={financials.totalOutstanding}
             color="#ef4444"
           />
+
+          <SectionLabel>
+            {financials.monthLabel || "This Month"}
+          </SectionLabel>
+          <FinancialsRow
+            label="Interest Accrued"
+            value={financials.monthlyInterest}
+            color="#f59e0b"
+          />
+          <FinancialsRow
+            label="Amount Disbursed"
+            value={financials.monthlyDisbursed}
+            color="#ef4444"
+          />
+          <FinancialsRow
+            label="Amount Collected"
+            value={financials.monthlyCollected}
+            color="#22c55e"
+          />
+
+          <SectionLabel>Overdue (Due Date Passed)</SectionLabel>
+          <FinancialsCountRow
+            count={financials.overdueCount}
+            amount={financials.overdueLoanAmount}
+            color="#ef4444"
+          />
+
+          <SectionLabel>Past Dissolve Date</SectionLabel>
+          <FinancialsCountRow
+            count={financials.pastDissolveCount}
+            amount={financials.pastDissolveLoanAmount}
+            color="#a855f7"
+          />
+
+          <SectionLabel>Due Within 7 Days</SectionLabel>
+          <FinancialsCountRow
+            count={financials.dueSoonCount}
+            amount={financials.dueSoonLoanAmount}
+            color="#f59e0b"
+          />
+
+          <SectionLabel>Portfolio Health</SectionLabel>
+          <FinancialsRow
+            label="Collection Rate"
+            value={`${financials.collectionRate}%`}
+            color={
+              financials.collectionRate >= 50 ? "#22c55e" : "#ef4444"
+            }
+            raw
+          />
+          <FinancialsRow
+            label="Total Gold Pledged"
+            value={`${financials.totalGoldWeight} g`}
+            color="#fbbf24"
+            raw
+          />
+          <FinancialsRow
+            label="Total Silver Pledged"
+            value={`${financials.totalSilverWeight} g`}
+            color="#e4e4e7"
+            raw
+          />
         </div>
       )}
     </div>
   </div>
 );
 
-const FinancialsRow = ({ label, value, color = "#22c55e" }) => (
+const SectionLabel = ({ children }) => (
+  <div
+    style={{
+      color: "#71717a",
+      fontSize: "11px",
+      fontWeight: "700",
+      letterSpacing: "0.04em",
+      textTransform: "uppercase",
+      marginTop: "10px",
+      marginBottom: "-2px",
+    }}
+  >
+    {children}
+  </div>
+);
+
+const FinancialsRow = ({ label, value, color = "#22c55e", raw = false }) => (
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "12px 14px",
+      background: "#09090b",
+      border: "1px solid #27272a",
+      borderRadius: "8px",
+      gap: "12px",
+    }}
+  >
+    <span style={{ color: "#a1a1aa", fontSize: "13px", whiteSpace: "nowrap" }}>
+      {label}
+    </span>
+    <span
+      style={{
+        color,
+        fontSize: "16px",
+        fontWeight: "700",
+        textAlign: "right",
+      }}
+    >
+      {raw ? value : `₹${Number(value || 0).toFixed(2)}`}
+    </span>
+  </div>
+);
+
+const FinancialsCountRow = ({ count, amount, color = "#ef4444" }) => (
   <div
     style={{
       display: "flex",
@@ -756,9 +1252,11 @@ const FinancialsRow = ({ label, value, color = "#22c55e" }) => (
       borderRadius: "8px",
     }}
   >
-    <span style={{ color: "#a1a1aa", fontSize: "13px" }}>{label}</span>
+    <span style={{ color: "#a1a1aa", fontSize: "13px" }}>
+      {Number(count || 0)} loan{Number(count || 0) === 1 ? "" : "s"}
+    </span>
     <span style={{ color, fontSize: "16px", fontWeight: "700" }}>
-      ₹{Number(value || 0).toFixed(2)}
+      ₹{Number(amount || 0).toFixed(2)}
     </span>
   </div>
 );
@@ -767,18 +1265,19 @@ const labelStyle = {
   display: "block",
   marginBottom: "6px",
   color: "#a1a1aa",
-  fontSize: "12px",
-  fontWeight: "500",
+  fontSize: "10.5px",
+  fontWeight: "600",
 };
 
 const inputStyle = {
   width: "100%",
-  padding: "11px",
+  height: "44px",
+  padding: "0 13px",
   background: "#09090b",
   border: "1px solid #27272a",
-  borderRadius: "6px",
+  borderRadius: "7px",
   color: "#fff",
-  fontSize: "13.5px",
+  fontSize: "13px",
   outline: "none",
   boxSizing: "border-box",
 };

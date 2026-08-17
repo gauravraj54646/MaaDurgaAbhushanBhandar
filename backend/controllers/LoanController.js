@@ -1,6 +1,4 @@
-const bcrypt = require('bcryptjs');
 const LoanProduct = require('../models/LoanProduct');
-const User = require('../models/User');
 const { getLoanSummary } = require('../utils/loanCalculations');
 
 const getLoans = async (req, res) => {
@@ -9,6 +7,8 @@ const getLoans = async (req, res) => {
       page = 1,
       limit = 20,
       name, // partial, case-insensitive match
+      customerId,
+      loanId,
       fromDate, // inclusive lower bound on loan.date
       toDate, // inclusive upper bound on loan.date
       minAmount, // inclusive lower bound on loanAmount
@@ -21,6 +21,12 @@ const getLoans = async (req, res) => {
 
     if (name) {
       filter.name = { $regex: name.trim(), $options: 'i' };
+    }
+    if (customerId) {
+      filter.customerId = customerId.trim().toUpperCase();
+    }
+    if (loanId) {
+      filter.loanId = loanId.trim().toUpperCase();
     }
 
     if (fromDate || toDate) {
@@ -62,9 +68,9 @@ const getLoans = async (req, res) => {
 
     const [loans, total] = await Promise.all([
       LoanProduct.find(filter)
-        // Manage Loans list only needs name/date/amount — keep the
-        // payload light instead of shipping full documents.
-        .select('name date loanAmount customerId')
+        // Manage Loans list needs name/date/amount for the table,
+        // plus dueDate/dissolveDate for the overdue flag + hover info.
+        .select('name date dueDate dissolveDate loanAmount customerId loanId')
         .sort({ [sortField]: sortDirection })
         .skip(skip)
         .limit(limitNum),
@@ -103,9 +109,9 @@ const getLoanById = async (req, res) => {
 const createLoan = async (req, res) => {
   try {
     const {
-      name, address, customerId, mobileNo, description,
+      name, address, customerId, loanId, mobileNo, description,
       goldWeight, silverWeight,
-      date, dueDate, available, roi, returnDate, dissolveDate,
+      date, dueDate, available, roi, dissolveDate,
       loanAmount, signed, finalSettlement,
       reloans, payments,
     } = req.body;
@@ -114,6 +120,7 @@ const createLoan = async (req, res) => {
       name,
       address,
       customerId,
+      loanId,
       mobileNo,
       description,
       goldWeight,
@@ -122,7 +129,6 @@ const createLoan = async (req, res) => {
       dueDate,
       available,
       roi,
-      returnDate,
       dissolveDate,
       loanAmount,
       signed,
@@ -151,9 +157,9 @@ const createLoan = async (req, res) => {
 const updateLoan = async (req, res) => {
   try {
     const {
-      name, address, customerId, mobileNo, description,
+      name, address, customerId, loanId, mobileNo, description,
       goldWeight, silverWeight,
-      date, dueDate, available, roi, returnDate, dissolveDate,
+      date, dueDate, available, roi, dissolveDate,
       loanAmount, signed, finalSettlement,
       reloans, payments,
     } = req.body;
@@ -164,6 +170,7 @@ const updateLoan = async (req, res) => {
       loan.name = name ?? loan.name;
       loan.address = address ?? loan.address;
       loan.customerId = customerId ?? loan.customerId;
+      loan.loanId = loanId ?? loan.loanId;
       loan.mobileNo = mobileNo ?? loan.mobileNo;
       loan.description = description ?? loan.description;
       loan.goldWeight = goldWeight ?? loan.goldWeight;
@@ -172,7 +179,6 @@ const updateLoan = async (req, res) => {
       loan.dueDate = dueDate ?? loan.dueDate;
       loan.available = available ?? loan.available;
       loan.roi = roi ?? loan.roi;
-      loan.returnDate = returnDate ?? loan.returnDate;
       loan.dissolveDate = dissolveDate ?? loan.dissolveDate;
       loan.loanAmount = loanAmount ?? loan.loanAmount;
       loan.signed = signed ?? loan.signed;
@@ -207,82 +213,6 @@ const updateLoan = async (req, res) => {
   }
 };
 
-const getLoanAnalytics = async (req, res) => {
-  try {
-    // Dashboard now only needs counts — the financial totals (loan
-    // amount / interest / outstanding) moved to Manage Loans behind
-    // a password check, see getLoanFinancials below.
-    const [totalLoans, availableLoans, signedLoans] = await Promise.all([
-      LoanProduct.countDocuments({}),
-      LoanProduct.countDocuments({ available: 'yes' }),
-      LoanProduct.countDocuments({ signed: 'yes' }),
-    ]);
-
-    res.json({ totalLoans, availableLoans, signedLoans });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// -----------------------------------------------------------
-// Re-verifies the logged-in admin's password before releasing the
-// financial totals (loan amount / interest / outstanding). Being
-// logged in as admin already gates this route (see routes file),
-// but this adds an extra "confirm it's really you" step for the
-// most sensitive numbers, similar to a banking app's re-auth prompt.
-//
-// NOTE: assumes your User model stores a bcrypt-hashed `password`
-// field with `select: false`, and that `protect` middleware sets
-// `req.user` from the JWT. Adjust the bcrypt.compare call below if
-// your User model already exposes its own comparison method
-// (e.g. `user.matchPassword(...)`) instead.
-// -----------------------------------------------------------
-const getLoanFinancials = async (req, res) => {
-  try {
-    const { password } = req.body;
-
-    if (!password) {
-      return res.status(400).json({ message: 'Password is required.' });
-    }
-
-    const admin = await User.findById(req.user._id).select('+password');
-
-    if (!admin) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-
-    const isMatch = await bcrypt.compare(password, admin.password);
-
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Incorrect password.' });
-    }
-
-    const loans = await LoanProduct.find({}).select(
-      'loanAmount date roi reloans payments',
-    );
-
-    let totalLoanAmount = 0;
-    let totalInterest = 0;
-    let totalOutstanding = 0;
-
-    loans.forEach((loan) => {
-      const summary = getLoanSummary(loan);
-
-      totalLoanAmount += summary.grandLoanAmount;
-      totalInterest += summary.grandInterest;
-      totalOutstanding += summary.finalAmount;
-    });
-
-    res.json({
-      totalLoanAmount: Number(totalLoanAmount.toFixed(2)),
-      totalInterest: Number(totalInterest.toFixed(2)),
-      totalOutstanding: Number(totalOutstanding.toFixed(2)),
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
 const deleteLoan = async (req, res) => {
   try {
     const loan = await LoanProduct.findById(req.params.id);
@@ -304,6 +234,4 @@ module.exports = {
   createLoan,
   updateLoan,
   deleteLoan,
-  getLoanAnalytics,
-  getLoanFinancials,
 };

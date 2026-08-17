@@ -30,13 +30,24 @@ const loanProductSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
-    customerId: {
+    loanId: {
       type: String,
       required: true,
       trim: true,
       uppercase: true,
       unique: true,
-      maxlength: [8, "Customer ID must be 8 characters or fewer."],
+      maxlength: [8, "Loan ID must be 8 characters or fewer."],
+      match: [
+        /^[A-Za-z0-9]{1,8}$/,
+        "Customer ID must contain letters and numbers only (max 8).",
+      ],
+    },
+      customerId: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+      maxlength: [10, "Customer ID must be 8 characters or fewer."],
       match: [
         /^[A-Za-z0-9]{1,8}$/,
         "Customer ID must contain letters and numbers only (max 8).",

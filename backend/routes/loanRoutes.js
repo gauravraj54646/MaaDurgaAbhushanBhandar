@@ -6,9 +6,11 @@ const {
   createLoan,
   updateLoan,
   deleteLoan,
+} = require('../controllers/LoanController');
+const {
   getLoanAnalytics,
   getLoanFinancials,
-} = require('../controllers/LoanController');
+} = require('../controllers/loanAnalyticsController');
 const { protect } = require('../middleware/authMiddleware');
 const { admin } = require('../middleware/adminMiddleware');
 

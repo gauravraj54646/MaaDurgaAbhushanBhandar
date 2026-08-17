@@ -24,6 +24,7 @@ import EditProduct from './admin/EditProduct';
 import EditLoanProduct from './admin/EditLoanProduct';
 import AdminOrders from './admin/AdminOrders';
 import AdminUsers from './admin/AdminUsers';
+import LoanAnalyticsDashboard from './admin/LoanAnalyticsDashboard';
 
 function App() {
   return (
@@ -49,6 +50,7 @@ function App() {
           <Route path="/admin/loan/add-loan" element={<AddLoanProduct />} />
           <Route path="/admin/products" element={<AdminProducts />} />
           <Route path="/admin/loan/products" element={<AdminLoanProduct />} />
+          <Route path="/admin/loan/analytics" element={<LoanAnalyticsDashboard />} />
           <Route path="/admin/edit-product/:id" element={<EditProduct />} />
           <Route path="/admin/loan/edit-loan/:id" element={<EditLoanProduct />} />
           <Route path="/admin/orders" element={<AdminOrders />} />

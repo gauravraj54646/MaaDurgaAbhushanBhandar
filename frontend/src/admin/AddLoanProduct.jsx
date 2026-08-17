@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useRef } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -7,6 +7,12 @@ const wordCount = (str = "") => str.trim().split(/\s+/).filter(Boolean).length;
 const AddLoanProduct = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  // =========================================================
+  // REFS (for scroll-to-error on invalid submit)
+  // =========================================================
+
+  const fieldRefs = useRef({});
 
   // =========================================================
   // DATE HELPERS
@@ -27,7 +33,7 @@ const AddLoanProduct = () => {
   }
   const getDissolveDate = () => {
     const date = new Date();
-    date.setFullYear(date.getFullYear() + 3);
+    date.setFullYear(date.getFullYear() + 5);
     return date.toISOString().split("T")[0];
   };
 
@@ -135,6 +141,7 @@ const AddLoanProduct = () => {
     name: "",
     address: "",
     customerId: "",
+    loanId:"",
     mobileNo: "",
     description: "",
     goldWeight: "",
@@ -410,6 +417,33 @@ const AddLoanProduct = () => {
   };
 
   // =========================================================
+  // SCROLL / FOCUS TO FIRST INVALID FIELD
+  // =========================================================
+
+  const scrollToFirstError = (errs) => {
+    const errorKeys = Object.keys(errs).filter((k) => errs[k]);
+
+    if (errorKeys.length === 0) return;
+
+    // Object key order matches the order fields were validated in,
+    // which mirrors the top-to-bottom order of the form.
+    const firstErrorKey = errorKeys[0];
+    const node = fieldRefs.current[firstErrorKey];
+
+    if (!node) return;
+
+    node.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    // Give the smooth scroll a moment to settle before focusing,
+    // so the browser doesn't yank the viewport back to the input.
+    window.setTimeout(() => {
+      if (typeof node.focus === "function") {
+        node.focus({ preventScroll: true });
+      }
+    }, 350);
+  };
+
+  // =========================================================
   // VALIDATION
   // =========================================================
 
@@ -434,12 +468,17 @@ const AddLoanProduct = () => {
       errs.address = "Address must be 100 words or fewer.";
     }
 
+    
     // Customer ID
     if (!/^[A-Z0-9]{1,8}$/.test(formData.customerId)) {
       errs.customerId =
         "Customer ID must contain letters and numbers only, max 8 characters.";
     }
-
+    // Loan ID
+    if (!/^[A-Z0-9]{1,8}$/.test(formData.loanId)) {
+      errs.loanId =
+        "Loan ID must contain letters and numbers only, max 8 characters.";
+    }
     // Mobile
     if (formData.mobileNo && !/^\d{10}$/.test(formData.mobileNo)) {
       errs.mobileNo = "Mobile No. must be exactly 10 digits.";
@@ -541,6 +580,10 @@ const AddLoanProduct = () => {
     }
 
     setErrors(errs);
+
+    if (Object.keys(errs).length > 0) {
+      scrollToFirstError(errs);
+    }
 
     return Object.keys(errs).length === 0;
   };
@@ -735,6 +778,7 @@ const AddLoanProduct = () => {
             required
             value={formData.name}
             onChange={(e) => handleChange("name", e.target.value)}
+            ref={(el) => (fieldRefs.current.name = el)}
             style={inputStyle}
           />
 
@@ -752,6 +796,7 @@ const AddLoanProduct = () => {
             rows="2"
             value={formData.address}
             onChange={(e) => handleChange("address", e.target.value)}
+            ref={(el) => (fieldRefs.current.address = el)}
             style={{ ...inputStyle, resize: "vertical" }}
           />
 
@@ -760,7 +805,7 @@ const AddLoanProduct = () => {
         {/* =====================================================
             CUSTOMER ID + MOBILE
         ====================================================== */}
-        <div className="two-col" style={twoColGridStyle}>
+        <div className="three-col" style={threeColGridStyle}>
           <div>
             <label style={labelStyle}>Customer ID (max 8 characters)</label>
 
@@ -778,6 +823,7 @@ const AddLoanProduct = () => {
 
                 handleChange("customerId", value);
               }}
+              ref={(el) => (fieldRefs.current.customerId = el)}
               style={inputStyle}
             />
 
@@ -796,10 +842,35 @@ const AddLoanProduct = () => {
               onChange={(e) =>
                 handleChange("mobileNo", e.target.value.replace(/[^0-9]/g, ""))
               }
+              ref={(el) => (fieldRefs.current.mobileNo = el)}
               style={inputStyle}
             />
 
             <FieldError msg={errors.mobileNo} />
+          </div>
+
+           <div>
+            <label style={labelStyle}>loan ID (max 8 characters)</label>
+
+            <input
+              type="text"
+              placeholder="loan ID"
+              required
+              maxLength={8}
+              value={formData.loanId}
+              onChange={(e) => {
+                const value = e.target.value
+                  .toUpperCase()
+                  .replace(/[^A-Z0-9]/g, "")
+                  .slice(0, 8);
+
+                handleChange("loanId", value);
+              }}
+              ref={(el) => (fieldRefs.current.loanId = el)}
+              style={inputStyle}
+            />
+
+            <FieldError msg={errors.loanId} />
           </div>
         </div>
         {/* =====================================================
@@ -848,6 +919,7 @@ const AddLoanProduct = () => {
             rows="4"
             value={formData.description}
             onChange={(e) => handleChange("description", e.target.value)}
+            ref={(el) => (fieldRefs.current.description = el)}
             style={{ ...inputStyle, resize: "vertical" }}
           />
 
@@ -865,6 +937,7 @@ const AddLoanProduct = () => {
               required
               value={formData.date}
               onChange={(e) => handleChange("date", e.target.value)}
+              ref={(el) => (fieldRefs.current.date = el)}
               style={{
                 ...inputStyle,
                 cursor: "pointer",
@@ -882,6 +955,7 @@ const AddLoanProduct = () => {
               required
               value={formData.dueDate}
               onChange={(e) => handleChange("dueDate", e.target.value)}
+              ref={(el) => (fieldRefs.current.dueDate = el)}
               style={{
                 ...inputStyle,
                 cursor: "pointer",
@@ -919,6 +993,7 @@ const AddLoanProduct = () => {
               step="0.01"
               value={formData.roi}
               onChange={(e) => handleChange("roi", e.target.value)}
+              ref={(el) => (fieldRefs.current.roi = el)}
               style={inputStyle}
             />
 
@@ -978,7 +1053,7 @@ const AddLoanProduct = () => {
             }}
           >
             {/* Loan Amount */}
-            <div>
+            <div ref={(el) => (fieldRefs.current.loanAmount = el)}>
               <label style={smallLabelStyle}>Loan Amount</label>
 
               <MoneyInput
@@ -1097,6 +1172,10 @@ const AddLoanProduct = () => {
             return (
               <div
                 key={reloan.id}
+                ref={(el) => {
+                  fieldRefs.current[`reloanDate_${index}`] = el;
+                  fieldRefs.current[`reloanAmount_${index}`] = el;
+                }}
                 style={{
                   marginBottom: "10px",
                   paddingBottom: "10px",
@@ -1235,6 +1314,7 @@ const AddLoanProduct = () => {
         {/* =====================================================
             PAYMENTS - SEPARATE FROM RELOANS
         ====================================================== */}
+        <div ref={(el) => (fieldRefs.current.payments = el)}>
         <SectionCard>
           <div
             style={{
@@ -1274,6 +1354,10 @@ const AddLoanProduct = () => {
           {formData.payments.map((payment, index) => (
             <div
               key={payment.id}
+              ref={(el) => {
+                fieldRefs.current[`paymentAmount_${index}`] = el;
+                fieldRefs.current[`paymentDate_${index}`] = el;
+              }}
               style={{
                 marginBottom: "10px",
                 paddingBottom: "10px",
@@ -1381,6 +1465,7 @@ const AddLoanProduct = () => {
 
           {errors.payments && <SmallError msg={errors.payments} />}
         </SectionCard>
+        </div>
         {/* =====================================================
             FINAL SUMMARY
         ====================================================== */}
@@ -1458,6 +1543,7 @@ const AddLoanProduct = () => {
             rows="3"
             value={formData.finalSettlement}
             onChange={(e) => handleChange("finalSettlement", e.target.value)}
+            ref={(el) => (fieldRefs.current.finalSettlement = el)}
             style={{ ...inputStyle, resize: "vertical" }}
           />
 
@@ -1492,6 +1578,7 @@ const AddLoanProduct = () => {
       {showConfirm && (
         <ConfirmPublishModal
           name={formData.name}
+          customerId={formData.customerId}
           loanAmount={Number(formData.loanAmount || 0)}
           reloanAmount={reloanAmount}
           paymentAmount={totalPaid}
@@ -1533,6 +1620,12 @@ const AddLoanProduct = () => {
           .two-col {
             grid-template-columns: 1fr !important;
           }
+
+.three-col {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr !important;
+  gap: 10px;
+}
 
           .reloan-row,
           .reloan-header {
@@ -1601,6 +1694,7 @@ const formatDisplayDate = (isoDate) => {
 
 const ConfirmPublishModal = ({
   name,
+  customerId,
   loanAmount,
   reloanAmount,
   paymentAmount,
@@ -1666,6 +1760,7 @@ const ConfirmPublishModal = ({
         }}
       >
         <ConfirmRow label="Name" value={name || "-"} />
+        <ConfirmRow label="CustomerId" value={customerId || "-"} />
         <ConfirmRow label="Date of Loan" value={formatDisplayDate(loanDate)} />
         <ConfirmRow label="Loan Amount" value={`₹${loanAmount.toFixed(2)}`} />
         <ConfirmRow
@@ -1990,6 +2085,12 @@ const twoColGridStyle = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
   gap: "18px",
+};
+
+const threeColGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1.3fr 1fr",
+  gap: "28px",
 };
 
 const reloanGridStyle = {
