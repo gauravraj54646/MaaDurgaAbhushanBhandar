@@ -231,13 +231,14 @@ const buildMonthlyTrend = (loans, summaries, periodEnd) => {
 // -----------------------------------------------------------
 const getLoanAnalytics = async (req, res) => {
   try {
-    const [totalLoans, availableLoans, signedLoans] = await Promise.all([
-      LoanProduct.countDocuments({}),
-      LoanProduct.countDocuments({ available: 'yes' }),
-      LoanProduct.countDocuments({ signed: 'yes' }),
+    const [totalLoans, availableLoans, returnedLoans, signedLoans] = await Promise.all([
+      LoanProduct.countDocuments({ isDeleted : false }),
+      LoanProduct.countDocuments({ isDeleted : false, returnDate:  null , }),
+      LoanProduct.countDocuments({ isDeleted : false, returnDate:  {$ne :null} , }),
+      LoanProduct.countDocuments({ isDeleted : false, signed: 'yes' }),
     ]);
 
-    res.json({ totalLoans, availableLoans, signedLoans });
+    res.json({ totalLoans, availableLoans, returnedLoans, signedLoans });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -275,7 +276,7 @@ const getLoanFinancials = async (req, res) => {
       return res.status(401).json({ message: 'Incorrect password.' });
     }
 
-    const loans = await LoanProduct.find({}).select(
+    const loans = await LoanProduct.find({isDeleted: false,}).select(
       'loanAmount date roi reloans payments dueDate dissolveDate returnDate goldWeight silverWeight',
     );
 

@@ -47,7 +47,7 @@ const loanProductSchema = new mongoose.Schema(
       required: true,
       trim: true,
       uppercase: true,
-      maxlength: [10, "Customer ID must be 8 characters or fewer."],
+      maxlength: [8, "Customer ID must be 8 characters or fewer."],
       match: [
         /^[A-Za-z0-9]{1,8}$/,
         "Customer ID must contain letters and numbers only (max 8).",
@@ -107,6 +107,10 @@ const loanProductSchema = new mongoose.Schema(
       type: String,
       enum: ["yes", "no"],
       default: "no",
+    },
+    isDeleted:{
+      type: Boolean,
+      default: false,
     },
     finalSettlement: {
       type: String,

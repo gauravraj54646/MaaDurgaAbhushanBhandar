@@ -28,7 +28,8 @@ const AdminLoanDashboard = () => {
           setStats({
             totalLoans: 0,
             availableLoans: 0,
-            signedLoans: 0
+            returnedLoans: 0,
+            signedLoans: 0,
           });
         }
       } catch (error) {
@@ -75,6 +76,11 @@ const AdminLoanDashboard = () => {
           <div style={cardStyle}>
             <h4 style={{ color: '#a1a1aa', fontSize: '1rem' }}>Available Loans</h4>
             <div style={numberStyle}>{stats.availableLoans}</div>
+          </div>
+
+          <div style={cardStyle}>
+            <h4 style={{ color: '#a1a1aa', fontSize: '1rem' }}>Returned Loans</h4>
+            <div style={numberStyle}>{stats.returnedLoans}</div>
           </div>
 
           <div style={cardStyle}>

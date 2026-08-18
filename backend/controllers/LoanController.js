@@ -18,7 +18,7 @@ const getLoans = async (req, res) => {
       sortOrder = 'desc', // 'asc' | 'desc'
     } = req.query;
 
-    const filter = {};
+  const filter = {isDeleted: false,};
 
     if (name) {
       filter.name = { $regex: name.trim(), $options: 'i' };
@@ -82,7 +82,7 @@ const getLoans = async (req, res) => {
         // Manage Loans list needs name/date/amount for the table,
         // plus dueDate/dissolveDate for the overdue flag + hover info,
         // plus mobileNo for the phone column/search result.
-        .select('name date dueDate dissolveDate loanAmount customerId loanId mobileNo')
+        .select('name date dueDate dissolveDate returnDate loanAmount customerId loanId mobileNo')
         .sort({ [sortField]: sortDirection })
         .skip(skip)
         .limit(limitNum),
@@ -103,7 +103,10 @@ const getLoans = async (req, res) => {
 
 const getLoanById = async (req, res) => {
   try {
-    const loan = await LoanProduct.findById(req.params.id);
+   const loan = await LoanProduct.findOne({
+  _id: req.params.id,
+  isDeleted: false,
+});
 
     if (loan) {
       res.json({
@@ -123,7 +126,7 @@ const createLoan = async (req, res) => {
     const {
       name, address, customerId, loanId, mobileNo, description,
       goldWeight, silverWeight,
-      date, dueDate, available, roi, dissolveDate,
+      date, dueDate, available, returnDate, roi, dissolveDate,
       loanAmount, signed, finalSettlement,
       reloans, payments,
     } = req.body;
@@ -140,11 +143,13 @@ const createLoan = async (req, res) => {
       date,
       dueDate,
       available,
+      returnDate,
       roi,
       dissolveDate,
       loanAmount,
       signed,
       finalSettlement,
+      isDeleted: false,
       reloans: (reloans || []).map((r) => ({
         issueDate: r.issueDate,
         amount: r.amount,
@@ -171,12 +176,15 @@ const updateLoan = async (req, res) => {
     const {
       name, address, customerId, loanId, mobileNo, description,
       goldWeight, silverWeight,
-      date, dueDate, available, roi, dissolveDate,
+      date, dueDate, available, returnDate, roi, dissolveDate,
       loanAmount, signed, finalSettlement,
       reloans, payments,
     } = req.body;
 
-    const loan = await LoanProduct.findById(req.params.id);
+   const loan = await LoanProduct.findOne({
+  _id: req.params.id,
+  isDeleted: false,
+});
 
     if (loan) {
       loan.name = name ?? loan.name;
@@ -190,6 +198,7 @@ const updateLoan = async (req, res) => {
       loan.date = date ?? loan.date;
       loan.dueDate = dueDate ?? loan.dueDate;
       loan.available = available ?? loan.available;
+      loan.returnDate = returnDate ?? loan.returnDate;
       loan.roi = roi ?? loan.roi;
       loan.dissolveDate = dissolveDate ?? loan.dissolveDate;
       loan.loanAmount = loanAmount ?? loan.loanAmount;
@@ -227,16 +236,28 @@ const updateLoan = async (req, res) => {
 
 const deleteLoan = async (req, res) => {
   try {
-    const loan = await LoanProduct.findById(req.params.id);
+    const loan = await LoanProduct.findOne({
+      _id: req.params.id,
+      isDeleted: false,
+    });
 
     if (loan) {
-      await loan.deleteOne();
-      res.json({ message: 'Loan removed' });
+      loan.isDeleted = true;
+
+      await loan.save();
+
+      res.json({
+        message: 'Loan deleted successfully',
+      });
     } else {
-      res.status(404).json({ message: 'Loan not found' });
+      res.status(404).json({
+        message: 'Loan not found',
+      });
     }
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: error.message,
+    });
   }
 };
 

@@ -133,6 +133,13 @@ const EditLoanProduct = () => {
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
 
+  // Delete-whole-loan confirmation (password-gated) — fires from the
+  // trash icon in the header
+  const [showDeleteLoanModal, setShowDeleteLoanModal] = useState(false);
+  const [deleteLoanPassword, setDeleteLoanPassword] = useState("");
+  const [deleteLoanError, setDeleteLoanError] = useState("");
+  const [deletingLoan, setDeletingLoan] = useState(false);
+
   useEffect(() => {
   if (!unlocked) {
     document.body.style.overflow = "hidden";
@@ -666,6 +673,65 @@ if (formData.returnDate) {
   };
 
   // -----------------------------------------------------------
+  // Delete gate (password-confirmed removal of the ENTIRE loan) —
+  // fires from the trash icon in the header
+  // -----------------------------------------------------------
+  const handleConfirmDeleteLoan = async () => {
+    if (!deleteLoanPassword) {
+      setDeleteLoanError("Password is required.");
+      return;
+    }
+    setDeletingLoan(true);
+    setDeleteLoanError("");
+    try {
+      const verifyRes = await fetch("/api/loans/analytics/financials", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({ password: deleteLoanPassword }),
+      });
+
+      const verifyContentType = verifyRes.headers.get("content-type") || "";
+      if (!verifyContentType.includes("application/json")) {
+        throw new Error(`Server did not return JSON (status ${verifyRes.status}).`);
+      }
+
+      const verifyData = await verifyRes.json();
+
+      if (!verifyRes.ok) {
+        setDeleteLoanError(verifyData.message || "Incorrect password. Please try again.");
+        setDeletingLoan(false);
+        return;
+      }
+
+      const res = await fetch(`/api/loans/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+
+      const delContentType = res.headers.get("content-type") || "";
+      let responseData = {};
+      if (delContentType.includes("application/json")) {
+        responseData = await res.json();
+      }
+
+      if (res.ok) {
+        alert("Loan deleted successfully!");
+        navigate("/admin/loan/products");
+      } else {
+        setDeleteLoanError(responseData.message || "Failed to delete loan. Please try again.");
+        setDeletingLoan(false);
+      }
+    } catch (err) {
+      console.error(err);
+      setDeleteLoanError(err.message || "Something went wrong deleting the loan.");
+      setDeletingLoan(false);
+    }
+  };
+
+  // -----------------------------------------------------------
   // Admin check
   // -----------------------------------------------------------
   if (!user || user.role !== "admin") {
@@ -794,11 +860,11 @@ if (formData.returnDate) {
         }}
       >
         <div
+          className="header-row"
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            flexWrap: "wrap",
+            display: "grid",
+            gridTemplateColumns: "1fr auto 1fr",
+            alignItems: "center",
             gap: "12px",
             marginBottom: "26px",
           }}
@@ -807,8 +873,36 @@ if (formData.returnDate) {
 
           <button
             type="button"
+            onClick={() => {
+              setDeleteLoanPassword("");
+              setDeleteLoanError("");
+              setShowDeleteLoanModal(true);
+            }}
+            title="Delete this loan"
+            aria-label="Delete this loan"
+            style={{
+              justifySelf: "center",
+              width: "42px",
+              height: "42px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "1px solid #ef4444",
+              background: "rgba(239,68,68,0.08)",
+              color: "#ef4444",
+              borderRadius: "9px",
+              fontSize: "18px",
+              cursor: "pointer",
+            }}
+          >
+            🗑
+          </button>
+
+          <button
+            type="button"
             onClick={() => navigate("/admin/loan/products")}
             style={{
+              justifySelf: "end",
               padding: "10px 18px",
               borderRadius: "7px",
               border: "none",
@@ -1419,6 +1513,83 @@ if (formData.returnDate) {
           </div>
         )}
 
+        {/* DELETE LOAN CONFIRMATION MODAL — password-gated, deletes the whole record */}
+        {showDeleteLoanModal && (
+          <div style={overlayStyle} onClick={() => !deletingLoan && setShowDeleteLoanModal(false)}>
+            <div onClick={(e) => e.stopPropagation()} style={modalStyle}>
+              <h3 style={{ color: "#ef4444", marginBottom: "10px" }}>Delete This Loan?</h3>
+
+              <div
+                style={{
+                  background: "rgba(239,68,68,0.08)",
+                  border: "1px solid rgba(239,68,68,0.35)",
+                  borderRadius: "8px",
+                  padding: "12px 14px",
+                  marginBottom: "16px",
+                }}
+              >
+                <p style={{ color: "#f87171", fontSize: "0.85rem", margin: 0, lineHeight: 1.5 }}>
+                  Are you sure you want to permanently delete this loan? This action cannot be undone.
+                </p>
+                <div style={{ marginTop: "10px", fontSize: "13.5px", color: "#e4e4e7", lineHeight: 1.7 }}>
+                  <div>
+                    <span style={{ color: "#a1a1aa" }}>Name:</span>{" "}
+                    <b>{formData.name || "-"}</b>
+                  </div>
+                  <div>
+                    <span style={{ color: "#a1a1aa" }}>Loan Amount:</span>{" "}
+                    <b>₹{Number(formData.loanAmount || 0).toFixed(2)}</b>
+                  </div>
+                  <div>
+                    <span style={{ color: "#a1a1aa" }}>Total (with interest):</span>{" "}
+                    <b>₹{grandTotal.toFixed(2)}</b>
+                  </div>
+                </div>
+              </div>
+
+              <input
+                type="password"
+                placeholder="Admin password"
+                value={deleteLoanPassword}
+                onChange={(e) => setDeleteLoanPassword(e.target.value)}
+                autoFocus
+                style={inputStyle}
+                onKeyDown={(e) => e.key === "Enter" && handleConfirmDeleteLoan()}
+              />
+              <FieldError msg={deleteLoanError} />
+
+              <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteLoanModal(false)}
+                  disabled={deletingLoan}
+                  style={cancelBtnStyle}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteLoan}
+                  disabled={deletingLoan}
+                  style={{
+                    flex: 1,
+                    padding: "12px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: deletingLoan ? "#52525b" : "#ef4444",
+                    color: "#fff",
+                    fontWeight: 600,
+                    fontSize: "14px",
+                    cursor: deletingLoan ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {deletingLoan ? "Deleting..." : "Delete Loan"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <style>{`
           input[type="date"]::-webkit-calendar-picker-indicator {
             filter: invert(1);
@@ -1443,6 +1614,11 @@ if (formData.returnDate) {
           }
 
           @media (max-width: 640px) {
+            .header-row {
+              grid-template-columns: 1fr auto !important;
+              row-gap: 10px;
+            }
+            .header-row h1 { grid-column: 1 / 2; }
             .summary-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)) !important; }
             .payment-row, .payment-header {
               grid-template-columns: 24px 1fr 1fr 28px !important;
