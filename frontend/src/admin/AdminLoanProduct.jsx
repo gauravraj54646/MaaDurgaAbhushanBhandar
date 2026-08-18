@@ -134,6 +134,7 @@ const AdminLoanProduct = () => {
 const [nameInput, setNameInput] = useState("");
 const [customerIdInput, setCustomerIdInput] = useState("");
 const [loanIdInput, setLoanIdInput] = useState("");
+const [phoneInput, setPhoneInput] = useState("");
 const [fromDateInput, setFromDateInput] = useState("");
   const [minAmountInput, setMinAmountInput] = useState("");
   const [maxAmountInput, setMaxAmountInput] = useState("");
@@ -142,6 +143,7 @@ const [appliedFilters, setAppliedFilters] = useState({
   name: "",
   customerId: "",
   loanId:"",
+  phone: "",
   fromDate: "",
   toDate: "",
   minAmount: "",
@@ -161,6 +163,7 @@ const [appliedFilters, setAppliedFilters] = useState({
         name: nameInput.trim(),
         customerId: customerIdInput.trim().toUpperCase(),
         loanId: loanIdInput.trim().toUpperCase(),
+        phone: phoneInput.trim(),
         fromDate: fromDateInput,
         toDate: toDateInput,
         minAmount: minAmountInput,
@@ -169,7 +172,7 @@ const [appliedFilters, setAppliedFilters] = useState({
     }, 400);
 
     return () => clearTimeout(timeout);
-  }, [nameInput, customerIdInput, loanIdInput, fromDateInput, toDateInput, minAmountInput, maxAmountInput]);
+  }, [nameInput, customerIdInput, loanIdInput, phoneInput, fromDateInput, toDateInput, minAmountInput, maxAmountInput]);
 
   // -----------------------------------------------------------
   // Fetch loans whenever page / filters / sort changes
@@ -196,6 +199,10 @@ if (appliedFilters.customerId) {
 
 if (appliedFilters.loanId) {
   params.set("loanId", appliedFilters.loanId);
+}
+
+if (appliedFilters.phone) {
+  params.set("phone", appliedFilters.phone);
 }
 
 if (appliedFilters.fromDate)
@@ -266,6 +273,7 @@ if (appliedFilters.fromDate)
     setNameInput("");
     setCustomerIdInput("");
     setLoanIdInput("");
+    setPhoneInput("");
     setFromDateInput("");
     setToDateInput("");
     setMinAmountInput("");
@@ -337,6 +345,7 @@ if (appliedFilters.fromDate)
     appliedFilters.name ||
   appliedFilters.customerId ||
   appliedFilters.loanId ||
+  appliedFilters.phone ||
     appliedFilters.fromDate ||
     appliedFilters.toDate ||
     appliedFilters.minAmount ||
@@ -502,16 +511,17 @@ if (appliedFilters.fromDate)
           marginTop: "3px",
         }}
       >
-        Find loans by customer, ID, date or amount
+        Find loans by customer, ID, phone, date or amount
       </div>
     </div>
   </div>
 
   {/* Customer Search */}
   <div
+    className="filters-grid"
     style={{
       display: "grid",
-      gridTemplateColumns: "2fr 1fr 1fr",
+      gridTemplateColumns: "1.6fr 1fr 1fr 1fr",
       gap: "12px",
     }}
   >
@@ -563,6 +573,23 @@ if (appliedFilters.fromDate)
               .replace(/[^a-zA-Z0-9]/g, "")
               .toUpperCase()
           )
+        }
+        style={inputStyle}
+      />
+    </div>
+
+    {/* Phone Number */}
+    <div>
+      <label style={labelStyle}>Phone Number</label>
+
+      <input
+        type="tel"
+        inputMode="numeric"
+        placeholder="e.g. 9876543210"
+        value={phoneInput}
+        maxLength={10}
+        onChange={(e) =>
+          setPhoneInput(e.target.value.replace(/\D/g, "").slice(0, 10))
         }
         style={inputStyle}
       />
@@ -776,6 +803,25 @@ if (appliedFilters.fromDate)
         {loan.loanId || "-"}
       </b>
     </span>
+
+    {loan.mobileNo && (
+      <>
+        <span
+          style={{
+            width: "1px",
+            height: "12px",
+            background: "#3f3f46",
+          }}
+        />
+
+        <span style={{ color: "#71717a" }}>
+          Phone:
+          <b style={{ color: "#a1a1aa", marginLeft: "4px" }}>
+            {loan.mobileNo}
+          </b>
+        </span>
+      </>
+    )}
   </div>
 
   {pastDissolve && (

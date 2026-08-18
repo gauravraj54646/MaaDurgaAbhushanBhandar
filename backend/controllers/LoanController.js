@@ -9,6 +9,7 @@ const getLoans = async (req, res) => {
       name, // partial, case-insensitive match
       customerId,
       loanId,
+      phone, // partial match against mobileNo
       fromDate, // inclusive lower bound on loan.date
       toDate, // inclusive upper bound on loan.date
       minAmount, // inclusive lower bound on loanAmount
@@ -27,6 +28,16 @@ const getLoans = async (req, res) => {
     }
     if (loanId) {
       filter.loanId = loanId.trim().toUpperCase();
+    }
+    if (phone) {
+      // Strip everything but digits, capped at 10 (a full Indian
+      // mobile number) so oversized/garbage input can't be used to
+      // build a huge regex.
+      const digitsOnly = phone.trim().replace(/\D/g, '').slice(0, 10);
+
+      if (digitsOnly) {
+        filter.mobileNo = { $regex: digitsOnly, $options: 'i' };
+      }
     }
 
     if (fromDate || toDate) {
@@ -69,8 +80,9 @@ const getLoans = async (req, res) => {
     const [loans, total] = await Promise.all([
       LoanProduct.find(filter)
         // Manage Loans list needs name/date/amount for the table,
-        // plus dueDate/dissolveDate for the overdue flag + hover info.
-        .select('name date dueDate dissolveDate loanAmount customerId loanId')
+        // plus dueDate/dissolveDate for the overdue flag + hover info,
+        // plus mobileNo for the phone column/search result.
+        .select('name date dueDate dissolveDate loanAmount customerId loanId mobileNo')
         .sort({ [sortField]: sortDirection })
         .skip(skip)
         .limit(limitNum),
