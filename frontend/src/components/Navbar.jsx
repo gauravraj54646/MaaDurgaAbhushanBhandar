@@ -19,7 +19,7 @@ const Navbar = () => {
       <div className="navbar-brand">
         <Link to="/">
           <img src="/ShopNestLogo.png" alt="ShopNest" style={{ height: '36px', width: '36px', borderRadius: '8px', objectFit: 'cover', filter: 'drop-shadow(0 2px 8px rgba(249, 115, 22, 0.35))' }} />
-          Maa Durga Abhushan Bhandar
+          Shopnest
         </Link>
       </div>
       <ul className="navbar-links">
