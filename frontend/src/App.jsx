@@ -47,6 +47,7 @@ import EditBillProduct from "./admin/EditBillProduct";
 // Family management
 import People from "./admin/People";
 import FamilyTree from "./admin/FamilyTree";
+import AddVyapar from "./admin/AddVyapar";
 
 function App() {
   return (
@@ -228,6 +229,11 @@ function App() {
           <Route
             path="/admin/family-tree/:personId"
             element={<FamilyTree />}
+          />
+
+                    <Route
+            path="/admin/vyapar"
+            element={<AddVyapar />}
           />
         </Routes>
       </div>

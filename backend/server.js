@@ -3,10 +3,14 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const connectDB = require("./config/db");
 const path = require("path");
+const connectDB1 = require("./config/db1");
+const connectDB2 = require("./config/db2");
 
 dotenv.config();
 
-connectDB();
+connectDB(); //mongodb atlas at jewelsdekhoo.com
+//connectDB1(); //mongodb atlas at jewellsdekhoindia.com
+//connectDB2(); //mongodb atlas at sauravrajofficial5059@gmail.com
 
 const app = express();
 
@@ -22,7 +26,7 @@ app.use(
       process.env.FRONTEND_URL,
     ],
     credentials: true,
-  })
+  }),
 );
 
 // ============================================================
@@ -47,7 +51,7 @@ app.use("/api/analytics", require("./routes/analyticsRoutes"));
 
 app.use("/api/loans", require("./routes/loanRoutes"));
 
-app.use("/api/bills", require("./routes/billRoutes")); 
+app.use("/api/bills", require("./routes/billRoutes"));
 
 // ============================================================
 // PEOPLE / FAMILY SYSTEM
@@ -56,34 +60,25 @@ app.use("/api/bills", require("./routes/billRoutes"));
 // Person master records
 app.use("/api/people", require("./routes/personRoutes"));
 
+// Vyapar records
+app.use("/api/vyapar", require("./routes/vyaparRoutes"));
+
 // Relationships between people
-app.use(
-  "/api/relationships",
-  require("./routes/relationshipRoutes")
-);
+app.use("/api/relationships", require("./routes/relationshipRoutes"));
 
 // ============================================================
 // PRODUCTION FRONTEND
 // ============================================================
 
 if (process.env.NODE_ENV === "production") {
-  app.use(
-    express.static(path.join(__dirname, "../frontend/build"))
-  );
+  app.use(express.static(path.join(__dirname, "../frontend/build")));
 
   app.use((req, res) => {
-    res.sendFile(
-      path.resolve(
-        __dirname,
-        "../frontend/build/index.html"
-      )
-    );
+    res.sendFile(path.resolve(__dirname, "../frontend/build/index.html"));
   });
 } else {
   app.get("/", (req, res) => {
-    res.send(
-      "ShopNest API is running in Development mode..."
-    );
+    res.send("ShopNest API is running in Development mode...");
   });
 }
 

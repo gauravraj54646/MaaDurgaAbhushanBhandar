@@ -20,7 +20,6 @@ const Footer = () => {
       }}>
         <div>
           <h3 style={{ color: '#f97316', marginBottom: '10px' }}>Maa Durga Abhushan Bhandar</h3>
-          <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}> <Link to="/loan" style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>Loan.</Link></p>
           <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>Premium Jewellery Platform.</p>        
         </div>
         
