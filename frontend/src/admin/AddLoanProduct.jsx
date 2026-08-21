@@ -1,12 +1,22 @@
-import React, { useState, useContext, useRef } from "react";
+import React, { useState, useContext, useRef, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const wordCount = (str = "") => str.trim().split(/\s+/).filter(Boolean).length;
 
 const AddLoanProduct = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // =========================================================
+  // PERSON PREFILL
+  // =========================================================
+
+  const selectedPersonFromState = location.state?.person || null;
+  const personIdFromQuery = new URLSearchParams(location.search).get("personId");
+  const [selectedPerson, setSelectedPerson] = useState(selectedPersonFromState);
+  const [personLoading, setPersonLoading] = useState(false);
 
   // =========================================================
   // REFS (for scroll-to-error on invalid submit)
@@ -29,8 +39,8 @@ const AddLoanProduct = () => {
     return date.toISOString().split("T")[0];
   };
   const getReturnDate = () => {
-    return ;
-  }
+    return;
+  };
   const getDissolveDate = () => {
     const date = new Date();
     date.setFullYear(date.getFullYear() + 5);
@@ -141,7 +151,7 @@ const AddLoanProduct = () => {
     name: "",
     address: "",
     customerId: "",
-    loanId:"",
+    loanId: "",
     mobileNo: "",
     description: "",
     goldWeight: "",
@@ -155,7 +165,7 @@ const AddLoanProduct = () => {
     available: "yes",
 
     roi: 5,
-    returnDate:'',// getReturnDate(),
+    returnDate: "", // getReturnDate(),
     dissolveDate: getDissolveDate(),
 
     // Original loan
@@ -177,6 +187,70 @@ const AddLoanProduct = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // =========================================================
+  // LOAD PERSON DETAILS WHEN OPENED FROM PEOPLE DIRECTORY
+  // =========================================================
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const applyPerson = (person) => {
+      if (!person || cancelled) return;
+
+      setSelectedPerson(person);
+
+      setFormData((prev) => ({
+        ...prev,
+        name: person.name || "",
+        address: person.address || "",
+        customerId: person.customerId || "",
+        mobileNo: person.phone || "",
+      }));
+    };
+
+    if (selectedPersonFromState) {
+      applyPerson(selectedPersonFromState);
+    }
+
+    if (!personIdFromQuery || !user?.token) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const loadPerson = async () => {
+      try {
+        setPersonLoading(true);
+
+        const response = await fetch(`/api/people/${personIdFromQuery}`, {
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to load person details");
+        }
+
+        applyPerson(data);
+      } catch (error) {
+        console.error("Failed to load person:", error);
+      } finally {
+        if (!cancelled) {
+          setPersonLoading(false);
+        }
+      }
+    };
+
+    loadPerson();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [personIdFromQuery, user?.token, selectedPersonFromState]);
 
   // =========================================================
   // CALCULATE INTEREST
@@ -468,7 +542,6 @@ const AddLoanProduct = () => {
       errs.address = "Address must be 100 words or fewer.";
     }
 
-    
     // Customer ID
     if (!/^[A-Z0-9]{1,8}$/.test(formData.customerId)) {
       errs.customerId =
@@ -633,11 +706,12 @@ const AddLoanProduct = () => {
 
       const submitData = {
         ...formData,
+        ...(selectedPerson?._id ? { personId: selectedPerson._id } : {}),
         goldWeight: Number(formData.goldWeight || 0),
 
         silverWeight: Number(formData.silverWeight || 0),
 
-        mobileNo: formData.mobileNo.trim() || "9204333944",
+        mobileNo: formData.mobileNo.trim(),
 
         loanAmount: Number(formData.loanAmount),
 
@@ -679,6 +753,36 @@ const AddLoanProduct = () => {
       const responseData = await res.json();
 
       if (res.ok) {
+        // Keep the People Directory linked to this new loan.
+        if (selectedPerson?._id && formData.loanId) {
+          try {
+            const existingLoanIds = Array.isArray(selectedPerson.loanIds)
+              ? selectedPerson.loanIds
+              : [];
+
+            const nextLoanIds = Array.from(
+              new Set([
+                ...existingLoanIds,
+                formData.loanId.trim().toUpperCase(),
+              ])
+            );
+
+            await fetch(`/api/people/${selectedPerson._id}`, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${user.token}`,
+              },
+              body: JSON.stringify({
+                loanIds: nextLoanIds,
+                hasLoan: true,
+              }),
+            });
+          } catch (linkError) {
+            console.error("Loan created, but person link failed:", linkError);
+          }
+        }
+
         alert("Loan created successfully!");
 
         navigate("/admin/loan/products");
@@ -758,6 +862,24 @@ const AddLoanProduct = () => {
         </button>
       </div>
 
+      {selectedPerson && (
+        <div
+          style={{
+            marginBottom: "18px",
+            padding: "12px 14px",
+            borderRadius: "8px",
+            border: "1px solid rgba(59,130,246,0.25)",
+            background: "rgba(59,130,246,0.08)",
+            color: "#93c5fd",
+            fontSize: "13px",
+          }}
+        >
+          {personLoading
+            ? "Loading person details..."
+            : `Loan is being added for ${selectedPerson.name || "this person"}. Personal details are copied from the People Directory.`}
+        </div>
+      )}
+
       <form
         onSubmit={handleSubmit}
         style={{
@@ -776,8 +898,15 @@ const AddLoanProduct = () => {
             type="text"
             placeholder="Full name"
             required
+            readOnly={Boolean(selectedPerson && formData.mobileNo)}
             value={formData.name}
-            onChange={(e) => handleChange("name", e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value
+                .toLowerCase()
+                .replace(/\b\w/g, (char) => char.toUpperCase());
+
+              handleChange("name", value);
+            }}
             ref={(el) => (fieldRefs.current.name = el)}
             style={inputStyle}
           />
@@ -794,8 +923,13 @@ const AddLoanProduct = () => {
             placeholder="Address"
             required
             rows="2"
+            readOnly={Boolean(selectedPerson)}
             value={formData.address}
-            onChange={(e) => handleChange("address", e.target.value)}
+            onChange={(e) => {
+                const value = e.target.value
+                .toLowerCase()
+                .replace(/\b\w/g, (char) => char.toUpperCase());
+                handleChange("address", value)}}
             ref={(el) => (fieldRefs.current.address = el)}
             style={{ ...inputStyle, resize: "vertical" }}
           />
@@ -814,6 +948,7 @@ const AddLoanProduct = () => {
               placeholder="Customer ID"
               required
               maxLength={8}
+              readOnly={Boolean(selectedPerson)}
               value={formData.customerId}
               onChange={(e) => {
                 const value = e.target.value
@@ -833,23 +968,26 @@ const AddLoanProduct = () => {
           <div>
             <label style={labelStyle}>Mobile No.</label>
 
-            <input
-              type="text"
-              placeholder="10-digit mobile number"
-              required
-              maxLength={10}
-              value={formData.mobileNo}
-              onChange={(e) =>
-                handleChange("mobileNo", e.target.value.replace(/[^0-9]/g, ""))
-              }
-              ref={(el) => (fieldRefs.current.mobileNo = el)}
-              style={inputStyle}
-            />
+           <input
+  type="text"
+  placeholder="10-digit mobile number"
+  maxLength={10}
+  readOnly={Boolean(selectedPerson && selectedPerson.phone)}
+  value={formData.mobileNo}
+  onChange={(e) =>
+    handleChange(
+      "mobileNo",
+      e.target.value.replace(/[^0-9]/g, "")
+    )
+  }
+  ref={(el) => (fieldRefs.current.mobileNo = el)}
+  style={inputStyle}
+/>
 
             <FieldError msg={errors.mobileNo} />
           </div>
 
-           <div>
+          <div>
             <label style={labelStyle}>loan ID (max 8 characters)</label>
 
             <input
@@ -1004,39 +1142,38 @@ const AddLoanProduct = () => {
         {/*    ===================================================
           Return Date
         ================================================ */}
-<div className="two-col" style={twoColGridStyle}>
-        <div>
-          <label style={labelStyle}>Return Date</label>
+        <div className="two-col" style={twoColGridStyle}>
+          <div>
+            <label style={labelStyle}>Return Date</label>
 
-          <input
-            type="date"
-            value={formData.returnDate}
-            onChange={(e) => handleChange("returnDate", e.target.value)}
-            style={{
-              ...inputStyle,
-              cursor: "pointer",
-              maxWidth: "320px",
-            }}
-          />
-        </div>{" "}
-
-        {/* =====================================================
+            <input
+              type="date"
+              value={formData.returnDate}
+              onChange={(e) => handleChange("returnDate", e.target.value)}
+              style={{
+                ...inputStyle,
+                cursor: "pointer",
+                maxWidth: "320px",
+              }}
+            />
+          </div>{" "}
+          {/* =====================================================
             DISSOLVE DATE
         ====================================================== */}
-        <div>
-          <label style={labelStyle}>Dissolve Date</label>
+          <div>
+            <label style={labelStyle}>Dissolve Date</label>
 
-          <input
-            type="date"
-            value={formData.dissolveDate}
-            onChange={(e) => handleChange("dissolveDate", e.target.value)}
-            style={{
-              ...inputStyle,
-              cursor: "pointer",
-              maxWidth: "320px",
-            }}
-          />
-        </div>
+            <input
+              type="date"
+              value={formData.dissolveDate}
+              onChange={(e) => handleChange("dissolveDate", e.target.value)}
+              style={{
+                ...inputStyle,
+                cursor: "pointer",
+                maxWidth: "320px",
+              }}
+            />
+          </div>
         </div>
         {/* =====================================================
             ORIGINAL LOAN
@@ -1315,156 +1452,157 @@ const AddLoanProduct = () => {
             PAYMENTS - SEPARATE FROM RELOANS
         ====================================================== */}
         <div ref={(el) => (fieldRefs.current.payments = el)}>
-        <SectionCard>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "10px",
-              marginBottom: formData.payments.length ? "16px" : "0",
-            }}
-          >
-            <div>
-              <SectionHeader title="Payments" marginBottom="2px" />
-
-              <div
-                style={{
-                  color: "#71717a",
-                  fontSize: "12.5px",
-                }}
-              >
-                Paid amount is deducted from total. Payment date is stored only.
-              </div>
-            </div>
-
-            <AddButton onClick={addPayment} text="+ Add Payment" />
-          </div>
-
-          {formData.payments.length > 0 && (
-            <div className="payment-header" style={paymentGridStyle}>
-              <span>#</span>
-              <span>PAID AMOUNT</span>
-              <span>PAID DATE</span>
-              <span />
-            </div>
-          )}
-
-          {formData.payments.map((payment, index) => (
+          <SectionCard>
             <div
-              key={payment.id}
-              ref={(el) => {
-                fieldRefs.current[`paymentAmount_${index}`] = el;
-                fieldRefs.current[`paymentDate_${index}`] = el;
-              }}
               style={{
-                marginBottom: "10px",
-                paddingBottom: "10px",
-                borderBottom: "1px solid #1f1f23",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "10px",
+                marginBottom: formData.payments.length ? "16px" : "0",
               }}
             >
-              <div className="payment-row" style={paymentGridStyle}>
+              <div>
+                <SectionHeader title="Payments" marginBottom="2px" />
+
                 <div
                   style={{
-                    color: "#a1a1aa",
-                    fontSize: "13px",
-                    textAlign: "center",
+                    color: "#71717a",
+                    fontSize: "12.5px",
                   }}
                 >
-                  {index + 1}
+                  Paid amount is deducted from total. Payment date is stored
+                  only.
                 </div>
-
-                {/* Paid Amount */}
-                <div>
-                  <MoneyInput
-                    placeholder="Paid Amount"
-                    value={payment.paidAmount}
-                    onChange={(e) =>
-                      updatePayment(payment.id, "paidAmount", e.target.value)
-                    }
-                    compact
-                  />
-
-                  {payment.paidAmount && (
-                    <div
-                      style={{
-                        ...amountWordsStyle,
-                        fontSize: "10.5px",
-                        marginTop: "4px",
-                        whiteSpace: "normal",
-                      }}
-                    >
-                      {numberToWords(payment.paidAmount)}
-                    </div>
-                  )}
-                </div>
-                {/* Paid Date */}
-                <input
-                  type="date"
-                  value={payment.paidDate}
-                  onChange={(e) =>
-                    updatePayment(payment.id, "paidDate", e.target.value)
-                  }
-                  style={{
-                    ...inputStyle,
-                    padding: "10px 8px",
-                    fontSize: "13px",
-                  }}
-                />
-
-                {/* Delete */}
-                <button
-                  type="button"
-                  onClick={() => removePayment(payment.id)}
-                  title="Remove payment"
-                  style={deleteButtonStyle}
-                >
-                  🗑
-                </button>
               </div>
 
-              {errors[`paymentAmount_${index}`] && (
-                <SmallError msg={errors[`paymentAmount_${index}`]} />
-              )}
-
-              {errors[`paymentDate_${index}`] && (
-                <SmallError msg={errors[`paymentDate_${index}`]} />
-              )}
+              <AddButton onClick={addPayment} text="+ Add Payment" />
             </div>
-          ))}
 
-          {formData.payments.length === 0 && (
-            <div
-              style={{
-                color: "#52525b",
-                fontSize: "13px",
-                textAlign: "center",
-                padding: "14px",
-              }}
-            >
-              No payment added
-            </div>
-          )}
+            {formData.payments.length > 0 && (
+              <div className="payment-header" style={paymentGridStyle}>
+                <span>#</span>
+                <span>PAID AMOUNT</span>
+                <span>PAID DATE</span>
+                <span />
+              </div>
+            )}
 
-          {formData.payments.length > 0 && (
-            <div
-              style={{
-                ...subTotalStyle,
-                borderTop: "1px solid #27272a",
-                marginTop: "8px",
-                paddingTop: "12px",
-              }}
-            >
-              <span>
-                Total Paid:{" "}
-                <b style={{ color: "#ef4444" }}>₹{totalPaid.toFixed(2)}</b>
-              </span>
-            </div>
-          )}
+            {formData.payments.map((payment, index) => (
+              <div
+                key={payment.id}
+                ref={(el) => {
+                  fieldRefs.current[`paymentAmount_${index}`] = el;
+                  fieldRefs.current[`paymentDate_${index}`] = el;
+                }}
+                style={{
+                  marginBottom: "10px",
+                  paddingBottom: "10px",
+                  borderBottom: "1px solid #1f1f23",
+                }}
+              >
+                <div className="payment-row" style={paymentGridStyle}>
+                  <div
+                    style={{
+                      color: "#a1a1aa",
+                      fontSize: "13px",
+                      textAlign: "center",
+                    }}
+                  >
+                    {index + 1}
+                  </div>
 
-          {errors.payments && <SmallError msg={errors.payments} />}
-        </SectionCard>
+                  {/* Paid Amount */}
+                  <div>
+                    <MoneyInput
+                      placeholder="Paid Amount"
+                      value={payment.paidAmount}
+                      onChange={(e) =>
+                        updatePayment(payment.id, "paidAmount", e.target.value)
+                      }
+                      compact
+                    />
+
+                    {payment.paidAmount && (
+                      <div
+                        style={{
+                          ...amountWordsStyle,
+                          fontSize: "10.5px",
+                          marginTop: "4px",
+                          whiteSpace: "normal",
+                        }}
+                      >
+                        {numberToWords(payment.paidAmount)}
+                      </div>
+                    )}
+                  </div>
+                  {/* Paid Date */}
+                  <input
+                    type="date"
+                    value={payment.paidDate}
+                    onChange={(e) =>
+                      updatePayment(payment.id, "paidDate", e.target.value)
+                    }
+                    style={{
+                      ...inputStyle,
+                      padding: "10px 8px",
+                      fontSize: "13px",
+                    }}
+                  />
+
+                  {/* Delete */}
+                  <button
+                    type="button"
+                    onClick={() => removePayment(payment.id)}
+                    title="Remove payment"
+                    style={deleteButtonStyle}
+                  >
+                    🗑
+                  </button>
+                </div>
+
+                {errors[`paymentAmount_${index}`] && (
+                  <SmallError msg={errors[`paymentAmount_${index}`]} />
+                )}
+
+                {errors[`paymentDate_${index}`] && (
+                  <SmallError msg={errors[`paymentDate_${index}`]} />
+                )}
+              </div>
+            ))}
+
+            {formData.payments.length === 0 && (
+              <div
+                style={{
+                  color: "#52525b",
+                  fontSize: "13px",
+                  textAlign: "center",
+                  padding: "14px",
+                }}
+              >
+                No payment added
+              </div>
+            )}
+
+            {formData.payments.length > 0 && (
+              <div
+                style={{
+                  ...subTotalStyle,
+                  borderTop: "1px solid #27272a",
+                  marginTop: "8px",
+                  paddingTop: "12px",
+                }}
+              >
+                <span>
+                  Total Paid:{" "}
+                  <b style={{ color: "#ef4444" }}>₹{totalPaid.toFixed(2)}</b>
+                </span>
+              </div>
+            )}
+
+            {errors.payments && <SmallError msg={errors.payments} />}
+          </SectionCard>
         </div>
         {/* =====================================================
             FINAL SUMMARY

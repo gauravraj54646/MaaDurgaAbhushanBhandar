@@ -33,6 +33,17 @@ import AdminOrders from "./admin/AdminOrders";
 import AdminUsers from "./admin/AdminUsers";
 import LoanAnalyticsDashboard from "./admin/LoanAnalyticsDashboard";
 
+// Bill admin
+// NOTE: only AddBillProduct exists so far. AdminBillDashboard,
+// AdminBillProduct (list) and EditBillProduct still need to be built —
+// same shape as their Loan counterparts. Routes are wired below so
+// the app compiles once those files are added; until then the
+// bill routes that reference them will fail to import.
+import AddBillProduct from "./admin/AddBillProduct";
+import AdminBillDashboard from "./admin/AdminBillDashboard";
+import AdminBillProduct from "./admin/AdminBillProduct";
+import EditBillProduct from "./admin/EditBillProduct";
+
 // Family management
 import People from "./admin/People";
 import FamilyTree from "./admin/FamilyTree";
@@ -154,6 +165,30 @@ function App() {
           <Route
             path="/admin/loan/analytics"
             element={<LoanAnalyticsDashboard />}
+          />
+
+          {/* -----------------------------------------------------
+              BILL ADMIN
+          ----------------------------------------------------- */}
+
+          <Route
+            path="/admin/bill"
+            element={<AdminBillDashboard />}
+          />
+
+          <Route
+            path="/admin/bill/add-bill"
+            element={<AddBillProduct />}
+          />
+
+          <Route
+            path="/admin/bill/products"
+            element={<AdminBillProduct />}
+          />
+
+          <Route
+            path="/admin/bill/edit-bill/:id"
+            element={<EditBillProduct />}
           />
 
           {/* -----------------------------------------------------

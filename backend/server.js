@@ -47,6 +47,8 @@ app.use("/api/analytics", require("./routes/analyticsRoutes"));
 
 app.use("/api/loans", require("./routes/loanRoutes"));
 
+app.use("/api/bills", require("./routes/billRoutes")); 
+
 // ============================================================
 // PEOPLE / FAMILY SYSTEM
 // ============================================================

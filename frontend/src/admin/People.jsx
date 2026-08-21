@@ -26,19 +26,30 @@ const People = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingPerson, setEditingPerson] = useState(null);
 
-  const [form, setForm] = useState({
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const emptyForm = {
     customerId: "",
     name: "",
     email: "",
     phone: "",
     address: "",
     dateOfBirth: "",
-    gender: "male",
-    preferences: "",
+    gender: "prefer_not_to_say",
+    extraInfo: "",
     status: "active",
     source: "",
     tags: "",
-  });
+    hasLoan: false,
+    loanIds: "",
+    hasBill: false,
+    billNumbers: "",
+  };
+
+  const [form, setForm] = useState(emptyForm);
 
   // ============================================================
   // ADMIN PROTECTION
@@ -144,19 +155,7 @@ const People = () => {
   // ============================================================
 
   const resetForm = () => {
-    setForm({
-      customerId: "",
-      name: "",
-      email: "",
-      phone: "",
-      address: "",
-      dateOfBirth: "",
-      gender: "male",
-      preferences: "",
-      status: "active",
-      source: "",
-      tags: "",
-    });
+    setForm(emptyForm);
 
     setEditingPerson(null);
     setShowForm(false);
@@ -181,19 +180,7 @@ const People = () => {
 
     setEditingPerson(null);
 
-    setForm({
-      customerId: "",
-      name: "",
-      email: "",
-      phone: "",
-      address: "",
-      dateOfBirth: "",
-      gender: "male",
-      preferences: "",
-      status: "active",
-      source: "",
-      tags: "",
-    });
+    setForm(emptyForm);
 
     setShowForm(true);
   };
@@ -211,19 +198,29 @@ const People = () => {
     setForm({
       customerId: person.customerId || "",
       name: person.name || "",
-      email: person.email || "",
+      email: person.email
+        ? person.email.replace(/@gmail\.com$/i, "")
+        : "",
       phone: person.phone || "",
       address: person.address || "",
       dateOfBirth: person.dateOfBirth
         ? formatDateForInput(person.dateOfBirth)
         : "",
       gender:
-        person.gender || "male",
-      preferences: person.preferences || "",
+        person.gender || "prefer_not_to_say",
+      extraInfo: person.extraInfo || "",
       status: person.status || "active",
       source: person.source || "",
       tags: Array.isArray(person.tags)
         ? person.tags.join(", ")
+        : "",
+      hasLoan: Boolean(person.hasLoan),
+      loanIds: Array.isArray(person.loanIds)
+        ? person.loanIds.join(", ")
+        : "",
+      hasBill: Boolean(person.hasBill),
+      billNumbers: Array.isArray(person.billNumbers)
+        ? person.billNumbers.join(", ")
         : "",
     });
 
@@ -245,8 +242,50 @@ const People = () => {
       return;
     }
 
+    if (
+      form.customerId.trim() &&
+      !/^[A-Z0-9]{1,8}$/.test(form.customerId.trim())
+    ) {
+      setError(
+        "Customer ID must contain only capital letters and numbers, maximum 8 characters."
+      );
+      return;
+    }
+
+    if (form.email.trim()) {
+      const gmailUsernameRegex =
+        /^[a-z0-9][a-z0-9._%+-]{0,63}$/i;
+
+      if (!gmailUsernameRegex.test(form.email.trim())) {
+        setError("Please enter a valid Gmail username.");
+        return;
+      }
+    }
+
+    if (
+      form.phone.trim() &&
+      !/^\d{10}$/.test(form.phone.trim())
+    ) {
+      setError("Phone number must be exactly 10 digits.");
+      return;
+    }
+
     try {
       setSaving(true);
+
+      const loanIds = form.loanIds
+        ? form.loanIds
+            .split(",")
+            .map((id) => id.trim().toUpperCase().slice(0, 8))
+            .filter(Boolean)
+        : [];
+
+      const billNumbers = form.billNumbers
+        ? form.billNumbers
+            .split(",")
+            .map((num) => num.trim().toUpperCase().slice(0, 8))
+            .filter(Boolean)
+        : [];
 
       const payload = {
         customerId:
@@ -255,7 +294,9 @@ const People = () => {
         name: form.name.trim(),
 
         email:
-          form.email.trim() || null,
+          form.email.trim()
+            ? `${form.email.trim()}@gmail.com`
+            : null,
 
         phone:
           form.phone.trim() || null,
@@ -268,8 +309,8 @@ const People = () => {
 
         gender: form.gender,
 
-        preferences:
-          form.preferences.trim() || null,
+        extraInfo:
+          form.extraInfo.trim() || null,
 
         status: form.status,
 
@@ -282,6 +323,11 @@ const People = () => {
               .map((tag) => tag.trim())
               .filter(Boolean)
           : [],
+
+        loanIds,
+        hasLoan: loanIds.length > 0,
+        billNumbers,
+        hasBill: billNumbers.length > 0,
       };
 
       const isEditing = Boolean(editingPerson);
@@ -349,64 +395,88 @@ const People = () => {
   // DELETE PERSON
   // ============================================================
 
-  const handleDelete = async (person) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${person.name}?`
-    );
+  const openDeleteModal = (person) => {
+    setDeleteTarget(person);
+    setDeletePassword("");
+    setDeleteError("");
+  };
 
-    if (!confirmed) {
+  const closeDeleteModal = () => {
+    if (deleting) return;
+
+    setDeleteTarget(null);
+    setDeletePassword("");
+    setDeleteError("");
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+
+    if (!deletePassword.trim()) {
+      setDeleteError("Admin password is required.");
       return;
     }
 
     try {
-      setError("");
-      setSuccess("");
+      setDeleting(true);
+      setDeleteError("");
 
       const response = await fetch(
-        `/api/people/${person._id}`,
+        `/api/people/${deleteTarget._id}`,
         {
           method: "DELETE",
           headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${user.token}`,
           },
+          body: JSON.stringify({
+            adminPassword: deletePassword,
+          }),
         }
       );
 
-      const data = await response.json();
+      const text = await response.text();
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          navigate("/login");
-          return;
-        }
+      let data = {};
 
-        if (response.status === 403) {
-          navigate("/");
-          return;
-        }
-
-        throw new Error(
-          data.message ||
-            "Failed to delete person"
-        );
+      try {
+        data = JSON.parse(text);
+      } catch {
+        console.error("Server did not return JSON");
       }
 
+      if (!response.ok) {
+        setDeleteError(
+          data.message ||
+            `Failed to delete person. Status: ${response.status}`
+        );
+        return;
+      }
+
+      const deletedName = deleteTarget.name;
+
+      setDeleteTarget(null);
+      setDeletePassword("");
+      setDeleteError("");
+
+      // Refresh the list so the deleted person disappears immediately
       await fetchPeople();
 
+      setError("");
       setSuccess(
-        data.message ||
-          "Person deleted successfully."
+        data.message || `${deletedName} deleted successfully.`
       );
     } catch (err) {
-      console.error(err);
+      console.error("Delete person error:", err);
 
-      setError(
+      setDeleteError(
         err.message ||
-          "Failed to delete person."
+          "Something went wrong while deleting the person."
       );
+    } finally {
+      setDeleting(false);
     }
   };
-
 
   // ============================================================
   // OPEN FAMILY TREE
@@ -431,6 +501,7 @@ const People = () => {
   // ============================================================
 
   return (
+    <>
     <div style={containerStyle}>
       {/* ======================================================
           HEADER
@@ -530,7 +601,7 @@ const People = () => {
   onChange={(e) =>
     handleChange({
       target: {
-        name: "name",
+        name: "name", 
         value: e.target.value
           .toLowerCase()
           .replace(/\b\w/g, (char) => char.toUpperCase()),
@@ -659,6 +730,10 @@ const People = () => {
                   <option value="other">
                     Other
                   </option>
+
+                  <option value="prefer_not_to_say">
+                    Prefer not to say
+                  </option>
                 </select>
               </div>
 
@@ -724,17 +799,88 @@ const People = () => {
                 </label>
 
                 <textarea
-                  name="preferences"
-                  value={form.preferences}
+                  name="extraInfo"
+                  value={form.extraInfo}
                   onChange={handleChange}
-                  placeholder="Preferences or additional information"
+                  placeholder="Additional information"
                   rows={3}
                   style={textareaStyle}
                 />
               </div>
 
+              {/* LOAN & BILL */}
+
+              <div style={fullWidthStyle}>
+                <label style={labelStyle}>
+                  Loan &amp; Bill Information
+                </label>
+
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "20px",
+                    padding: "12px",
+                    background: "#18181b",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "7px",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: "220px" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        color: "#d4d4d8",
+                        fontSize: "0.85rem",
+                        marginBottom: "10px",
+                      }}
+                    >
+                      Loan IDs
+                    </label>
+
+                    <MultiEntryField
+                      value={form.loanIds}
+                      onChange={(value) =>
+                        handleChange({
+                          target: {
+                            name: "loanIds",
+                            value,
+                          },
+                        })
+                      }
+                      placeholder="Loan ID (max 8 chars)"
+                    />
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: "220px" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        color: "#d4d4d8",
+                        fontSize: "0.85rem",
+                        marginBottom: "10px",
+                      }}
+                    >
+                      Bill Numbers
+                    </label>
+
+                    <MultiEntryField
+                      value={form.billNumbers}
+                      onChange={(value) =>
+                        handleChange({
+                          target: {
+                            name: "billNumbers",
+                            value,
+                          },
+                        })
+                      }
+                      placeholder="Bill number (max 8 chars)"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* TAGS */}
-{/* TAGS */}
 
 <div style={fullWidthStyle}>
   <label style={labelStyle}>Tags</label>
@@ -867,15 +1013,13 @@ const People = () => {
           />
         </div>
 
-<div style={countStyle}>
-  Showing{" "}
-  <strong>
-    {people.length}
-  </strong>{" "}
-  of{" "}
-  <strong>{totalPeople}</strong>{" "}
-  people
-</div>
+        <div style={countStyle}>
+          Showing{" "}
+          <strong>{people.length}</strong>{" "}
+          of{" "}
+          <strong>{totalPeople}</strong>{" "}
+          people
+        </div>
       </div>
 
       {/* ======================================================
@@ -951,6 +1095,14 @@ const People = () => {
 
                   <th style={thStyle}>
                     SOURCE
+                  </th>
+
+                  <th style={thStyle}>
+                    LOAN
+                  </th>
+
+                  <th style={thStyle}>
+                    BILL
                   </th>
 
                   <th
@@ -1071,6 +1223,38 @@ const People = () => {
                         )}
                       </td>
 
+                      {/* LOAN */}
+
+                      <td style={tdStyle}>
+                        {person.hasLoan ? (
+                          <span style={loanBadgeStyle}>
+                            Loan
+                            {Array.isArray(person.loanIds) &&
+                            person.loanIds.length > 0
+                              ? ` (${person.loanIds.length})`
+                              : ""}
+                          </span>
+                        ) : (
+                          <span style={mutedTextStyle}>—</span>
+                        )}
+                      </td>
+
+                      {/* BILL */}
+
+                      <td style={tdStyle}>
+                        {person.hasBill ? (
+                          <span style={billBadgeStyle}>
+                            Bill
+                            {Array.isArray(person.billNumbers) &&
+                            person.billNumbers.length > 0
+                              ? ` (${person.billNumbers.length})`
+                              : ""}
+                          </span>
+                        ) : (
+                          <span style={mutedTextStyle}>—</span>
+                        )}
+                      </td>
+
                       {/* ACTIONS */}
 
                       <td
@@ -1084,6 +1268,34 @@ const People = () => {
                             actionsStyle
                           }
                         >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                `/admin/loan/add-loan?personId=${encodeURIComponent(person._id)}`,
+                                { state: { person } }
+                              )
+                            }
+                            style={addLoanButtonStyle}
+                            title={`Add loan for ${person.name}`}
+                          >
+                            + Loan
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                `/admin/bill/add-bill?personId=${encodeURIComponent(person._id)}`,
+                                { state: { person } }
+                              )
+                            }
+                            style={addBillButtonStyle}
+                            title={`Add bill for ${person.name}`}
+                          >
+                            + Bill
+                          </button>
+
                           <button
                             type="button"
                             onClick={() =>
@@ -1115,15 +1327,17 @@ const People = () => {
                           <button
                             type="button"
                             onClick={() =>
-                              handleDelete(
+                              openDeleteModal(
                                 person
                               )
                             }
                             style={
                               deleteButtonStyle
                             }
+                            title="Delete"
+                            aria-label="Delete"
                           >
-                            Delete
+                            🗑️
                           </button>
                         </div>
                       </td>
@@ -1179,6 +1393,98 @@ const People = () => {
         </div>
       )}
     </div>
+
+    {/* ======================================================
+        DELETE PERSON MODAL
+    ====================================================== */}
+
+    {deleteTarget && (
+      <div style={deleteOverlayStyle} onClick={closeDeleteModal}>
+        <div
+          style={deleteModalStyle}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <h3 style={deleteModalTitleStyle}>
+            Delete This Person?
+          </h3>
+
+          <div style={deleteWarningBoxStyle}>
+            <p style={{ margin: "0 0 10px" }}>
+              Are you sure you want to permanently delete this
+              person? This action cannot be undone.
+            </p>
+
+            <div>
+              Name: <strong>{deleteTarget.name}</strong>
+            </div>
+
+            {deleteTarget.customerId && (
+              <div>
+                Customer ID:{" "}
+                <strong>{deleteTarget.customerId}</strong>
+              </div>
+            )}
+
+            {deleteTarget.phone && (
+              <div>
+                Phone: <strong>{deleteTarget.phone}</strong>
+              </div>
+            )}
+
+            {(deleteTarget.hasLoan || deleteTarget.hasBill) && (
+              <div>
+                Linked records:{" "}
+                <strong>
+                  {[
+                    deleteTarget.hasLoan ? "Loan" : null,
+                    deleteTarget.hasBill ? "Bill" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
+                </strong>
+              </div>
+            )}
+          </div>
+
+          {deleteError && (
+            <div style={deleteErrorStyle}>{deleteError}</div>
+          )}
+
+          <input
+            type="password"
+            value={deletePassword}
+            onChange={(event) =>
+              setDeletePassword(event.target.value)
+            }
+            placeholder="Admin password"
+            style={deletePasswordInputStyle}
+            disabled={deleting}
+            autoFocus
+          />
+
+          <div style={deleteModalActionsStyle}>
+            <button
+              type="button"
+              onClick={closeDeleteModal}
+              style={deleteCancelButtonStyle}
+              disabled={deleting}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              onClick={confirmDelete}
+              style={deleteConfirmButtonStyle}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting..." : "Delete Person"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 
@@ -1210,6 +1516,113 @@ const FormField = ({
         required={required}
         style={inputStyle}
       />
+    </div>
+  );
+};
+
+// ============================================================
+// MULTI ENTRY FIELD (used for Loan IDs / Bill Numbers)
+// Each entry: uppercase, max 8 characters, added via "+" button
+// ============================================================
+
+const MultiEntryField = ({ value, onChange, placeholder }) => {
+  const [inputValue, setInputValue] = useState("");
+
+  const entries = value
+    ? value
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+    : [];
+
+  const addEntry = () => {
+    const cleaned = inputValue
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 8);
+
+    if (cleaned && !entries.includes(cleaned)) {
+      onChange([...entries, cleaned].join(", "));
+    }
+
+    setInputValue("");
+  };
+
+  const removeEntry = (entry) => {
+    onChange(
+      entries.filter((existing) => existing !== entry).join(", ")
+    );
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addEntry();
+    }
+  };
+
+  return (
+    <div>
+      <div
+        style={{
+          display: "flex",
+          gap: "8px",
+          marginBottom: entries.length ? "8px" : 0,
+        }}
+      >
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(event) =>
+            setInputValue(
+              event.target.value
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, "")
+                .slice(0, 8)
+            )
+          }
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          maxLength={8}
+          style={{ ...inputStyle, flex: 1 }}
+        />
+
+        <button
+          type="button"
+          onClick={addEntry}
+          title="Add"
+          aria-label="Add"
+          style={multiEntryAddButtonStyle}
+        >
+          +
+        </button>
+      </div>
+
+      {entries.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "6px",
+          }}
+        >
+          {entries.map((entry) => (
+            <span key={entry} style={multiEntryChipStyle}>
+              {entry}
+
+              <button
+                type="button"
+                onClick={() => removeEntry(entry)}
+                title="Remove"
+                aria-label={`Remove ${entry}`}
+                style={multiEntryRemoveButtonStyle}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -1495,7 +1908,7 @@ const tableContainerStyle = {
 const tableStyle = {
   width: "100%",
   borderCollapse: "collapse",
-  minWidth: "900px",
+  minWidth: "1080px",
 };
 
 const tableRowStyle = {
@@ -1599,12 +2012,56 @@ const statusArchivedStyle = {
   fontWeight: "700",
 };
 
+const loanBadgeStyle = {
+  display: "inline-block",
+  padding: "3px 8px",
+  borderRadius: "5px",
+  background:
+    "rgba(59,130,246,0.12)",
+  color: "#60a5fa",
+  fontSize: "0.7rem",
+  fontWeight: "700",
+};
+
+const billBadgeStyle = {
+  display: "inline-block",
+  padding: "3px 8px",
+  borderRadius: "5px",
+  background:
+    "rgba(168,85,247,0.12)",
+  color: "#c084fc",
+  fontSize: "0.7rem",
+  fontWeight: "700",
+};
+
 const actionsStyle = {
   display: "flex",
   justifyContent: "flex-end",
   alignItems: "center",
   gap: "7px",
   flexWrap: "wrap",
+};
+
+const addLoanButtonStyle = {
+  padding: "7px 10px",
+  border: "none",
+  borderRadius: "5px",
+  background: "rgba(59,130,246,0.15)",
+  color: "#60a5fa",
+  cursor: "pointer",
+  fontSize: "0.75rem",
+  fontWeight: "600",
+};
+
+const addBillButtonStyle = {
+  padding: "7px 10px",
+  border: "none",
+  borderRadius: "5px",
+  background: "rgba(168,85,247,0.15)",
+  color: "#c084fc",
+  cursor: "pointer",
+  fontSize: "0.75rem",
+  fontWeight: "600",
 };
 
 const treeButtonStyle = {
@@ -1630,14 +2087,155 @@ const editButtonStyle = {
 };
 
 const deleteButtonStyle = {
-  padding: "7px 10px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "30px",
+  height: "30px",
+  padding: 0,
   border: "none",
   borderRadius: "5px",
   background:
     "rgba(239,68,68,0.12)",
   color: "#f87171",
   cursor: "pointer",
+  fontSize: "0.85rem",
+  lineHeight: 1,
+};
+
+const paginationStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  marginTop: "20px",
+  gap: "15px",
+  flexWrap: "wrap",
+};
+
+const paginationButtonStyle = {
+  padding: "9px 16px",
+  border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: "7px",
+  background: "#09090b",
+  color: "#fff",
+  fontSize: "0.85rem",
+};
+
+const paginationInfoStyle = {
+  color: "#a1a1aa",
+  fontSize: "0.85rem",
+};
+
+const multiEntryAddButtonStyle = {
+  width: "44px",
+  height: "44px",
+  flexShrink: 0,
+  border: "none",
+  borderRadius: "7px",
+  background: "#f97316",
+  color: "#fff",
+  fontSize: "1.1rem",
+  fontWeight: "700",
+  cursor: "pointer",
+};
+
+const multiEntryChipStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
+  padding: "5px 9px",
+  borderRadius: "5px",
+  background: "rgba(249,115,22,0.1)",
+  color: "#f97316",
   fontSize: "0.75rem",
+  fontWeight: "600",
+};
+
+const multiEntryRemoveButtonStyle = {
+  border: "none",
+  background: "transparent",
+  color: "#f97316",
+  cursor: "pointer",
+  fontSize: "0.9rem",
+  lineHeight: 1,
+  padding: 0,
+};
+
+const deleteOverlayStyle = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.65)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "20px",
+  zIndex: 1000,
+};
+
+const deleteModalStyle = {
+  width: "100%",
+  maxWidth: "420px",
+  background: "#0c0c0e",
+  border: "1px solid rgba(239,68,68,0.3)",
+  borderRadius: "12px",
+  padding: "24px",
+  boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+};
+
+const deleteModalTitleStyle = {
+  margin: "0 0 16px",
+  color: "#f87171",
+  fontSize: "1.25rem",
+  fontWeight: "700",
+};
+
+const deleteWarningBoxStyle = {
+  padding: "14px 16px",
+  borderRadius: "8px",
+  background: "rgba(239,68,68,0.1)",
+  border: "1px solid rgba(239,68,68,0.25)",
+  color: "#fca5a5",
+  fontSize: "0.85rem",
+  lineHeight: 1.6,
+  marginBottom: "16px",
+};
+
+const deleteErrorStyle = {
+  marginBottom: "14px",
+  padding: "10px 12px",
+  borderRadius: "7px",
+  background: "rgba(239,68,68,0.15)",
+  border: "1px solid rgba(239,68,68,0.35)",
+  color: "#fecaca",
+  fontSize: "0.8rem",
+};
+
+const deletePasswordInputStyle = {
+  ...inputStyle,
+  border: "1px solid #f97316",
+  marginBottom: "18px",
+};
+
+const deleteModalActionsStyle = {
+  display: "flex",
+  gap: "10px",
+};
+
+const deleteCancelButtonStyle = {
+  ...secondaryButtonStyle,
+  flexShrink: 0,
+};
+
+const deleteConfirmButtonStyle = {
+  flex: 1,
+  padding: "12px 18px",
+  border: "none",
+  borderRadius: "8px",
+  background: "#ef4444",
+  color: "#fff",
+  fontWeight: "700",
+  fontSize: "0.9rem",
+  cursor: "pointer",
 };
 
 export default People;

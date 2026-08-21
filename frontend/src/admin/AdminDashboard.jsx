@@ -88,6 +88,9 @@ const AdminDashboard = () => {
         <h3 style={{ marginBottom: '25px', color: '#f97316' }}>Administrative Controls</h3>
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
           <button className="btn" onClick={() => navigate('/admin/add-product')}>+ Add Product</button>
+          <button className="btn" onClick={() => navigate('/admin/people')}>+ Add People</button>
+          <button className="btn" onClick={() => navigate('/admin/family-tree')}> Family-Tree</button>
+          
           <button className="btn" onClick={() => navigate('/admin/products')} style={{ background: '#3f3f46' }}>📦 Manage Products</button>
           <button className="btn" onClick={() => navigate('/admin/orders')} style={{ background: '#3f3f46' }}>🚚 Manage Orders</button>
           <button className="btn" onClick={() => navigate('/admin/users')} style={{ background: '#3f3f46' }}>👥 Users Directory</button>

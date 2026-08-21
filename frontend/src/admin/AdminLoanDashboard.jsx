@@ -97,6 +97,7 @@ const AdminLoanDashboard = () => {
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
           <button className="btn" onClick={() => navigate('/admin/loan/add-loan')}>+ Add Loan</button>
           <button className="btn" onClick={() => navigate('/admin/loan/products')} style={{ background: '#3f3f46' }}>📄 Manage Loans</button>
+          <button className="btn" onClick={() => navigate('/admin/people')} style={{ background: '#3f3f46' }}>+ Add People</button>
         </div>
       </div>
     </div>

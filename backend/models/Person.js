@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 
-const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const EMAIL_REGEX =
+  /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
 const PHONE_REGEX = /^\d{10}$/;
 
 const personSchema = new mongoose.Schema(
@@ -8,11 +10,10 @@ const personSchema = new mongoose.Schema(
     customerId: {
       type: String,
       unique: true,
-      sparse: true, // FIX: without this, the 2nd person with no customerId
-      // throws a duplicate-key error because Mongo's unique index
-      // treats multiple `undefined` values as duplicates of `null`.
+      sparse: true,
       index: true,
       trim: true,
+      uppercase: true,
     },
 
     name: {
@@ -28,7 +29,7 @@ const personSchema = new mongoose.Schema(
       default: null,
       validate: {
         validator: function (value) {
-          if (!value) return true; // optional field
+          if (!value) return true;
           return EMAIL_REGEX.test(value);
         },
         message: "Please provide a valid email address",
@@ -41,7 +42,7 @@ const personSchema = new mongoose.Schema(
       default: null,
       validate: {
         validator: function (value) {
-          if (!value) return true; // optional field
+          if (!value) return true;
           return PHONE_REGEX.test(value);
         },
         message: "Phone number must be exactly 10 digits",
@@ -54,6 +55,30 @@ const personSchema = new mongoose.Schema(
       default: null,
     },
 
+    hasLoan: {
+      type: Boolean,
+      default: false,
+    },
+
+    loanIds: {
+      type: [String],
+      default: [],
+    },
+
+    hasBill: {
+      type: Boolean,
+      default: false,
+    },
+
+    billNumbers: {
+      type: [String],
+      default: [],
+    },
+        isDeleted:{
+      type: Boolean,
+      default: false,
+    },
+
     dateOfBirth: {
       type: Date,
       default: null,
@@ -61,11 +86,16 @@ const personSchema = new mongoose.Schema(
 
     gender: {
       type: String,
-      enum: ["male", "female", "other", "prefer_not_to_say"],
+      enum: [
+        "male",
+        "female",
+        "other",
+        "prefer_not_to_say",
+      ],
       default: "prefer_not_to_say",
     },
 
-    preferences: {
+    extraInfo: {
       type: String,
       trim: true,
       default: null,

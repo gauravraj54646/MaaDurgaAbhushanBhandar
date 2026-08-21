@@ -399,6 +399,23 @@ if (appliedFilters.fromDate)
         </div>
 
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+           <button
+            type="button"
+            onClick={() => navigate("/admin/people")}
+            style={{
+              padding: "10px 18px",
+              borderRadius: "7px",
+              border: "none",
+              background: "#f97316",
+              color: "#fff",
+              fontSize: "13.5px",
+              fontWeight: "600",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            + Add People
+          </button>
           <button
             type="button"
             onClick={() => navigate("/admin/loan/analytics")}
