@@ -11,6 +11,11 @@ const toDateInput = (isoDate) => {
   return d.toISOString().split("T")[0];
 };
 
+const getToday = () => {
+  const today = new Date();
+  return today.toISOString().split("T")[0];
+};
+
 const EditBillProduct = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -47,6 +52,32 @@ const EditBillProduct = () => {
         if (!res.ok) throw new Error(data.message || "Failed to load bill");
         if (cancelled) return;
 
+        // Full payment history from the backend. For bills saved before
+        // the payments[] field existed, fall back to a single entry
+        // built from the old flat amountPaid/paymentMode/billDate so
+        // that history isn't just silently dropped on the next edit.
+        const existingPayments =
+          Array.isArray(data.payments) && data.payments.length > 0
+            ? data.payments.map((p, idx) => ({
+                id: `existing_payment_${idx}`,
+                date: toDateInput(p.date) || getToday(),
+                amount: p.amount != null ? String(p.amount) : "",
+                mode: p.mode || "cash",
+              }))
+            : data.amountPaid
+            ? [
+                {
+                  id: "legacy_payment",
+                  date: toDateInput(data.billDate) || getToday(),
+                  amount: String(data.amountPaid),
+                  mode:
+                    data.paymentMode && data.paymentMode !== "mixed"
+                      ? data.paymentMode
+                      : "cash",
+                },
+              ]
+            : [];
+
         setFormData({
           billNo: data.billNo || "",
           billDate: toDateInput(data.billDate),
@@ -62,8 +93,7 @@ const EditBillProduct = () => {
           discount: data.discount ?? "",
           cgstPercent: data.cgstPercent ?? 1.5,
           sgstPercent: data.sgstPercent ?? 1.5,
-          paymentMode: data.paymentMode || "cash",
-          amountPaid: data.amountPaid ?? "",
+          payments: existingPayments,
           soldBy: data.soldBy || "",
           notes: data.notes || "",
         });
@@ -122,6 +152,7 @@ const EditBillProduct = () => {
 
   const items = formData?.items || [];
   const exchangeItems = formData?.exchangeItems || [];
+  const payments = formData?.payments || [];
 
   const itemAmounts = items.map(calculateItemAmount);
   const exchangeAmounts = exchangeItems.map(calculateExchangeAmount);
@@ -139,7 +170,8 @@ const EditBillProduct = () => {
   const grandTotal = Math.max(Math.round(preRound), 0);
   const roundOff = grandTotal - preRound;
 
-  const amountPaidValue = Number(formData?.amountPaid || 0);
+  // Total paid = sum of every recorded payment (each with its own date)
+  const amountPaidValue = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const balanceDue = Math.max(grandTotal - amountPaidValue, 0);
 
   // =========================================================
@@ -253,6 +285,44 @@ const EditBillProduct = () => {
   };
 
   // =========================================================
+  // ADD / REMOVE / UPDATE PAYMENT
+  // Each payment is its own record: date + amount + mode. Existing
+  // payments loaded from the bill stay in this same list, so saving
+  // sends the full history back (existing entries + any new ones).
+  // =========================================================
+
+  const addPayment = () => {
+    setFormData((prev) => ({
+      ...prev,
+      payments: [
+        ...prev.payments,
+        {
+          id: Date.now(),
+          date: getToday(),
+          amount: "",
+          mode: "cash",
+        },
+      ],
+    }));
+  };
+
+  const removePayment = (paymentId) => {
+    setFormData((prev) => ({
+      ...prev,
+      payments: prev.payments.filter((payment) => payment.id !== paymentId),
+    }));
+  };
+
+  const updatePayment = (paymentId, field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      payments: prev.payments.map((payment) =>
+        payment.id === paymentId ? { ...payment, [field]: value } : payment
+      ),
+    }));
+  };
+
+  // =========================================================
   // SCROLL / FOCUS TO FIRST INVALID FIELD
   // =========================================================
 
@@ -329,10 +399,18 @@ const EditBillProduct = () => {
       errs.discount = "Discount cannot be negative.";
     }
 
-    if (formData.amountPaid !== "" && Number(formData.amountPaid) < 0) {
-      errs.amountPaid = "Amount paid cannot be negative.";
-    } else if (amountPaidValue > grandTotal) {
-      errs.amountPaid = `Amount paid cannot exceed the grand total of ₹${grandTotal.toFixed(2)}.`;
+    payments.forEach((payment, index) => {
+      if (payment.amount !== "" && Number(payment.amount) < 0) {
+        errs[`paymentAmount_${index}`] = `Payment ${index + 1} amount cannot be negative.`;
+      }
+
+      if (Number(payment.amount) > 0 && !payment.date) {
+        errs[`paymentDate_${index}`] = `Payment ${index + 1} needs a date.`;
+      }
+    });
+
+    if (amountPaidValue > grandTotal) {
+      errs.payments = `Total amount paid cannot exceed the grand total of ₹${grandTotal.toFixed(2)}.`;
     }
 
     if (formData.notes && wordCount(formData.notes) > 300) {
@@ -390,6 +468,26 @@ const EditBillProduct = () => {
         ratePerGram: Number(ex.ratePerGram || 0),
       }));
 
+      // Sends the FULL payment history back (pre-existing entries plus
+      // any newly added ones) - the backend replaces payments[]
+      // wholesale, there's no separate "append one payment" endpoint.
+      const cleanedPayments = payments
+        .filter((payment) => payment.amount !== "" && Number(payment.amount) > 0)
+        .map((payment) => ({
+          date: payment.date || getToday(),
+          amount: Number(payment.amount),
+          mode: payment.mode,
+        }));
+
+      const distinctModes = [...new Set(cleanedPayments.map((payment) => payment.mode))];
+
+      const primaryPaymentMode =
+        distinctModes.length === 0
+          ? "cash"
+          : distinctModes.length === 1
+          ? distinctModes[0]
+          : "mixed";
+
       const submitData = {
         billNo: formData.billNo.trim(),
         billDate: formData.billDate,
@@ -402,8 +500,9 @@ const EditBillProduct = () => {
         discount: Number(formData.discount || 0),
         cgstPercent: Number(formData.cgstPercent || 0),
         sgstPercent: Number(formData.sgstPercent || 0),
-        paymentMode: formData.paymentMode,
-        amountPaid: Number(formData.amountPaid || 0),
+        payments: cleanedPayments,
+        amountPaid: cleanedPayments.reduce((sum, payment) => sum + payment.amount, 0),
+        paymentMode: primaryPaymentMode,
         soldBy: formData.soldBy,
         notes: formData.notes,
       };
@@ -1020,33 +1119,101 @@ const EditBillProduct = () => {
           </div>
         </SectionCard>
 
-        {/* PAYMENT */}
+        {/* PAYMENTS (full history: each payment has its own date) */}
         <SectionCard>
-          <SectionHeader title="Payment" />
-
-          <div className="two-col" style={twoColGridStyle}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "10px",
+              marginBottom: "16px",
+            }}
+          >
             <div>
-              <label style={smallLabelStyle}>Payment Mode</label>
-              <select
-                value={formData.paymentMode}
-                onChange={(e) => handleChange("paymentMode", e.target.value)}
-                style={{ ...inputStyle, cursor: "pointer" }}
-              >
-                <option value="cash">Cash</option>
-                <option value="card">Card</option>
-                <option value="upi">UPI</option>
-                <option value="cheque">Cheque</option>
-                <option value="bank_transfer">Bank Transfer</option>
-                <option value="mixed">Mixed</option>
-              </select>
+              <SectionHeader title="Payments" marginBottom="2px" />
+              <div style={{ color: "#71717a", fontSize: "12.5px" }}>
+                {payments.length} recorded
+              </div>
             </div>
 
-            <div ref={(el) => (fieldRefs.current.amountPaid = el)}>
-              <label style={smallLabelStyle}>Amount Paid</label>
-              <MoneyInput value={formData.amountPaid} onChange={(e) => handleChange("amountPaid", e.target.value)} />
-              <FieldError msg={errors.amountPaid} />
-            </div>
+            <AddButton onClick={addPayment} text="+ Add Payment" />
           </div>
+
+          {errors.payments && <SmallError msg={errors.payments} />}
+
+          {payments.map((payment, index) => (
+            <div
+              key={payment.id}
+              style={{
+                marginBottom: "14px",
+                paddingBottom: "14px",
+                borderBottom: index === payments.length - 1 ? "none" : "1px solid #1f1f23",
+              }}
+            >
+              <div className="payment-grid" style={paymentGridStyle}>
+                <div ref={(el) => (fieldRefs.current[`paymentDate_${index}`] = el)}>
+                  <label style={smallLabelStyle}>Date</label>
+                  <input
+                    type="date"
+                    value={payment.date}
+                    onChange={(e) => updatePayment(payment.id, "date", e.target.value)}
+                    style={{ ...inputStyle, cursor: "pointer" }}
+                  />
+                  <SmallError msg={errors[`paymentDate_${index}`]} />
+                </div>
+
+                <div ref={(el) => (fieldRefs.current[`paymentAmount_${index}`] = el)}>
+                  <label style={smallLabelStyle}>Amount</label>
+                  <MoneyInput
+                    value={payment.amount}
+                    onChange={(e) => updatePayment(payment.id, "amount", e.target.value)}
+                    compact
+                  />
+                  <SmallError msg={errors[`paymentAmount_${index}`]} />
+                </div>
+
+                <div>
+                  <label style={smallLabelStyle}>Mode</label>
+                  <select
+                    value={payment.mode}
+                    onChange={(e) => updatePayment(payment.id, "mode", e.target.value)}
+                    style={{ ...inputStyle, cursor: "pointer" }}
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="upi">UPI</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => removePayment(payment.id)}
+                  title="Remove payment"
+                  style={{ ...deleteButtonStyle, alignSelf: "center" }}
+                >
+                  🗑
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {payments.length === 0 && (
+            <div style={{ color: "#52525b", fontSize: "13px", textAlign: "center", padding: "14px" }}>
+              No payments recorded
+            </div>
+          )}
+
+          {payments.length > 0 && (
+            <div style={subTotalStyle}>
+              <span>
+                Total Paid: <b style={{ color: "#22c55e" }}>₹{amountPaidValue.toFixed(2)}</b>
+              </span>
+            </div>
+          )}
         </SectionCard>
 
         {/* SUMMARY */}
@@ -1157,11 +1324,11 @@ const EditBillProduct = () => {
         @media (max-width: 900px) {
           .two-col { grid-template-columns: 1fr !important; }
           .three-col { grid-template-columns: 1fr !important; }
-          .item-grid, .exchange-grid { grid-template-columns: 1fr 1fr !important; }
+          .item-grid, .exchange-grid, .payment-grid { grid-template-columns: 1fr 1fr !important; }
         }
         @media (max-width: 640px) {
           .summary-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)) !important; }
-          .item-grid, .exchange-grid { grid-template-columns: 1fr !important; }
+          .item-grid, .exchange-grid, .payment-grid { grid-template-columns: 1fr !important; }
         }
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.7; }
         input:focus, textarea:focus, select:focus { border-color: #f97316 !important; }
@@ -1406,6 +1573,7 @@ const twoColGridStyle = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 
 const threeColGridStyle = { display: "grid", gridTemplateColumns: "1fr 1.3fr 1fr", gap: "28px" };
 const itemGridStyle = { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" };
 const exchangeGridStyle = { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" };
+const paymentGridStyle = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: "12px", alignItems: "start" };
 
 const subTotalStyle = {
   display: "flex",

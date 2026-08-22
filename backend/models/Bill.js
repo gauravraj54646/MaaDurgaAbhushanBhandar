@@ -132,6 +132,32 @@ const exchangeItemSchema = new mongoose.Schema(
   { _id: false },
 );
 
+/* ---------- Sub-schema: a single recorded payment ----------
+   Each payment is its own dated record so partial / installment
+   payments (paid across separate visits) can each be tracked with
+   the date they actually came in, instead of one lump "amountPaid". */
+const paymentSchema = new mongoose.Schema(
+  {
+    date: {
+      type: Date,
+      required: true,
+      default: Date.now,
+    },
+    amount: {
+      type: Number,
+      required: true,
+      min: [0.01, "Payment amount must be greater than 0."],
+    },
+    mode: {
+      type: String,
+      enum: ["cash", "card", "upi", "cheque", "bank_transfer"],
+      required: true,
+      default: "cash",
+    },
+  },
+  { _id: false },
+);
+
 const billSchema = new mongoose.Schema(
   {
     billNo: {
@@ -250,6 +276,14 @@ const billSchema = new mongoose.Schema(
     },
 
     // ----- Payment -----
+    // Full payment history: every payment received against this bill,
+    // each with its own date/amount/mode. amountPaid, paymentMode,
+    // balanceDue, and paymentStatus below are all derived from this
+    // array in the pre("validate") hook - don't set them directly.
+    payments: {
+      type: [paymentSchema],
+      default: [],
+    },
     paymentMode: {
       type: String,
       enum: ["cash", "card", "upi", "cheque", "bank_transfer", "mixed"],
@@ -340,9 +374,25 @@ billSchema.pre("validate", function () {
   this.roundOff = Math.round((rounded - preRound) * 100) / 100;
   this.grandTotal = Math.max(rounded, 0);
 
+  // 4. derive amountPaid + paymentMode from the payment history.
+  // If payments is empty (e.g. an older bill saved before this field
+  // existed, or a direct admin correction), fall back to whatever
+  // amountPaid/paymentMode was already set rather than zeroing it out.
+  if (this.payments && this.payments.length > 0) {
+    this.amountPaid =
+      Math.round(this.payments.reduce((sum, p) => sum + p.amount, 0) * 100) / 100;
+
+    const distinctModes = [...new Set(this.payments.map((p) => p.mode))];
+    this.paymentMode = distinctModes.length === 1 ? distinctModes[0] : "mixed";
+  }
+
   this.balanceDue = Math.max(this.grandTotal - this.amountPaid, 0);
   this.paymentStatus =
-    this.balanceDue === 0 ? "paid" : this.amountPaid === 0 ? "pending" : "partial";
+    this.balanceDue === 0 && this.amountPaid > 0
+      ? "paid"
+      : this.amountPaid === 0
+      ? "pending"
+      : "partial";
 });
 
 module.exports = mongoose.model("Bill", billSchema);

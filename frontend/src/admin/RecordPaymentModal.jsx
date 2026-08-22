@@ -12,10 +12,13 @@ const RecordPaymentModal = ({ vyaparId, item, onClose, onSuccess }) => {
   const [rate, setRate] = useState("");
   const [fineWeight, setFineWeight] = useState("");
   const [amount, setAmount] = useState("");
+  const [collectLabour, setCollectLabour] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const remaining = Number(item.remainingWeight ?? item.netWeight ?? 0);
+  const labourAmount = Number(item.labour ?? 0);
+  const labourAlreadyPaid = Boolean(item.labourPaid);
   const fineWeightNum = Number(fineWeight);
   const rateNum = Number(rate);
   const amountNum = Number(amount);
@@ -81,25 +84,25 @@ const RecordPaymentModal = ({ vyaparId, item, onClose, onSuccess }) => {
     Math.abs(fineWeightNum - remaining) <= 0.001 &&
     remaining > 0.001;
 
+  const hasFineWeightEntry = fineWeight !== "" && fineWeightNum > 0;
+
   const validate = () => {
-    if (!date) {
-      return "Date is required.";
+    if (!hasFineWeightEntry && !collectLabour) {
+      return "Enter a fine weight/amount, or check off labour to record something.";
     }
 
-    if (rate === "" || !Number.isFinite(rateNum) || rateNum <= 0) {
-      return "Enter a valid rate.";
-    }
+    if (hasFineWeightEntry) {
+      if (!date) {
+        return "Date is required.";
+      }
 
-    if (
-      fineWeight === "" ||
-      !Number.isFinite(fineWeightNum) ||
-      fineWeightNum <= 0
-    ) {
-      return "Enter a fine weight or amount.";
-    }
+      if (rate === "" || !Number.isFinite(rateNum) || rateNum <= 0) {
+        return "Enter a valid rate.";
+      }
 
-    if (fineWeightNum > remaining + 0.001) {
-      return `Fine weight cannot exceed the remaining weight of ${remaining.toFixed(3)} g.`;
+      if (fineWeightNum > remaining + 0.001) {
+        return `Fine weight cannot exceed the remaining weight of ${remaining.toFixed(3)} g.`;
+      }
     }
 
     return "";
@@ -119,6 +122,14 @@ const RecordPaymentModal = ({ vyaparId, item, onClose, onSuccess }) => {
     setSubmitting(true);
 
     try {
+      const payload = { markLabourPaid: collectLabour };
+
+      if (hasFineWeightEntry) {
+        payload.date = date;
+        payload.rate = rateNum;
+        payload.fineWeight = fineWeightNum;
+      }
+
       const res = await fetch(
         `/api/vyapars/${vyaparId}/items/${item._id}/fine-payments`,
         {
@@ -127,11 +138,7 @@ const RecordPaymentModal = ({ vyaparId, item, onClose, onSuccess }) => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${user.token}`,
           },
-          body: JSON.stringify({
-            date,
-            rate: rateNum,
-            fineWeight: fineWeightNum,
-          }),
+          body: JSON.stringify(payload),
         },
       );
 
@@ -276,6 +283,38 @@ const RecordPaymentModal = ({ vyaparId, item, onClose, onSuccess }) => {
             </div>
           )}
 
+          {labourAmount > 0 && (
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 12px",
+                borderRadius: "7px",
+                border: labourAlreadyPaid
+                  ? "1px solid #27272a"
+                  : "1px dashed rgba(250,204,21,0.4)",
+                background: labourAlreadyPaid
+                  ? "#09090b"
+                  : "rgba(250,204,21,0.08)",
+                color: labourAlreadyPaid ? "#52525b" : "#facc15",
+                fontSize: "13px",
+                fontWeight: "600",
+                cursor: labourAlreadyPaid ? "not-allowed" : "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={labourAlreadyPaid || collectLabour}
+                disabled={labourAlreadyPaid}
+                onChange={(e) => setCollectLabour(e.target.checked)}
+              />
+              {labourAlreadyPaid
+                ? `Labour already collected (₹${labourAmount.toFixed(2)})`
+                : `Also collect labour — ₹${labourAmount.toFixed(2)}`}
+            </label>
+          )}
+
           <div
             style={{
               color: "#71717a",
@@ -323,7 +362,7 @@ const RecordPaymentModal = ({ vyaparId, item, onClose, onSuccess }) => {
             </div>
           </div>
 
-          {amountNum > 0 && (
+          {(amountNum > 0 || collectLabour) && (
             <div
               style={{
                 padding: "10px 12px",
@@ -335,8 +374,30 @@ const RecordPaymentModal = ({ vyaparId, item, onClose, onSuccess }) => {
                 fontWeight: "600",
               }}
             >
-              {fineWeightNum.toFixed(3)}g<sub style={subFTagStyle}>F</sub> = ₹
-              {amountNum.toFixed(2)}
+              {amountNum > 0 && (
+                <div>
+                  {fineWeightNum.toFixed(3)}g<sub style={subFTagStyle}>F</sub>{" "}
+                  = ₹{amountNum.toFixed(2)}
+                </div>
+              )}
+
+              {collectLabour && (
+                <div style={{ color: "#facc15" }}>
+                  + Labour ₹{labourAmount.toFixed(2)}
+                </div>
+              )}
+
+              {amountNum > 0 && collectLabour && (
+                <div
+                  style={{
+                    marginTop: "4px",
+                    paddingTop: "4px",
+                    borderTop: "1px solid #27272a",
+                  }}
+                >
+                  Total to collect: ₹{(amountNum + labourAmount).toFixed(2)}
+                </div>
+              )}
             </div>
           )}
 

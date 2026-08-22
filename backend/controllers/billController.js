@@ -17,6 +17,16 @@ const generateBillNo = async () => {
   return `${prefix}${String(nextNum).padStart(width, '0')}`;
 };
 
+// Normalizes a raw payments[] array from the client into the shape
+// the Payment sub-schema expects. Shared by createBill/updateBill so
+// both stay in sync.
+const cleanPayments = (payments) =>
+  (payments || []).map((p) => ({
+    date: p.date,
+    amount: p.amount,
+    mode: p.mode,
+  }));
+
 const getBills = async (req, res) => {
   try {
     const {
@@ -140,7 +150,7 @@ const createBill = async (req, res) => {
       customerName, mobileNo, address, gstin,
       items, exchangeItems,
       discount, cgstPercent, sgstPercent,
-      paymentMode, amountPaid,
+      payments, paymentMode, amountPaid,
       soldBy, notes,
     } = req.body;
 
@@ -179,6 +189,11 @@ const createBill = async (req, res) => {
       discount,
       cgstPercent,
       sgstPercent,
+      // payments[] is the source of truth going forward - the
+      // pre("validate") hook derives amountPaid/paymentMode from it
+      // when non-empty. paymentMode/amountPaid are still accepted
+      // directly as a fallback for callers that don't send payments.
+      payments: cleanPayments(payments),
       paymentMode,
       amountPaid,
       soldBy,
@@ -196,6 +211,7 @@ const createBill = async (req, res) => {
       try {
         const bill = new Bill({
           ...req.body,
+          payments: cleanPayments(req.body.payments),
           billNo: await generateBillNo(),
           isDeleted: false,
         });
@@ -217,7 +233,7 @@ const updateBill = async (req, res) => {
       customerName, mobileNo, address, gstin,
       items, exchangeItems,
       discount, cgstPercent, sgstPercent,
-      paymentMode, amountPaid,
+      payments, paymentMode, amountPaid,
       soldBy, notes, isCancelled,
     } = req.body;
 
@@ -273,8 +289,17 @@ const updateBill = async (req, res) => {
         }));
       }
 
+      // Like items/exchangeItems, this replaces the whole array — the
+      // caller (Edit Bill page) is expected to send back the full set
+      // of payments (existing ones plus any newly added), not just
+      // the new one, since there's no separate "append" endpoint.
+      if (payments) {
+        bill.payments = cleanPayments(payments);
+      }
+
       // .save() re-runs the pre-validate hook, so totals/tax/balanceDue
-      // are recalculated from the updated items/exchangeItems/amountPaid.
+      // (and, when payments[] is non-empty, amountPaid/paymentMode too)
+      // are recalculated from the updated data.
       const updatedBill = await bill.save();
 
       res.json(updatedBill);

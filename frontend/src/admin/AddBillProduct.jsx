@@ -96,8 +96,12 @@ const AddBillProduct = () => {
     cgstPercent: 1.5,
     sgstPercent: 1.5,
 
-    paymentMode: "cash",
-    amountPaid: "",
+    // Full payment history: each payment is its own record with a
+    // date, amount, and mode - supports partial / installment payments
+    // made across multiple visits (e.g. Edit Bill later adds more).
+    payments: [
+      { id: Date.now(), date: getToday(), amount: "", mode: "cash" },
+    ],
 
     soldBy: "",
     notes: "",
@@ -172,7 +176,11 @@ const AddBillProduct = () => {
   const grandTotal = Math.max(Math.round(preRound), 0);
   const roundOff = grandTotal - preRound;
 
-  const amountPaidValue = Number(formData.amountPaid || 0);
+  // Total paid = sum of every recorded payment (each with its own date)
+  const amountPaidValue = formData.payments.reduce(
+    (sum, payment) => sum + Number(payment.amount || 0),
+    0
+  );
   const balanceDue = Math.max(grandTotal - amountPaidValue, 0);
 
   // =========================================================
@@ -288,6 +296,44 @@ const AddBillProduct = () => {
   };
 
   // =========================================================
+  // ADD / REMOVE / UPDATE PAYMENT
+  // Each payment is its own record: date + amount + mode. This is
+  // what lets partial/installment payments (paid across separate
+  // visits) each be dated individually instead of one lump sum.
+  // =========================================================
+
+  const addPayment = () => {
+    setFormData((prev) => ({
+      ...prev,
+      payments: [
+        ...prev.payments,
+        {
+          id: Date.now(),
+          date: getToday(),
+          amount: "",
+          mode: "cash",
+        },
+      ],
+    }));
+  };
+
+  const removePayment = (id) => {
+    setFormData((prev) => ({
+      ...prev,
+      payments: prev.payments.filter((payment) => payment.id !== id),
+    }));
+  };
+
+  const updatePayment = (id, field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      payments: prev.payments.map((payment) =>
+        payment.id === id ? { ...payment, [field]: value } : payment
+      ),
+    }));
+  };
+
+  // =========================================================
   // SCROLL / FOCUS TO FIRST INVALID FIELD
   // =========================================================
 
@@ -369,10 +415,18 @@ const AddBillProduct = () => {
       errs.discount = "Discount cannot be negative.";
     }
 
-    if (formData.amountPaid !== "" && Number(formData.amountPaid) < 0) {
-      errs.amountPaid = "Amount paid cannot be negative.";
-    } else if (amountPaidValue > grandTotal) {
-      errs.amountPaid = `Amount paid cannot exceed the grand total of ₹${grandTotal.toFixed(2)}.`;
+    formData.payments.forEach((payment, index) => {
+      if (payment.amount !== "" && Number(payment.amount) < 0) {
+        errs[`paymentAmount_${index}`] = `Payment ${index + 1} amount cannot be negative.`;
+      }
+
+      if (Number(payment.amount) > 0 && !payment.date) {
+        errs[`paymentDate_${index}`] = `Payment ${index + 1} needs a date.`;
+      }
+    });
+
+    if (amountPaidValue > grandTotal) {
+      errs.payments = `Total amount paid cannot exceed the grand total of ₹${grandTotal.toFixed(2)}.`;
     }
 
     if (formData.notes && wordCount(formData.notes) > 300) {
@@ -434,6 +488,29 @@ const AddBillProduct = () => {
         ratePerGram: Number(ex.ratePerGram || 0),
       }));
 
+      // Drop blank rows (a payment row left at "" is just an unused
+      // slot in the UI, not an actual payment) and normalize types.
+      const cleanedPayments = formData.payments
+        .filter((payment) => payment.amount !== "" && Number(payment.amount) > 0)
+        .map((payment) => ({
+          date: payment.date || getToday(),
+          amount: Number(payment.amount),
+          mode: payment.mode,
+        }));
+
+      const distinctModes = [
+        ...new Set(cleanedPayments.map((payment) => payment.mode)),
+      ];
+
+      // Kept for backward compatibility with any code still reading a
+      // single top-level paymentMode/amountPaid off the bill.
+      const primaryPaymentMode =
+        distinctModes.length === 0
+          ? "cash"
+          : distinctModes.length === 1
+          ? distinctModes[0]
+          : "mixed";
+
       const submitData = {
         ...(formData.billNo.trim() ? { billNo: formData.billNo.trim() } : {}),
         billDate: formData.billDate,
@@ -446,8 +523,9 @@ const AddBillProduct = () => {
         discount: Number(formData.discount || 0),
         cgstPercent: Number(formData.cgstPercent || 0),
         sgstPercent: Number(formData.sgstPercent || 0),
-        paymentMode: formData.paymentMode,
-        amountPaid: Number(formData.amountPaid || 0),
+        payments: cleanedPayments,
+        amountPaid: cleanedPayments.reduce((sum, payment) => sum + payment.amount, 0),
+        paymentMode: primaryPaymentMode,
         soldBy: formData.soldBy,
         notes: formData.notes,
       };
@@ -612,7 +690,7 @@ const AddBillProduct = () => {
 
         <div className="three-col" style={threeColGridStyle}>
           <div>
-            <label style={labelStyle}>Mobile No.</label>
+            <label style={smallLabelStyle}>Mobile No.</label>
 
             <input
               type="text"
@@ -1126,41 +1204,117 @@ const AddBillProduct = () => {
         </SectionCard>
 
         {/* =====================================================
-            PAYMENT
+            PAYMENTS (full history: each payment has its own date)
         ====================================================== */}
         <SectionCard>
-          <SectionHeader title="Payment" />
-
-          <div className="two-col" style={twoColGridStyle}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "10px",
+              marginBottom: "16px",
+            }}
+          >
             <div>
-              <label style={smallLabelStyle}>Payment Mode</label>
-              <select
-                value={formData.paymentMode}
-                onChange={(e) => handleChange("paymentMode", e.target.value)}
-                style={{ ...inputStyle, cursor: "pointer" }}
-              >
-                <option value="cash">Cash</option>
-                <option value="card">Card</option>
-                <option value="upi">UPI</option>
-                <option value="cheque">Cheque</option>
-                <option value="bank_transfer">Bank Transfer</option>
-                <option value="mixed">Mixed</option>
-              </select>
+              <SectionHeader title="Payments" marginBottom="2px" />
+              <div style={{ color: "#71717a", fontSize: "12.5px" }}>
+                {formData.payments.length} recorded
+              </div>
             </div>
 
-            <div ref={(el) => (fieldRefs.current.amountPaid = el)}>
-              <label style={smallLabelStyle}>Amount Paid</label>
-              <MoneyInput
-                placeholder="Amount paid"
-                value={formData.amountPaid}
-                onChange={(e) => handleChange("amountPaid", e.target.value)}
-              />
-              {formData.amountPaid && (
-                <div style={amountWordsStyle}>{numberToWords(formData.amountPaid)}</div>
-              )}
-              <FieldError msg={errors.amountPaid} />
-            </div>
+            <AddButton onClick={addPayment} text="+ Add Payment" />
           </div>
+
+          {errors.payments && <SmallError msg={errors.payments} />}
+
+          {formData.payments.map((payment, index) => (
+            <div
+              key={payment.id}
+              style={{
+                marginBottom: "14px",
+                paddingBottom: "14px",
+                borderBottom:
+                  index === formData.payments.length - 1
+                    ? "none"
+                    : "1px solid #1f1f23",
+              }}
+            >
+              <div className="payment-grid" style={paymentGridStyle}>
+                <div ref={(el) => (fieldRefs.current[`paymentDate_${index}`] = el)}>
+                  <label style={smallLabelStyle}>Date</label>
+                  <input
+                    type="date"
+                    value={payment.date}
+                    onChange={(e) => updatePayment(payment.id, "date", e.target.value)}
+                    style={{ ...inputStyle, cursor: "pointer" }}
+                  />
+                  <SmallError msg={errors[`paymentDate_${index}`]} />
+                </div>
+
+                <div ref={(el) => (fieldRefs.current[`paymentAmount_${index}`] = el)}>
+                  <label style={smallLabelStyle}>Amount</label>
+                  <MoneyInput
+                    placeholder="Amount"
+                    value={payment.amount}
+                    onChange={(e) => updatePayment(payment.id, "amount", e.target.value)}
+                    compact
+                  />
+                  <SmallError msg={errors[`paymentAmount_${index}`]} />
+                </div>
+
+                <div>
+                  <label style={smallLabelStyle}>Mode</label>
+                  <select
+                    value={payment.mode}
+                    onChange={(e) => updatePayment(payment.id, "mode", e.target.value)}
+                    style={{ ...inputStyle, cursor: "pointer" }}
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="upi">UPI</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => removePayment(payment.id)}
+                  title="Remove payment"
+                  style={{ ...deleteButtonStyle, alignSelf: "center" }}
+                >
+                  🗑
+                </button>
+              </div>
+
+              {payment.amount && (
+                <div style={amountWordsStyle}>{numberToWords(payment.amount)}</div>
+              )}
+            </div>
+          ))}
+
+          {formData.payments.length === 0 && (
+            <div
+              style={{
+                color: "#52525b",
+                fontSize: "13px",
+                textAlign: "center",
+                padding: "14px",
+              }}
+            >
+              No payments recorded
+            </div>
+          )}
+
+          {formData.payments.length > 0 && (
+            <div style={subTotalStyle}>
+              <span>
+                Total Paid: <b style={{ color: "#22c55e" }}>₹{amountPaidValue.toFixed(2)}</b>
+              </span>
+            </div>
+          )}
         </SectionCard>
 
         {/* =====================================================
@@ -1329,7 +1483,8 @@ const AddBillProduct = () => {
           }
 
           .item-grid,
-          .exchange-grid {
+          .exchange-grid,
+          .payment-grid {
             grid-template-columns: 1fr 1fr !important;
           }
         }
@@ -1340,7 +1495,8 @@ const AddBillProduct = () => {
           }
 
           .item-grid,
-          .exchange-grid {
+          .exchange-grid,
+          .payment-grid {
             grid-template-columns: 1fr !important;
           }
         }
@@ -1683,6 +1839,13 @@ const exchangeGridStyle = {
   display: "grid",
   gridTemplateColumns: "repeat(4, 1fr)",
   gap: "12px",
+};
+
+const paymentGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr 1fr auto",
+  gap: "12px",
+  alignItems: "start",
 };
 
 const subTotalStyle = {
