@@ -229,6 +229,20 @@ const deleteVyapar = async (req, res) => {
     });
 
     if (vyapar) {
+      // Block deletion while any item still has unsettled fine
+      // weight — this is the source of truth even if the frontend's
+      // own check is bypassed (a direct API call, a stale UI, etc.).
+      const hasOutstanding = vyapar.items.some(
+        (item) => item.remainingWeight > 0.001,
+      );
+
+      if (hasOutstanding) {
+        return res.status(400).json({
+          message:
+            'Cannot delete: this record still has unsettled fine weight remaining on one or more items. Record payments until every item is fully settled first.',
+        });
+      }
+
       vyapar.isDeleted = true;
 
       await vyapar.save();

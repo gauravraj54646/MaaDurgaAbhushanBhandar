@@ -36,9 +36,10 @@ const finePaymentSchema = new mongoose.Schema(
   { _id: true },
 );
 
-finePaymentSchema.pre("validate", function (next) {
-  this.amount = +(this.fineWeight * this.rate).toFixed(2);
-  next();
+finePaymentSchema.pre("validate", function () {
+  // rate is per 10g (confirmed convention) — amount is what fineWeight
+  // grams of metal are worth at that rate.
+  this.amount = +((this.fineWeight * this.rate) / 10).toFixed(2);
 });
 
 /**
@@ -102,7 +103,7 @@ const itemSchema = new mongoose.Schema(
   { _id: true },
 );
 
-itemSchema.pre("validate", function (next) {
+itemSchema.pre("validate", function () {
   this.netWeight = +(this.grossWeight * (this.tunch / 100)).toFixed(3);
 
   const totalPaid = this.finePayments.reduce(
@@ -111,13 +112,15 @@ itemSchema.pre("validate", function (next) {
   );
   // small epsilon for floating-point rounding
   if (totalPaid > this.netWeight + 0.001) {
-    return next(
-      new Error(
-        `Total fine weight paid (${totalPaid}) exceeds item's net weight (${this.netWeight}).`,
-      ),
+    // Throwing (rather than next(err)) is how sync pre-hooks report a
+    // validation failure now that the callback-style (next) hook
+    // signature is gone — Mongoose 7+ no longer passes next() to
+    // pre/post middleware at all, so calling it throws "next is not
+    // a function" instead of your actual error.
+    throw new Error(
+      `Total fine weight paid (${totalPaid}) exceeds item's net weight (${this.netWeight}).`,
     );
   }
-  next();
 });
 
 // How much of this item's weight is still outstanding after
@@ -177,11 +180,12 @@ const vyaparSchema = new mongoose.Schema(
     },
 
     // Links this pledge/customer record to the loan you maintain in
-    // your separate Loan model. Swap `ref: "Loan"` for whatever you
-    // actually named that model if it differs.
+    // your separate Loan model. This must match the string passed to
+    // mongoose.model(...) in your loan model file exactly — yours is
+    // registered as "LoanProduct", not "Loan".
     loan: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Loan",
+      ref: "LoanProduct",
       required: true,
     },
 

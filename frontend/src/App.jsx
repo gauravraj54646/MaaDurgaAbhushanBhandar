@@ -32,6 +32,7 @@ import EditLoanProduct from "./admin/EditLoanProduct";
 import AdminOrders from "./admin/AdminOrders";
 import AdminUsers from "./admin/AdminUsers";
 import LoanAnalyticsDashboard from "./admin/LoanAnalyticsDashboard";
+import EditVyapar from "./admin/EditVyapar";
 
 // Bill admin
 // NOTE: only AddBillProduct exists so far. AdminBillDashboard,
@@ -48,6 +49,7 @@ import EditBillProduct from "./admin/EditBillProduct";
 import People from "./admin/People";
 import FamilyTree from "./admin/FamilyTree";
 import AddVyapar from "./admin/AddVyapar";
+import ManageVyapars from "./admin/ManageVyapars";
 
 function App() {
   return (
@@ -231,10 +233,24 @@ function App() {
             element={<FamilyTree />}
           />
 
-                    <Route
+          {/* -----------------------------------------------------
+              VYAPAR (pledged items) ADMIN
+          ----------------------------------------------------- */}
+
+          <Route
             path="/admin/vyapar"
             element={<AddVyapar />}
           />
+
+          {/* Manage/list page — AddVyapar and EditVyapar both
+              navigate here after a successful save, so this route
+              must exist for that redirect to land anywhere. */}
+          <Route
+            path="/admin/vyapar/products"
+            element={<ManageVyapars />}
+          />
+
+          <Route path="/admin/vyapar/:id/edit" element={<EditVyapar />} />
         </Routes>
       </div>
 

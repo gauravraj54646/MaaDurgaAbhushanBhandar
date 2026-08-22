@@ -53,6 +53,7 @@ app.use("/api/loans", require("./routes/loanRoutes"));
 
 app.use("/api/bills", require("./routes/billRoutes"));
 
+app.use('/api/vyapars', require('./routes/vyaparRoutes'));
 // ============================================================
 // PEOPLE / FAMILY SYSTEM
 // ============================================================

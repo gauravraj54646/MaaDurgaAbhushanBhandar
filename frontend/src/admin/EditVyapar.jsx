@@ -1,11 +1,9 @@
 import React, { useState, useContext, useRef, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 const wordCount = (str = "") => str.trim().split(/\s+/).filter(Boolean).length;
 
-// Mirrors the backend's netWeight derivation (grossWeight * tunch / 100)
-// so the form can preview it live, before the server ever sees the item.
 const computeNetWeight = (item) => {
   const gross = Number(item.grossWeight);
   const tunch = Number(item.tunch);
@@ -17,40 +15,19 @@ const computeNetWeight = (item) => {
   return gross * (tunch / 100);
 };
 
-const AddVyapar = () => {
+const sumFineWeight = (finePayments = []) =>
+  finePayments.reduce((sum, p) => sum + Number(p.fineWeight || 0), 0);
+
+const EditVyapar = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
-  const location = useLocation();
-
-  // =========================================================
-  // LOAN PREFILL
-  // =========================================================
-  // A Vyapar record must be linked to a Loan. Same pattern as
-  // AddLoanProduct's person prefill: either the loan doc was handed
-  // over via navigation state (coming from the loan detail page), or
-  // only its id was passed in the query string and needs fetching.
-
-  const selectedLoanFromState = location.state?.loan || null;
-  const loanIdFromQuery = new URLSearchParams(location.search).get("loanId");
-  const [selectedLoan, setSelectedLoan] = useState(selectedLoanFromState);
-  const [loanLoading, setLoanLoading] = useState(false);
-
-  // Manual fallback for when this page wasn't opened from a loan
-  // record/query param — lets you type the loan's human-readable
-  // Loan ID (e.g. "LN0001") and look it up directly.
-  const [loanSearchInput, setLoanSearchInput] = useState("");
-  const [loanSearchLoading, setLoanSearchLoading] = useState(false);
-  const [loanSearchError, setLoanSearchError] = useState("");
-
-  // =========================================================
-  // REFS (for scroll-to-error on invalid submit)
-  // =========================================================
+  const { id } = useParams();
 
   const fieldRefs = useRef({});
 
-  // =========================================================
-  // FORM DATA
-  // =========================================================
+  const [vyapar, setVyapar] = useState(null);
+  const [fetchLoading, setFetchLoading] = useState(true);
+  const [fetchError, setFetchError] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -58,14 +35,7 @@ const AddVyapar = () => {
     customerId: "",
     mobileNo: "",
     description: "",
-
-    // Mongo _id of the linked Loan document
     loan: "",
-
-    // Pledged items — each carries its own weighing/purity/labour,
-    // plus a dated fine-payment ledger (usually left empty here and
-    // added later via the item's "Record Payment" action, since
-    // payments happen over time as the customer settles the loan).
     items: [],
   });
 
@@ -74,162 +44,73 @@ const AddVyapar = () => {
   const [showConfirm, setShowConfirm] = useState(false);
 
   // =========================================================
-  // LOAD LOAN DETAILS WHEN OPENED FROM A LOAN RECORD
+  // LOAD EXISTING RECORD
   // =========================================================
-
-  // Shared by the auto-load effect below AND the manual search handler
-  // further down — either path lands here once a loan document is found.
-  const applyLoan = (loan) => {
-    if (!loan) return;
-
-    setSelectedLoan(loan);
-    setLoanSearchError("");
-
-    setFormData((prev) => ({
-      ...prev,
-      name: loan.name || "",
-      address: loan.address || "",
-      customerId: loan.customerId || "",
-      mobileNo: loan.mobileNo || "",
-      loan: loan._id || "",
-    }));
-
-    if (errors.loan) {
-      setErrors((prev) => ({ ...prev, loan: "" }));
-    }
-  };
 
   useEffect(() => {
     let cancelled = false;
 
-    if (selectedLoanFromState) {
-      applyLoan(selectedLoanFromState);
-    }
-
-    if (!loanIdFromQuery || !user?.token) {
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    const loadLoan = async () => {
+    const loadVyapar = async () => {
       try {
-        setLoanLoading(true);
+        setFetchLoading(true);
+        setFetchError("");
 
-        const response = await fetch(`/api/loans/${loanIdFromQuery}`, {
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-          },
+        const res = await fetch(`/api/vyapars/${id}`, {
+          headers: { Authorization: `Bearer ${user.token}` },
         });
 
-        const data = await response.json();
+        const data = await res.json();
 
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to load loan details");
+        if (!res.ok) {
+          throw new Error(data.message || "Failed to load record.");
         }
 
-        if (!cancelled) {
-          applyLoan(data);
-        }
-      } catch (error) {
-        console.error("Failed to load loan:", error);
+        if (cancelled) return;
 
+        setVyapar(data);
+
+        setFormData({
+          name: data.name || "",
+          address: data.address || "",
+          customerId: data.customerId || "",
+          mobileNo: data.mobileNo || "",
+          description: data.description || "",
+          loan: data.loan?._id || data.loan || "",
+          items: (data.items || []).map((item) => ({
+            id: item._id,
+            metal: item.metal,
+            grossWeight: String(item.grossWeight),
+            tunch: String(item.tunch),
+            labour: String(item.labour ?? 0),
+            description: item.description || "",
+            // Kept as-is and sent back unchanged on submit — this UI
+            // doesn't edit individual payments, so the item's history
+            // can't be silently dropped by an unrelated edit.
+            finePayments: item.finePayments || [],
+          })),
+        });
+      } catch (err) {
         if (!cancelled) {
-          setLoanSearchError(
-            "Couldn't load the loan from the link — the loanId in the URL may be invalid. Try searching by Loan ID below instead.",
-          );
+          setFetchError(err.message || "Something went wrong.");
         }
       } finally {
         if (!cancelled) {
-          setLoanLoading(false);
+          setFetchLoading(false);
         }
       }
     };
 
-    loadLoan();
+    if (user?.token && id) {
+      loadVyapar();
+    }
 
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loanIdFromQuery, user?.token, selectedLoanFromState]);
+  }, [id, user?.token]);
 
   // =========================================================
-  // MANUAL LOAN SEARCH (fallback when opened without loan context)
-  // =========================================================
-
-  const handleFindLoan = async (e) => {
-    e.preventDefault();
-
-    const query = loanSearchInput.trim();
-
-    if (!query) {
-      setLoanSearchError("Enter a Loan ID to search for.");
-      return;
-    }
-
-    setLoanSearchLoading(true);
-    setLoanSearchError("");
-
-    try {
-      // The loans list endpoint matches loanId exactly (after
-      // trim/uppercase), but only returns a few summary fields — no
-      // address — so a second fetch by _id gets the full record.
-      const searchRes = await fetch(
-        `/api/loans?loanId=${encodeURIComponent(query)}&limit=1`,
-        { headers: { Authorization: `Bearer ${user.token}` } },
-      );
-
-      const searchData = await searchRes.json();
-
-      if (!searchRes.ok) {
-        throw new Error(searchData.message || "Search failed.");
-      }
-
-      const match = searchData.loans?.[0];
-
-      if (!match) {
-        setLoanSearchError(`No loan found with Loan ID "${query}".`);
-        return;
-      }
-
-      const fullRes = await fetch(`/api/loans/${match._id}`, {
-        headers: { Authorization: `Bearer ${user.token}` },
-      });
-
-      const fullData = await fullRes.json();
-
-      if (!fullRes.ok) {
-        throw new Error(fullData.message || "Failed to load loan details.");
-      }
-
-      applyLoan(fullData);
-    } catch (error) {
-      console.error("Loan search failed:", error);
-      setLoanSearchError(error.message || "Something went wrong.");
-    } finally {
-      setLoanSearchLoading(false);
-    }
-  };
-
-  const handleChangeLoan = () => {
-    setSelectedLoan(null);
-    setLoanSearchInput("");
-    setLoanSearchError("");
-
-    setFormData((prev) => ({
-      ...prev,
-      name: "",
-      address: "",
-      customerId: "",
-      mobileNo: "",
-      loan: "",
-    }));
-  };
-
-  // =========================================================
-  // ITEM TOTALS (mirrors the model's totalGoldNetWeight /
-  // totalSilverNetWeight virtuals, computed client-side for preview)
+  // TOTALS
   // =========================================================
 
   const totalGoldNetWeight = formData.items
@@ -240,32 +121,17 @@ const AddVyapar = () => {
     .filter((item) => item.metal === "silver")
     .reduce((sum, item) => sum + computeNetWeight(item), 0);
 
-  const totalLabour = formData.items.reduce(
-    (sum, item) => sum + Number(item.labour || 0),
-    0,
-  );
-
   // =========================================================
-  // HANDLE NORMAL FIELD
+  // HANDLERS
   // =========================================================
 
   const handleChange = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
 
     if (errors[field]) {
-      setErrors((prev) => ({
-        ...prev,
-        [field]: "",
-      }));
+      setErrors((prev) => ({ ...prev, [field]: "" }));
     }
   };
-
-  // =========================================================
-  // ADD ITEM
-  // =========================================================
 
   const addItem = () => {
     if (formData.items.length >= 50) {
@@ -275,64 +141,53 @@ const AddVyapar = () => {
 
     setFormData((prev) => ({
       ...prev,
-
       items: [
         ...prev.items,
-
         {
-          id: Date.now(),
+          id: `new-${Date.now()}`,
           metal: "gold",
           grossWeight: "",
           tunch: "",
           labour: "0",
           description: "",
+          finePayments: [],
         },
       ],
     }));
   };
 
-  // =========================================================
-  // REMOVE ITEM
-  // =========================================================
+  const removeItem = (itemId) => {
+    const item = formData.items.find((i) => i.id === itemId);
 
-  const removeItem = (id) => {
+    if (item && item.finePayments.length > 0) {
+      const confirmed = window.confirm(
+        `This item has ${item.finePayments.length} recorded payment(s) totaling ${sumFineWeight(item.finePayments).toFixed(3)}g. Removing it will delete that payment history too. Continue?`,
+      );
+
+      if (!confirmed) return;
+    }
+
     setFormData((prev) => ({
       ...prev,
-
-      items: prev.items.filter((item) => item.id !== id),
+      items: prev.items.filter((i) => i.id !== itemId),
     }));
   };
 
-  // =========================================================
-  // UPDATE ITEM
-  // =========================================================
-
-  const updateItem = (id, field, value) => {
+  const updateItem = (itemId, field, value) => {
     setFormData((prev) => ({
       ...prev,
-
       items: prev.items.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              [field]: value,
-            }
-          : item,
+        item.id === itemId ? { ...item, [field]: value } : item,
       ),
     }));
   };
-
-  // =========================================================
-  // SCROLL / FOCUS TO FIRST INVALID FIELD
-  // =========================================================
 
   const scrollToFirstError = (errs) => {
     const errorKeys = Object.keys(errs).filter((k) => errs[k]);
 
     if (errorKeys.length === 0) return;
 
-    const firstErrorKey = errorKeys[0];
-    const node = fieldRefs.current[firstErrorKey];
+    const node = fieldRefs.current[errorKeys[0]];
 
     if (!node) return;
 
@@ -352,7 +207,6 @@ const AddVyapar = () => {
   const validate = () => {
     const errs = {};
 
-    // Name
     if (!formData.name.trim()) {
       errs.name = "Name is required.";
     }
@@ -361,7 +215,6 @@ const AddVyapar = () => {
       errs.name = "Name must be 60 words or fewer.";
     }
 
-    // Address
     if (!formData.address.trim()) {
       errs.address = "Address is required.";
     }
@@ -370,18 +223,15 @@ const AddVyapar = () => {
       errs.address = "Address must be 100 words or fewer.";
     }
 
-    // Customer ID
     if (!/^[A-Z0-9]{1,8}$/.test(formData.customerId)) {
       errs.customerId =
         "Customer ID must contain letters and numbers only, max 8 characters.";
     }
 
-    // Mobile
     if (!/^\d{10}$/.test(formData.mobileNo)) {
       errs.mobileNo = "Mobile No. must be exactly 10 digits.";
     }
 
-    // Description
     if (!formData.description.trim()) {
       errs.description = "Description is required.";
     }
@@ -390,13 +240,6 @@ const AddVyapar = () => {
       errs.description = "Description must be 300 words or fewer.";
     }
 
-    // Linked loan
-    if (!formData.loan) {
-      errs.loan =
-        "No loan is linked. Search for one above, or open this form from a loan record.";
-    }
-
-    // Items
     if (formData.items.length === 0) {
       errs.items = "At least one item (gold/silver) is required.";
     }
@@ -432,6 +275,16 @@ const AddVyapar = () => {
         errs[`itemDescription_${index}`] =
           `Item description must be 50 words or fewer (Item ${index + 1}).`;
       }
+
+      // Client-side heads-up only — the server is the real gate on
+      // this, since it's the one that knows the true remaining weight.
+      const netWeight = computeNetWeight(item);
+      const existingPaid = sumFineWeight(item.finePayments);
+
+      if (existingPaid > netWeight + 0.001) {
+        errs[`itemGrossWeight_${index}`] =
+          `This item already has ${existingPaid.toFixed(3)}g paid off — reduce gross weight/tunch no further than that.`;
+      }
     });
 
     setErrors(errs);
@@ -450,9 +303,7 @@ const AddVyapar = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!validate()) {
-      return;
-    }
+    if (!validate()) return;
 
     setShowConfirm(true);
   };
@@ -468,6 +319,13 @@ const AddVyapar = () => {
         tunch: Number(item.tunch),
         labour: Number(item.labour || 0),
         description: item.description,
+        // Sent back unchanged so this edit can never silently wipe an
+        // item's existing payment history.
+        finePayments: item.finePayments.map((p) => ({
+          date: p.date,
+          rate: p.rate,
+          fineWeight: p.fineWeight,
+        })),
       }));
 
       const submitData = {
@@ -480,15 +338,12 @@ const AddVyapar = () => {
         items: cleanedItems,
       };
 
-      const res = await fetch("/api/vyapars", {
-        method: "POST",
-
+      const res = await fetch(`/api/vyapars/${id}`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
-
           Authorization: `Bearer ${user.token}`,
         },
-
         body: JSON.stringify(submitData),
       });
 
@@ -503,16 +358,14 @@ const AddVyapar = () => {
       const responseData = await res.json();
 
       if (res.ok) {
-        alert("Vyapar record created successfully!");
-
+        alert("Vyapar record updated successfully!");
         navigate("/admin/vyapar/products");
       } else {
-        alert(responseData.message || "Error creating Vyapar record");
+        alert(responseData.message || "Error updating Vyapar record");
       }
     } catch (error) {
-      console.error("Error creating Vyapar record:", error);
-
-      alert(error.message || "Something went wrong while creating the record.");
+      console.error("Error updating Vyapar record:", error);
+      alert(error.message || "Something went wrong while updating the record.");
     } finally {
       setLoading(false);
     }
@@ -528,21 +381,50 @@ const AddVyapar = () => {
   }
 
   // =========================================================
+  // LOADING / ERROR STATES
+  // =========================================================
+
+  if (fetchLoading) {
+    return (
+      <div style={pageWrapperStyle}>
+        <div style={{ color: "#a1a1aa", fontSize: "14px" }}>Loading...</div>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div style={pageWrapperStyle}>
+        <div
+          style={{
+            padding: "12px 14px",
+            borderRadius: "8px",
+            border: "1px solid rgba(239,68,68,0.3)",
+            background: "rgba(239,68,68,0.08)",
+            color: "#fca5a5",
+            fontSize: "13px",
+          }}
+        >
+          {fetchError}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => navigate("/admin/vyapar/products")}
+          style={{ ...actionButtonStyle, marginTop: "16px" }}
+        >
+          Back to Manage Vyapars
+        </button>
+      </div>
+    );
+  }
+
+  // =========================================================
   // UI
   // =========================================================
 
   return (
-    <div
-      style={{
-        maxWidth: "1360px",
-        margin: "30px auto",
-        background: "#18181b",
-        padding: "36px 40px",
-        borderRadius: "14px",
-        border: "1px solid rgba(255,255,255,0.05)",
-        boxSizing: "border-box",
-      }}
-    >
+    <div style={pageWrapperStyle}>
       <div
         style={{
           display: "flex",
@@ -553,14 +435,8 @@ const AddVyapar = () => {
           marginBottom: "26px",
         }}
       >
-        <h2
-          style={{
-            color: "#f97316",
-            margin: 0,
-            fontSize: "22px",
-          }}
-        >
-          Add Pledged Items
+        <h2 style={{ color: "#f97316", margin: 0, fontSize: "22px" }}>
+          Edit Pledged Items
         </h2>
 
         <button
@@ -583,195 +459,64 @@ const AddVyapar = () => {
       </div>
 
       <div
-        ref={(el) => (fieldRefs.current.loan = el)}
         style={{
           marginBottom: "18px",
           padding: "12px 14px",
           borderRadius: "8px",
-          border: `1px solid ${
-            errors.loan || loanSearchError
-              ? "rgba(239,68,68,0.4)"
-              : "rgba(59,130,246,0.25)"
-          }`,
-          background:
-            errors.loan || loanSearchError
-              ? "rgba(239,68,68,0.08)"
-              : "rgba(59,130,246,0.08)",
-          color: errors.loan || loanSearchError ? "#fca5a5" : "#93c5fd",
+          border: "1px solid rgba(59,130,246,0.25)",
+          background: "rgba(59,130,246,0.08)",
+          color: "#93c5fd",
           fontSize: "13px",
         }}
       >
-        {loanLoading ? (
-          "Loading loan details..."
-        ) : selectedLoan ? (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: "12px",
-              flexWrap: "wrap",
-            }}
-          >
-            <span>
-              Linking pledged items to Loan {selectedLoan.loanId || ""} for{" "}
-              {selectedLoan.name || "this customer"}. Name, address, customer
-              ID and mobile are copied from the loan.
-            </span>
-
-            <button
-              type="button"
-              onClick={handleChangeLoan}
-              style={{
-                border: "1px solid rgba(147,197,253,0.4)",
-                background: "transparent",
-                color: "#93c5fd",
-                borderRadius: "6px",
-                padding: "6px 10px",
-                cursor: "pointer",
-                fontSize: "12px",
-                fontWeight: "600",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Change
-            </button>
-          </div>
-        ) : (
-          <div>
-            <div style={{ marginBottom: "10px" }}>
-              {errors.loan || loanSearchError || "No loan linked yet."} Search
-              by Loan ID below, or open this form from a loan record.
-            </div>
-
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              <input
-                type="text"
-                placeholder="Loan ID (e.g. LN0001)"
-                maxLength={8}
-                value={loanSearchInput}
-                onChange={(e) =>
-                  setLoanSearchInput(
-                    e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""),
-                  )
-                }
-                style={{
-                  ...inputStyle,
-                  width: "auto",
-                  flex: "1 1 200px",
-                  padding: "9px 12px",
-                  fontSize: "13.5px",
-                }}
-              />
-
-              <button
-                type="button"
-                onClick={handleFindLoan}
-                disabled={loanSearchLoading}
-                style={{
-                  border: "none",
-                  background: loanSearchLoading ? "#52525b" : "#f97316",
-                  color: "#fff",
-                  borderRadius: "7px",
-                  padding: "0 16px",
-                  cursor: loanSearchLoading ? "not-allowed" : "pointer",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {loanSearchLoading ? "Searching..." : "Find Loan"}
-              </button>
-            </div>
-          </div>
-        )}
+        Linked to Loan {vyapar?.loan?.loanId || "-"}. The linked loan can't be
+        changed here.
       </div>
 
       <form
         onSubmit={handleSubmit}
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "18px",
-        }}
+        style={{ display: "flex", flexDirection: "column", gap: "18px" }}
       >
-        {/* =====================================================
-            NAME
-        ====================================================== */}
         <div>
           <label style={labelStyle}>Name</label>
 
           <input
             type="text"
-            placeholder="Full name"
             required
-            readOnly={Boolean(selectedLoan)}
+            readOnly
             value={formData.name}
-            onChange={(e) => {
-              const value = e.target.value
-                .toLowerCase()
-                .replace(/\b\w/g, (char) => char.toUpperCase());
-
-              handleChange("name", value);
-            }}
-            ref={(el) => (fieldRefs.current.name = el)}
-            style={inputStyle}
+            style={{ ...inputStyle, cursor: "not-allowed", opacity: 0.85 }}
           />
-
-          <FieldError msg={errors.name} />
         </div>
-        {/* =====================================================
-            ADDRESS
-        ====================================================== */}
+
         <div>
           <label style={labelStyle}>Address</label>
 
           <textarea
-            placeholder="Address"
             required
+            readOnly
             rows="2"
-            readOnly={Boolean(selectedLoan)}
             value={formData.address}
-            onChange={(e) => {
-              const value = e.target.value
-                .toLowerCase()
-                .replace(/\b\w/g, (char) => char.toUpperCase());
-
-              handleChange("address", value);
+            style={{
+              ...inputStyle,
+              resize: "vertical",
+              cursor: "not-allowed",
+              opacity: 0.85,
             }}
-            ref={(el) => (fieldRefs.current.address = el)}
-            style={{ ...inputStyle, resize: "vertical" }}
           />
-
-          <FieldError msg={errors.address} />
         </div>
-        {/* =====================================================
-            CUSTOMER ID + MOBILE
-        ====================================================== */}
+
         <div className="two-col" style={twoColGridStyle}>
           <div>
-            <label style={labelStyle}>Customer ID (max 8 characters)</label>
+            <label style={labelStyle}>Customer ID</label>
 
             <input
               type="text"
-              placeholder="Customer ID"
               required
-              maxLength={8}
-              readOnly={Boolean(selectedLoan)}
+              readOnly
               value={formData.customerId}
-              onChange={(e) => {
-                const value = e.target.value
-                  .toUpperCase()
-                  .replace(/[^A-Z0-9]/g, "")
-                  .slice(0, 8);
-
-                handleChange("customerId", value);
-              }}
-              ref={(el) => (fieldRefs.current.customerId = el)}
-              style={inputStyle}
+              style={{ ...inputStyle, cursor: "not-allowed", opacity: 0.85 }}
             />
-
-            <FieldError msg={errors.customerId} />
           </div>
 
           <div>
@@ -779,29 +524,18 @@ const AddVyapar = () => {
 
             <input
               type="text"
-              placeholder="10-digit mobile number"
               required
-              maxLength={10}
-              readOnly={Boolean(selectedLoan && selectedLoan.mobileNo)}
+              readOnly
               value={formData.mobileNo}
-              onChange={(e) =>
-                handleChange("mobileNo", e.target.value.replace(/[^0-9]/g, ""))
-              }
-              ref={(el) => (fieldRefs.current.mobileNo = el)}
-              style={inputStyle}
+              style={{ ...inputStyle, cursor: "not-allowed", opacity: 0.85 }}
             />
-
-            <FieldError msg={errors.mobileNo} />
           </div>
         </div>
-        {/* =====================================================
-            DESCRIPTION
-        ====================================================== */}
+
         <div>
           <label style={labelStyle}>Description</label>
 
           <textarea
-            placeholder="Description of this record / overall pledge"
             required
             rows="4"
             value={formData.description}
@@ -812,9 +546,7 @@ const AddVyapar = () => {
 
           <FieldError msg={errors.description} />
         </div>
-        {/* =====================================================
-            ITEMS (GOLD / SILVER)
-        ====================================================== */}
+
         <div ref={(el) => (fieldRefs.current.items = el)}>
           <SectionCard>
             <div
@@ -830,14 +562,10 @@ const AddVyapar = () => {
               <div>
                 <SectionHeader title="Items" marginBottom="2px" />
 
-                <div
-                  style={{
-                    color: "#71717a",
-                    fontSize: "12.5px",
-                  }}
-                >
-                  {formData.items.length}/50 added — net weight is
-                  auto-calculated from gross weight × tunch
+                <div style={{ color: "#71717a", fontSize: "12.5px" }}>
+                  {formData.items.length}/50 — editing gross weight/tunch
+                  below an item's existing paid weight will be rejected on
+                  save
                 </div>
               </div>
 
@@ -850,6 +578,8 @@ const AddVyapar = () => {
 
             {formData.items.map((item, index) => {
               const netWeight = computeNetWeight(item);
+              const existingPaid = sumFineWeight(item.finePayments);
+              const remainingPreview = netWeight - existingPaid;
 
               return (
                 <div key={item.id} style={itemCardStyle}>
@@ -869,6 +599,18 @@ const AddVyapar = () => {
                       }}
                     >
                       Item #{index + 1}
+                      {item.finePayments.length > 0 && (
+                        <span
+                          style={{
+                            marginLeft: "8px",
+                            color: "#71717a",
+                            fontWeight: "400",
+                          }}
+                        >
+                          ({item.finePayments.length} payment
+                          {item.finePayments.length === 1 ? "" : "s"} on file)
+                        </span>
+                      )}
                     </div>
 
                     <button
@@ -907,7 +649,6 @@ const AddVyapar = () => {
                       <input
                         type="text"
                         inputMode="decimal"
-                        placeholder="0.000"
                         value={item.grossWeight}
                         onChange={(e) =>
                           updateItem(
@@ -934,7 +675,6 @@ const AddVyapar = () => {
                       <input
                         type="text"
                         inputMode="decimal"
-                        placeholder="0-100"
                         value={item.tunch}
                         onChange={(e) =>
                           updateItem(
@@ -957,7 +697,6 @@ const AddVyapar = () => {
                       <input
                         type="text"
                         readOnly
-                        placeholder="Auto"
                         value={netWeight ? netWeight.toFixed(3) : ""}
                         style={{
                           ...inputStyle,
@@ -977,7 +716,6 @@ const AddVyapar = () => {
                       <input
                         type="text"
                         inputMode="numeric"
-                        placeholder="0"
                         value={item.labour}
                         onChange={(e) =>
                           updateItem(
@@ -995,12 +733,25 @@ const AddVyapar = () => {
                     </div>
                   </div>
 
+                  {item.finePayments.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "10px",
+                        fontSize: "12px",
+                        color:
+                          remainingPreview < -0.001 ? "#ef4444" : "#71717a",
+                      }}
+                    >
+                      {existingPaid.toFixed(3)}g already paid off — remaining
+                      at current values: {remainingPreview.toFixed(3)}g
+                    </div>
+                  )}
+
                   <div style={{ marginTop: "12px" }}>
                     <label style={smallLabelStyle}>Item Description</label>
 
                     <textarea
                       rows="2"
-                      placeholder="e.g. Gold chain with pendant"
                       value={item.description}
                       onChange={(e) =>
                         updateItem(item.id, "description", e.target.value)
@@ -1032,9 +783,7 @@ const AddVyapar = () => {
             {errors.items && <SmallError msg={errors.items} />}
           </SectionCard>
         </div>
-        {/* =====================================================
-            ITEM TOTALS SUMMARY
-        ====================================================== */}
+
         <div
           style={{
             padding: "20px",
@@ -1058,7 +807,7 @@ const AddVyapar = () => {
             className="summary-grid"
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(3, minmax(140px, 1fr))",
+              gridTemplateColumns: "repeat(2, minmax(140px, 1fr))",
               gap: "12px",
             }}
           >
@@ -1075,46 +824,51 @@ const AddVyapar = () => {
               color="#d4d4d8"
               decimals={3}
             />
-
-            <SummaryBox
-              label="Total Labour"
-              value={totalLabour}
-              color="#22c55e"
-              prefix="₹"
-            />
           </div>
         </div>
-        {/* =====================================================
-            SUBMIT
-        ====================================================== */}
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            marginTop: "8px",
-            padding: "14px",
-            borderRadius: "8px",
-            border: "none",
-            background: loading ? "#52525b" : "#f97316",
-            color: "#fff",
-            cursor: loading ? "not-allowed" : "pointer",
-            fontWeight: "600",
-            fontSize: "15px",
-          }}
-        >
-          {loading ? "Creating..." : "Publish Vyapar"}
-        </button>
+
+        <div style={{ display: "flex", gap: "12px", marginTop: "8px" }}>
+          <button
+            type="button"
+            onClick={() => navigate("/admin/vyapar/products")}
+            disabled={loading}
+            style={{
+              flex: 1,
+              padding: "14px",
+              borderRadius: "8px",
+              border: "1px solid #3f3f46",
+              background: "transparent",
+              color: "#e4e4e7",
+              fontWeight: "600",
+              fontSize: "15px",
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              flex: 2,
+              padding: "14px",
+              borderRadius: "8px",
+              border: "none",
+              background: loading ? "#52525b" : "#f97316",
+              color: "#fff",
+              cursor: loading ? "not-allowed" : "pointer",
+              fontWeight: "600",
+              fontSize: "15px",
+            }}
+          >
+            {loading ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
       </form>
 
-      {/* =====================================================
-          CONFIRM PUBLISH MODAL
-      ====================================================== */}
-
       {showConfirm && (
-        <ConfirmPublishModal
-          name={formData.name}
-          customerId={formData.customerId}
-          loanId={selectedLoan?.loanId}
+        <ConfirmSaveModal
           itemCount={formData.items.length}
           totalGoldNetWeight={totalGoldNetWeight}
           totalSilverNetWeight={totalSilverNetWeight}
@@ -1124,21 +878,7 @@ const AddVyapar = () => {
         />
       )}
 
-      {/* =====================================================
-          RESPONSIVE CSS
-      ====================================================== */}
-
       <style>{`
-        input[type="number"]::-webkit-inner-spin-button,
-        input[type="number"]::-webkit-outer-spin-button {
-          -webkit-appearance: none;
-          margin: 0;
-        }
-
-        input[type="number"] {
-          -moz-appearance: textfield;
-        }
-
         @media (max-width: 900px) {
           .two-col {
             grid-template-columns: 1fr !important;
@@ -1151,7 +891,7 @@ const AddVyapar = () => {
 
         @media (max-width: 640px) {
           .summary-grid {
-            grid-template-columns: repeat(2, minmax(120px, 1fr)) !important;
+            grid-template-columns: 1fr !important;
           }
 
           .item-grid {
@@ -1159,9 +899,7 @@ const AddVyapar = () => {
           }
         }
 
-        input:focus,
-        textarea:focus,
-        select:focus {
+        input:focus, textarea:focus, select:focus {
           border-color: #f97316 !important;
         }
       `}</style>
@@ -1173,10 +911,7 @@ const AddVyapar = () => {
 // COMPONENTS
 // =========================================================
 
-const ConfirmPublishModal = ({
-  name,
-  customerId,
-  loanId,
+const ConfirmSaveModal = ({
   itemCount,
   totalGoldNetWeight,
   totalSilverNetWeight,
@@ -1219,17 +954,13 @@ const ConfirmPublishModal = ({
           marginBottom: "4px",
         }}
       >
-        Confirm Vyapar Details
+        Confirm Changes
       </div>
 
       <div
-        style={{
-          color: "#71717a",
-          fontSize: "12.5px",
-          marginBottom: "18px",
-        }}
+        style={{ color: "#71717a", fontSize: "12.5px", marginBottom: "18px" }}
       >
-        Please review before publishing this record.
+        Please review before saving.
       </div>
 
       <div
@@ -1240,9 +971,6 @@ const ConfirmPublishModal = ({
           marginBottom: "22px",
         }}
       >
-        <ConfirmRow label="Name" value={name || "-"} />
-        <ConfirmRow label="Customer ID" value={customerId || "-"} />
-        <ConfirmRow label="Linked Loan" value={loanId || "-"} />
         <ConfirmRow label="Item Count" value={String(itemCount)} />
         <ConfirmRow
           label="Total Gold Net Wt"
@@ -1254,12 +982,7 @@ const ConfirmPublishModal = ({
         />
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-        }}
-      >
+      <div style={{ display: "flex", gap: "10px" }}>
         <button
           type="button"
           onClick={onCancel}
@@ -1295,7 +1018,7 @@ const ConfirmPublishModal = ({
             cursor: loading ? "not-allowed" : "pointer",
           }}
         >
-          {loading ? "Publishing..." : "Confirm & Publish"}
+          {loading ? "Saving..." : "Confirm & Save"}
         </button>
       </div>
     </div>
@@ -1314,22 +1037,9 @@ const ConfirmRow = ({ label, value }) => (
       borderRadius: "7px",
     }}
   >
-    <span
-      style={{
-        color: "#a1a1aa",
-        fontSize: "13px",
-      }}
-    >
-      {label}
-    </span>
+    <span style={{ color: "#a1a1aa", fontSize: "13px" }}>{label}</span>
 
-    <span
-      style={{
-        color: "#fff",
-        fontSize: "14px",
-        fontWeight: "600",
-      }}
-    >
+    <span style={{ color: "#fff", fontSize: "14px", fontWeight: "600" }}>
       {value}
     </span>
   </div>
@@ -1382,14 +1092,7 @@ const AddButton = ({ onClick, disabled = false, text }) => (
   </button>
 );
 
-const SummaryBox = ({
-  label,
-  value,
-  color = "#fff",
-  large = false,
-  decimals = 2,
-  prefix = "",
-}) => (
+const SummaryBox = ({ label, value, color = "#fff", decimals = 2 }) => (
   <div
     style={{
       padding: "14px 12px",
@@ -1415,15 +1118,7 @@ const SummaryBox = ({
       {label}
     </div>
 
-    <div
-      style={{
-        color,
-        fontSize: large ? "19px" : "15px",
-        fontWeight: "700",
-        wordBreak: "break-word",
-      }}
-    >
-      {prefix}
+    <div style={{ color, fontSize: "15px", fontWeight: "700" }}>
       {Number(value || 0).toFixed(decimals)}
     </div>
   </div>
@@ -1431,26 +1126,14 @@ const SummaryBox = ({
 
 const FieldError = ({ msg }) =>
   msg ? (
-    <p
-      style={{
-        color: "#ef4444",
-        fontSize: "0.8rem",
-        margin: "5px 0 0",
-      }}
-    >
+    <p style={{ color: "#ef4444", fontSize: "0.8rem", margin: "5px 0 0" }}>
       {msg}
     </p>
   ) : null;
 
 const SmallError = ({ msg }) =>
   msg ? (
-    <div
-      style={{
-        color: "#ef4444",
-        fontSize: "11px",
-        marginTop: "4px",
-      }}
-    >
+    <div style={{ color: "#ef4444", fontSize: "11px", marginTop: "4px" }}>
       {msg}
     </div>
   ) : null;
@@ -1458,6 +1141,16 @@ const SmallError = ({ msg }) =>
 // =========================================================
 // STYLES
 // =========================================================
+
+const pageWrapperStyle = {
+  maxWidth: "1360px",
+  margin: "30px auto",
+  background: "#18181b",
+  padding: "36px 40px",
+  borderRadius: "14px",
+  border: "1px solid rgba(255,255,255,0.05)",
+  boxSizing: "border-box",
+};
 
 const inputStyle = {
   width: "100%",
@@ -1519,4 +1212,15 @@ const deleteButtonStyle = {
   lineHeight: 1,
 };
 
-export default AddVyapar;
+const actionButtonStyle = {
+  border: "1px solid #3f3f46",
+  background: "transparent",
+  color: "#e4e4e7",
+  borderRadius: "6px",
+  padding: "10px 16px",
+  cursor: "pointer",
+  fontSize: "13px",
+  fontWeight: "600",
+};
+
+export default EditVyapar;
