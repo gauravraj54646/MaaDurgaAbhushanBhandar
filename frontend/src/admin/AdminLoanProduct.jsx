@@ -52,53 +52,21 @@ const isPastDissolve = (dissolveDate) => {
 };
 
 // -----------------------------------------------------------
-// Back arrow button — fixed 38x38 hit target, 18px stroke icon,
-// centered precisely so the glyph doesn't look off-balance inside
-// the box at any screen size.
+// Sidebar button — full-width, left-aligned row with an icon and
+// label. `primary` gives it the orange fill used for the main
+// action (Add Loan).
 // -----------------------------------------------------------
-const BackButton = ({ onClick, title = "Back" }) => (
+const SidebarButton = ({ icon, label, onClick, primary = false, title }) => (
   <button
     type="button"
     onClick={onClick}
-    title={title}
-    aria-label={title}
-    style={{
-      flexShrink: 0,
-      width: "38px",
-      height: "38px",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: "8px",
-      border: "1px solid #3f3f46",
-      background: "transparent",
-      color: "#e4e4e7",
-      cursor: "pointer",
-      padding: 0,
-      transition: "border-color 0.15s ease, color 0.15s ease, background 0.15s ease",
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.borderColor = "#f97316";
-      e.currentTarget.style.color = "#f97316";
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.borderColor = "#3f3f46";
-      e.currentTarget.style.color = "#e4e4e7";
-    }}
+    title={title || label}
+    className={`side-btn ${primary ? "side-btn-primary" : ""}`}
   >
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.25"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M19 12H5" />
-      <path d="M12 19l-7-7 7-7" />
-    </svg>
+    <span className="side-btn-icon" aria-hidden="true">
+      {icon}
+    </span>
+    <span className="side-btn-label">{label}</span>
   </button>
 );
 
@@ -121,34 +89,33 @@ const AdminLoanProduct = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
 
-  
-
   // Filters — controlled inputs; committed to actual query params
   // via a short debounce so we don't fire a request on every keystroke.
   const getToday = () => {
-  const today = new Date();
-  return today.toISOString().split("T")[0];
-};
+    const today = new Date();
+    return today.toISOString().split("T")[0];
+  };
 
   const [toDateInput, setToDateInput] = useState(getToday());
-const [nameInput, setNameInput] = useState("");
-const [customerIdInput, setCustomerIdInput] = useState("");
-const [loanIdInput, setLoanIdInput] = useState("");
-const [phoneInput, setPhoneInput] = useState("");
-const [fromDateInput, setFromDateInput] = useState("");
+  const [nameInput, setNameInput] = useState("");
+  const [customerIdInput, setCustomerIdInput] = useState("");
+  const [loanIdInput, setLoanIdInput] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [fromDateInput, setFromDateInput] = useState("");
   const [minAmountInput, setMinAmountInput] = useState("");
   const [maxAmountInput, setMaxAmountInput] = useState("");
 
-const [appliedFilters, setAppliedFilters] = useState({
-  name: "",
-  customerId: "",
-  loanId:"",
-  phone: "",
-  fromDate: "",
-  toDate: "",
-  minAmount: "",
-  maxAmount: "",
-});
+  const [appliedFilters, setAppliedFilters] = useState({
+    name: "",
+    customerId: "",
+    loanId: "",
+    phone: "",
+    fromDate: "",
+    toDate: "",
+    minAmount: "",
+    maxAmount: "",
+  });
+
   // Default: newest loan first ("now to before date")
   const [sortBy, setSortBy] = useState("date");
   const [sortOrder, setSortOrder] = useState("desc");
@@ -172,7 +139,16 @@ const [appliedFilters, setAppliedFilters] = useState({
     }, 400);
 
     return () => clearTimeout(timeout);
-  }, [nameInput, customerIdInput, loanIdInput, phoneInput, fromDateInput, toDateInput, minAmountInput, maxAmountInput]);
+  }, [
+    nameInput,
+    customerIdInput,
+    loanIdInput,
+    phoneInput,
+    fromDateInput,
+    toDateInput,
+    minAmountInput,
+    maxAmountInput,
+  ]);
 
   // -----------------------------------------------------------
   // Fetch loans whenever page / filters / sort changes
@@ -189,29 +165,37 @@ const [appliedFilters, setAppliedFilters] = useState({
       params.set("sortBy", sortBy);
       params.set("sortOrder", sortOrder);
 
-if (appliedFilters.name) {
-  params.set("name", appliedFilters.name);
-}
+      if (appliedFilters.name) {
+        params.set("name", appliedFilters.name);
+      }
 
-if (appliedFilters.customerId) {
-  params.set("customerId", appliedFilters.customerId);
-}
+      if (appliedFilters.customerId) {
+        params.set("customerId", appliedFilters.customerId);
+      }
 
-if (appliedFilters.loanId) {
-  params.set("loanId", appliedFilters.loanId);
-}
+      if (appliedFilters.loanId) {
+        params.set("loanId", appliedFilters.loanId);
+      }
 
-if (appliedFilters.phone) {
-  params.set("phone", appliedFilters.phone);
-}
+      if (appliedFilters.phone) {
+        params.set("phone", appliedFilters.phone);
+      }
 
-if (appliedFilters.fromDate)
-  params.set("fromDate", appliedFilters.fromDate);
-      if (appliedFilters.toDate) params.set("toDate", appliedFilters.toDate);
-      if (appliedFilters.minAmount)
+      if (appliedFilters.fromDate) {
+        params.set("fromDate", appliedFilters.fromDate);
+      }
+
+      if (appliedFilters.toDate) {
+        params.set("toDate", appliedFilters.toDate);
+      }
+
+      if (appliedFilters.minAmount) {
         params.set("minAmount", appliedFilters.minAmount);
-      if (appliedFilters.maxAmount)
+      }
+
+      if (appliedFilters.maxAmount) {
         params.set("maxAmount", appliedFilters.maxAmount);
+      }
 
       const res = await fetch(`/api/loans?${params.toString()}`, {
         headers: {
@@ -343,9 +327,9 @@ if (appliedFilters.fromDate)
 
   const hasActiveFilters =
     appliedFilters.name ||
-  appliedFilters.customerId ||
-  appliedFilters.loanId ||
-  appliedFilters.phone ||
+    appliedFilters.customerId ||
+    appliedFilters.loanId ||
+    appliedFilters.phone ||
     appliedFilters.fromDate ||
     appliedFilters.toDate ||
     appliedFilters.minAmount ||
@@ -357,36 +341,56 @@ if (appliedFilters.fromDate)
   }
 
   return (
-    <div
-      style={{
-        maxWidth: "1200px",
-        margin: "30px auto",
-        padding: "0 20px 40px",
-        boxSizing: "border-box",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-          gap: "12px",
-          marginBottom: "6px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-          }}
-        >
-          <BackButton
-            onClick={() => navigate(ADMIN_LOAN_DASHBOARD_PATH)}
-            title="Back to Admin Loan Dashboard"
-          />
+    <div className="loan-page" style={pageStyle}>
+      {/* =====================================================
+          LEFT SIDEBAR — all page actions live here
+      ====================================================== */}
 
+      <aside className="loan-sidebar" style={sidebarStyle}>
+        <SidebarButton
+          icon="←"
+          label="Loan dashboard"
+          title="Back to Admin Loan Dashboard"
+          onClick={() => navigate(ADMIN_LOAN_DASHBOARD_PATH)}
+        />
+
+        <div className="side-divider" />
+
+        <SidebarButton
+          icon="+"
+          label="Add loan"
+          primary
+          onClick={() => navigate("/admin/loan/add-loan")}
+        />
+
+        <SidebarButton
+          icon="👤"
+          label="Add people"
+          onClick={() => navigate("/admin/people")}
+        />
+
+        <div className="side-divider" />
+
+        <SidebarButton
+          icon="📊"
+          label="Analytics info"
+          onClick={() => navigate("/admin/loan/analytics")}
+        />
+
+        <SidebarButton
+          icon="🔒"
+          label="More info"
+          title="Password-protected financial totals"
+          onClick={openFinancials}
+        />
+      </aside>
+
+      {/* =====================================================
+          MAIN CONTENT
+      ====================================================== */}
+
+      <main style={mainStyle}>
+        <div style={{ marginBottom: "22px" }}>
           <h2
             style={{
               color: "#f97316",
@@ -396,560 +400,481 @@ if (appliedFilters.fromDate)
           >
             Manage Loans
           </h2>
-        </div>
 
-        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-           <button
-            type="button"
-            onClick={() => navigate("/admin/people")}
+          <div
             style={{
-              padding: "10px 18px",
-              borderRadius: "7px",
-              border: "none",
-              background: "#f97316",
-              color: "#fff",
-              fontSize: "13.5px",
-              fontWeight: "600",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
+              color: "#71717a",
+              fontSize: "13px",
+              marginTop: "4px",
             }}
           >
-            + Add People
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/admin/loan/analytics")}
-            style={{
-              padding: "10px 18px",
-              borderRadius: "7px",
-              border: "1px solid #3f3f46",
-              background: "transparent",
-              color: "#e4e4e7",
-              fontSize: "13.5px",
-              fontWeight: "600",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            ℹ️ Analytics Info
-          </button>
-
-
-          <button
-            type="button"
-            onClick={openFinancials}
-            style={{
-              padding: "10px 18px",
-              borderRadius: "7px",
-              border: "1px solid #3f3f46",
-              background: "transparent",
-              color: "#e4e4e7",
-              fontSize: "13.5px",
-              fontWeight: "600",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            ℹ️ More Info
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/admin/loan/add-loan")}
-            style={{
-              padding: "10px 18px",
-              borderRadius: "7px",
-              border: "none",
-              background: "#f97316",
-              color: "#fff",
-              fontSize: "13.5px",
-              fontWeight: "600",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            + Add Loan
-          </button>
-        </div>
-      </div>
-
-      <div
-        style={{
-          color: "#71717a",
-          fontSize: "13px",
-          marginBottom: "22px",
-        }}
-      >
-        {total} loan{total === 1 ? "" : "s"} total
-      </div>
-
-      {/* =====================================================
-          FILTERS
-      ====================================================== */}
-
-     {/* =====================================================
-    FILTERS
-====================================================== */}
-
-<div
-  style={{
-    background: "#0f0f11",
-    border: "1px solid #27272a",
-    borderRadius: "12px",
-    padding: "18px",
-    marginBottom: "14px",
-  }}
->
-  {/* Header */}
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      marginBottom: "14px",
-    }}
-  >
-    <div>
-      <div
-        style={{
-          color: "#e4e4e7",
-          fontSize: "13px",
-          fontWeight: "700",
-          letterSpacing: "0.02em",
-        }}
-      >
-        SEARCH LOANS
-      </div>
-
-      <div
-        style={{
-          color: "#52525b",
-          fontSize: "10px",
-          marginTop: "3px",
-        }}
-      >
-        Find loans by customer, ID, phone, date or amount
-      </div>
-    </div>
-  </div>
-
-  {/* Customer Search */}
-  <div
-    className="filters-grid"
-    style={{
-      display: "grid",
-      gridTemplateColumns: "1.6fr 1fr 1fr 1fr",
-      gap: "12px",
-    }}
-  >
-    {/* Customer Name */}
-    <div>
-      <label style={labelStyle}>Customer Name</label>
-
-      <input
-        type="text"
-        placeholder="🔍  Search customer name"
-        value={nameInput}
-        onChange={(e) => setNameInput(e.target.value)}
-        style={inputStyle}
-      />
-    </div>
-
-    {/* Customer ID */}
-    <div>
-      <label style={labelStyle}>Customer ID</label>
-
-      <input
-        type="text"
-        placeholder="e.g. ABC123"
-        value={customerIdInput}
-        maxLength={8}
-        onChange={(e) =>
-          setCustomerIdInput(
-            e.target.value
-              .replace(/[^a-zA-Z0-9]/g, "")
-              .toUpperCase()
-          )
-        }
-        style={inputStyle}
-      />
-    </div>
-
-    {/* Loan ID */}
-    <div>
-      <label style={labelStyle}>Loan ID</label>
-
-      <input
-        type="text"
-        placeholder="e.g. LN1024"
-        value={loanIdInput}
-        maxLength={8}
-        onChange={(e) =>
-          setLoanIdInput(
-            e.target.value
-              .replace(/[^a-zA-Z0-9]/g, "")
-              .toUpperCase()
-          )
-        }
-        style={inputStyle}
-      />
-    </div>
-
-    {/* Phone Number */}
-    <div>
-      <label style={labelStyle}>Phone Number</label>
-
-      <input
-        type="tel"
-        inputMode="numeric"
-        placeholder="e.g. 9876543210"
-        value={phoneInput}
-        maxLength={10}
-        onChange={(e) =>
-          setPhoneInput(e.target.value.replace(/\D/g, "").slice(0, 10))
-        }
-        style={inputStyle}
-      />
-    </div>
-  </div>
-
-  {/* Date + Amount */}
-  <div
-    style={{
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr 1fr 1fr 52px",
-      gap: "12px",
-      marginTop: "14px",
-      alignItems: "end",
-    }}
-  >
-    {/* From Date */}
-    <div>
-      <label style={labelStyle}>From Date</label>
-
-      <input
-        type="date"
-        value={fromDateInput}
-        onChange={(e) => setFromDateInput(e.target.value)}
-        style={{
-          ...inputStyle,
-          cursor: "pointer",
-        }}
-      />
-    </div>
-
-    {/* To Date */}
-    <div>
-      <label style={labelStyle}>To Date</label>
-
-      <input
-        type="date"
-        value={toDateInput}
-        onChange={(e) => setToDateInput(e.target.value)}
-        style={{
-          ...inputStyle,
-          cursor: "pointer",
-        }}
-      />
-    </div>
-
-    {/* Min Amount */}
-    <div>
-      <label style={labelStyle}>Min Amount</label>
-
-      <input
-        type="number"
-        placeholder="₹ Minimum"
-        value={minAmountInput}
-        onChange={(e) => setMinAmountInput(e.target.value)}
-        style={inputStyle}
-      />
-    </div>
-
-    {/* Max Amount */}
-    <div>
-      <label style={labelStyle}>Max Amount</label>
-
-      <input
-        type="number"
-        placeholder="₹ Maximum"
-        value={maxAmountInput}
-        onChange={(e) => setMaxAmountInput(e.target.value)}
-        style={inputStyle}
-      />
-    </div>
-
-    {/* Clear */}
-    <button
-      type="button"
-      onClick={clearFilters}
-      title="Clear all filters"
-      style={{
-        width: "52px",
-        height: "44px",
-        border: "1px solid #3f3f46",
-        borderRadius: "7px",
-        background: "#18181b",
-        color: "#a1a1aa",
-        cursor: "pointer",
-        fontSize: "18px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        transition: "all 0.2s ease",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = "#f97316";
-        e.currentTarget.style.color = "#f97316";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "#3f3f46";
-        e.currentTarget.style.color = "#a1a1aa";
-      }}
-    >
-      ↻
-    </button>
-  </div>
-</div>
-
-      {/* =====================================================
-          TABLE
-      ====================================================== */}
-
-      <div
-        style={{
-          border: "1px solid #27272a",
-          borderRadius: "10px",
-          overflow: "hidden",
-          background: "#111113",
-        }}
-      >
-        <div className="loan-row loan-header-row" style={tableRowStyle}>
-          <button
-            type="button"
-            onClick={() => handleSort("name")}
-            style={sortableHeaderStyle}
-          >
-            NAME{sortIndicator("name")}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSort("date")}
-            style={sortableHeaderStyle}
-          >
-            DATE OF LOAN{sortIndicator("date")}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSort("loanAmount")}
-            style={{ ...sortableHeaderStyle, textAlign: "right" }}
-          >
-            AMOUNT{sortIndicator("loanAmount")}
-          </button>
-        </div>
-
-        {loading && <div style={emptyStateStyle}>Loading loans...</div>}
-
-        {!loading && error && (
-          <div style={{ ...emptyStateStyle, color: "#ef4444" }}>{error}</div>
-        )}
-
-        {!loading && !error && loans.length === 0 && (
-          <div style={emptyStateStyle}>
-            {hasActiveFilters
-              ? "No loans match your filters."
-              : "No loans found."}
+            {total} loan{total === 1 ? "" : "s"} total
           </div>
-        )}
+        </div>
 
-        {!loading &&
-          !error &&
-          loans.map((loan) => {
-            const overdue = isOverdue(loan.dueDate);
-            const pastDissolve = isPastDissolve(loan.dissolveDate);
+        {/* =====================================================
+            FILTERS
+        ====================================================== */}
 
-            return (
-              <div
-                key={loan._id}
-                className="loan-row"
-                style={{
-                  ...tableRowStyle,
-                  cursor: "pointer",
-                  borderTop: "1px solid #1f1f23",
-                  background: overdue
-                    ? "rgba(239, 68, 68, 0.08)"
-                    : "transparent",
-                  borderLeft: overdue
-                    ? "3px solid #ef4444"
-                    : "3px solid transparent",
-                }}
-                onClick={() => navigate(`/admin/loan/edit-loan/${loan._id}`)}
-              >
-<div style={{ color: "#fff", fontSize: "14px" }}>
-  {loan.name}
-
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: "10px",
-      marginTop: "5px",
-      fontSize: "10.5px",
-    }}
-  >
-    <span style={{ color: "#71717a" }}>
-      Customer ID:
-      <b style={{ color: "#a1a1aa", marginLeft: "4px" }}>
-        {loan.customerId || "-"}
-      </b>
-    </span>
-
-    <span
-      style={{
-        width: "1px",
-        height: "12px",
-        background: "#3f3f46",
-      }}
-    />
-
-    <span style={{ color: "#71717a" }}>
-      Loan ID:
-      <b style={{ color: "#a1a1aa", marginLeft: "4px" }}>
-        {loan.loanId || "-"}
-      </b>
-    </span>
-
-    {loan.mobileNo && (
-      <>
-        <span
-          style={{
-            width: "1px",
-            height: "12px",
-            background: "#3f3f46",
-          }}
-        />
-
-        <span style={{ color: "#71717a" }}>
-          Phone:
-          <b style={{ color: "#a1a1aa", marginLeft: "4px" }}>
-            {loan.mobileNo}
-          </b>
-        </span>
-      </>
-    )}
-  </div>
-
-  {pastDissolve && (
-    <span
-      title="Dissolve date has passed"
-      style={{
-        marginLeft: "7px",
-        fontSize: "11px",
-        fontWeight: "700",
-        color: "#a855f7",
-        border: "1px solid #a855f7",
-        borderRadius: "4px",
-        padding: "1px 6px",
-        cursor: "help",
-      }}
-    >
-      T
-    </span>
-  )}
-</div>
-                <div
-                  className="date-hover-wrap"
-                  style={{
-                    position: "relative",
-                    color: overdue ? "#ef4444" : "#a1a1aa",
-                    fontSize: "13px",
-                    fontWeight: overdue ? "600" : "400",
-                    width: "fit-content",
-                  }}
-                >
-                  {formatDisplayDate(loan.date)}
-                  {overdue && (
-                    <span
-                      style={{
-                        marginLeft: "8px",
-                        fontSize: "10.5px",
-                        color: "#ef4444",
-                        border: "1px solid #ef4444",
-                        borderRadius: "4px",
-                        padding: "1px 6px",
-                        verticalAlign: "middle",
-                      }}
-                    >
-                      OVERDUE
-                    </span>
-                  )}
-
-                  <div className="date-hover-tooltip">
-                    <div className="date-hover-row">
-                      <span>Due Date</span>
-                      <b>{formatDisplayDate(loan.dueDate)}</b>
-                    </div>
-                    <div className="date-hover-row">
-                      <span>Dissolve Date</span>
-                      <b>{formatDisplayDate(loan.dissolveDate)}</b>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    color: "#22c55e",
-                    fontSize: "14px",
-                    fontWeight: "600",
-                    textAlign: "right",
-                  }}
-                >
-                  ₹{Number(loan.loanAmount || 0).toFixed(2)}
-                </div>
-              </div>
-            );
-          })}
-      </div>
-
-      {/* =====================================================
-          PAGINATION
-      ====================================================== */}
-
-      {!loading && !error && totalPages > 1 && (
         <div
           style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: "12px",
-            marginTop: "20px",
+            background: "#0f0f11",
+            border: "1px solid #27272a",
+            borderRadius: "12px",
+            padding: "18px",
+            marginBottom: "14px",
           }}
         >
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            style={pageButtonStyle(page <= 1)}
+          {/* Header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "14px",
+            }}
           >
-            Prev
-          </button>
+            <div>
+              <div
+                style={{
+                  color: "#e4e4e7",
+                  fontSize: "13px",
+                  fontWeight: "700",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                SEARCH LOANS
+              </div>
 
-          <span style={{ color: "#a1a1aa", fontSize: "13px" }}>
-            Page {page} of {totalPages}
-          </span>
+              <div
+                style={{
+                  color: "#52525b",
+                  fontSize: "10px",
+                  marginTop: "3px",
+                }}
+              >
+                Find loans by customer, ID, phone, date or amount
+              </div>
+            </div>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages}
-            style={pageButtonStyle(page >= totalPages)}
+          {/* Customer Search */}
+          <div
+            className="filters-grid"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1.6fr 1fr 1fr 1fr",
+              gap: "12px",
+            }}
           >
-            Next
-          </button>
+            {/* Customer Name */}
+            <div>
+              <label style={labelStyle}>Customer Name</label>
+
+              <input
+                type="text"
+                placeholder="🔍  Search customer name"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Customer ID */}
+            <div>
+              <label style={labelStyle}>Customer ID</label>
+
+              <input
+                type="text"
+                placeholder="e.g. ABC123"
+                value={customerIdInput}
+                maxLength={8}
+                onChange={(e) =>
+                  setCustomerIdInput(
+                    e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase(),
+                  )
+                }
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Loan ID */}
+            <div>
+              <label style={labelStyle}>Loan ID</label>
+
+              <input
+                type="text"
+                placeholder="e.g. LN1024"
+                value={loanIdInput}
+                maxLength={8}
+                onChange={(e) =>
+                  setLoanIdInput(
+                    e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase(),
+                  )
+                }
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Phone Number */}
+            <div>
+              <label style={labelStyle}>Phone Number</label>
+
+              <input
+                type="tel"
+                inputMode="numeric"
+                placeholder="e.g. 9876543210"
+                value={phoneInput}
+                maxLength={10}
+                onChange={(e) =>
+                  setPhoneInput(e.target.value.replace(/\D/g, "").slice(0, 10))
+                }
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          {/* Date + Amount */}
+          <div
+            className="filters-grid-2"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr 1fr 52px",
+              gap: "12px",
+              marginTop: "14px",
+              alignItems: "end",
+            }}
+          >
+            {/* From Date */}
+            <div>
+              <label style={labelStyle}>From Date</label>
+
+              <input
+                type="date"
+                value={fromDateInput}
+                onChange={(e) => setFromDateInput(e.target.value)}
+                style={{
+                  ...inputStyle,
+                  cursor: "pointer",
+                }}
+              />
+            </div>
+
+            {/* To Date */}
+            <div>
+              <label style={labelStyle}>To Date</label>
+
+              <input
+                type="date"
+                value={toDateInput}
+                onChange={(e) => setToDateInput(e.target.value)}
+                style={{
+                  ...inputStyle,
+                  cursor: "pointer",
+                }}
+              />
+            </div>
+
+            {/* Min Amount */}
+            <div>
+              <label style={labelStyle}>Min Amount</label>
+
+              <input
+                type="number"
+                placeholder="₹ Minimum"
+                value={minAmountInput}
+                onChange={(e) => setMinAmountInput(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Max Amount */}
+            <div>
+              <label style={labelStyle}>Max Amount</label>
+
+              <input
+                type="number"
+                placeholder="₹ Maximum"
+                value={maxAmountInput}
+                onChange={(e) => setMaxAmountInput(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Clear */}
+            <button
+              type="button"
+              onClick={clearFilters}
+              title="Clear all filters"
+              style={{
+                width: "52px",
+                height: "44px",
+                border: "1px solid #3f3f46",
+                borderRadius: "7px",
+                background: "#18181b",
+                color: "#a1a1aa",
+                cursor: "pointer",
+                fontSize: "18px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#f97316";
+                e.currentTarget.style.color = "#f97316";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#3f3f46";
+                e.currentTarget.style.color = "#a1a1aa";
+              }}
+            >
+              ↻
+            </button>
+          </div>
         </div>
-      )}
+
+        {/* =====================================================
+            TABLE
+        ====================================================== */}
+
+        <div
+          style={{
+            border: "1px solid #27272a",
+            borderRadius: "10px",
+            overflow: "hidden",
+            background: "#111113",
+          }}
+        >
+          <div className="loan-row loan-header-row" style={tableRowStyle}>
+            <button
+              type="button"
+              onClick={() => handleSort("name")}
+              style={sortableHeaderStyle}
+            >
+              NAME{sortIndicator("name")}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSort("date")}
+              style={sortableHeaderStyle}
+            >
+              DATE OF LOAN{sortIndicator("date")}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSort("loanAmount")}
+              style={{ ...sortableHeaderStyle, textAlign: "right" }}
+            >
+              AMOUNT{sortIndicator("loanAmount")}
+            </button>
+          </div>
+
+          {loading && <div style={emptyStateStyle}>Loading loans...</div>}
+
+          {!loading && error && (
+            <div style={{ ...emptyStateStyle, color: "#ef4444" }}>{error}</div>
+          )}
+
+          {!loading && !error && loans.length === 0 && (
+            <div style={emptyStateStyle}>
+              {hasActiveFilters
+                ? "No loans match your filters."
+                : "No loans found."}
+            </div>
+          )}
+
+          {!loading &&
+            !error &&
+            loans.map((loan) => {
+              const overdue = isOverdue(loan.dueDate);
+              const pastDissolve = isPastDissolve(loan.dissolveDate);
+
+              return (
+                <div
+                  key={loan._id}
+                  className="loan-row"
+                  style={{
+                    ...tableRowStyle,
+                    cursor: "pointer",
+                    borderTop: "1px solid #1f1f23",
+                    background: overdue
+                      ? "rgba(239, 68, 68, 0.08)"
+                      : "transparent",
+                    borderLeft: overdue
+                      ? "3px solid #ef4444"
+                      : "3px solid transparent",
+                  }}
+                  onClick={() => navigate(`/admin/loan/edit-loan/${loan._id}`)}
+                >
+                  <div style={{ color: "#fff", fontSize: "14px" }}>
+                    {loan.name}
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "10px",
+                        marginTop: "5px",
+                        fontSize: "10.5px",
+                      }}
+                    >
+                      <span style={{ color: "#71717a" }}>
+                        Customer ID:
+                        <b style={{ color: "#a1a1aa", marginLeft: "4px" }}>
+                          {loan.customerId || "-"}
+                        </b>
+                      </span>
+
+                      <span
+                        style={{
+                          width: "1px",
+                          height: "12px",
+                          background: "#3f3f46",
+                        }}
+                      />
+
+                      <span style={{ color: "#71717a" }}>
+                        Loan ID:
+                        <b style={{ color: "#a1a1aa", marginLeft: "4px" }}>
+                          {loan.loanId || "-"}
+                        </b>
+                      </span>
+
+                      {loan.mobileNo && (
+                        <>
+                          <span
+                            style={{
+                              width: "1px",
+                              height: "12px",
+                              background: "#3f3f46",
+                            }}
+                          />
+
+                          <span style={{ color: "#71717a" }}>
+                            Phone:
+                            <b style={{ color: "#a1a1aa", marginLeft: "4px" }}>
+                              {loan.mobileNo}
+                            </b>
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    {pastDissolve && (
+                      <span
+                        title="Dissolve date has passed"
+                        style={{
+                          marginLeft: "7px",
+                          fontSize: "11px",
+                          fontWeight: "700",
+                          color: "#a855f7",
+                          border: "1px solid #a855f7",
+                          borderRadius: "4px",
+                          padding: "1px 6px",
+                          cursor: "help",
+                        }}
+                      >
+                        T
+                      </span>
+                    )}
+                  </div>
+
+                  <div
+                    className="date-hover-wrap"
+                    style={{
+                      position: "relative",
+                      color: overdue ? "#ef4444" : "#a1a1aa",
+                      fontSize: "13px",
+                      fontWeight: overdue ? "600" : "400",
+                      width: "fit-content",
+                    }}
+                  >
+                    {formatDisplayDate(loan.date)}
+                    {overdue && (
+                      <span
+                        style={{
+                          marginLeft: "8px",
+                          fontSize: "10.5px",
+                          color: "#ef4444",
+                          border: "1px solid #ef4444",
+                          borderRadius: "4px",
+                          padding: "1px 6px",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        OVERDUE
+                      </span>
+                    )}
+
+                    <div className="date-hover-tooltip">
+                      <div className="date-hover-row">
+                        <span>Due Date</span>
+                        <b>{formatDisplayDate(loan.dueDate)}</b>
+                      </div>
+                      <div className="date-hover-row">
+                        <span>Dissolve Date</span>
+                        <b>{formatDisplayDate(loan.dissolveDate)}</b>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      color: "#22c55e",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      textAlign: "right",
+                    }}
+                  >
+                    ₹{Number(loan.loanAmount || 0).toFixed(2)}
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+
+        {/* =====================================================
+            PAGINATION
+        ====================================================== */}
+
+        {!loading && !error && totalPages > 1 && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: "12px",
+              marginTop: "20px",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              style={pageButtonStyle(page <= 1)}
+            >
+              Prev
+            </button>
+
+            <span style={{ color: "#a1a1aa", fontSize: "13px" }}>
+              Page {page} of {totalPages}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              style={pageButtonStyle(page >= totalPages)}
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </main>
 
       {/* =====================================================
           MORE INFO — password-gated financial totals
@@ -968,9 +893,98 @@ if (appliedFilters.fromDate)
       )}
 
       <style>{`
-        @media (max-width: 900px) {
+        /* ---------- Sidebar buttons ---------- */
+        .side-btn {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          padding: 10px 12px;
+          border: none;
+          border-radius: 8px;
+          background: transparent;
+          color: #d4d4d8;
+          font-size: 13.5px;
+          font-weight: 500;
+          text-align: left;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .side-btn:hover {
+          background: #27272a;
+          color: #fff;
+        }
+
+        .side-btn:focus-visible {
+          outline: 2px solid #f97316;
+          outline-offset: 1px;
+        }
+
+        .side-btn-icon {
+          width: 20px;
+          flex-shrink: 0;
+          text-align: center;
+          font-size: 15px;
+          line-height: 1;
+        }
+
+        .side-btn-primary {
+          background: #f97316;
+          color: #fff;
+          font-weight: 600;
+        }
+
+        .side-btn-primary:hover {
+          background: #ea580c;
+          color: #fff;
+        }
+
+        .side-divider {
+          height: 1px;
+          background: #27272a;
+          margin: 8px 4px;
+        }
+
+        /* ---------- Responsive ---------- */
+        @media (max-width: 1000px) {
           .filters-grid {
             grid-template-columns: 1fr 1fr !important;
+          }
+
+          .filters-grid-2 {
+            grid-template-columns: 1fr 1fr !important;
+          }
+        }
+
+        /* Sidebar collapses into a horizontal button bar on small screens */
+        @media (max-width: 820px) {
+          .loan-page {
+            flex-direction: column !important;
+            gap: 16px !important;
+          }
+
+          .loan-sidebar {
+            position: static !important;
+            width: 100% !important;
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+            align-items: center !important;
+            gap: 8px !important;
+          }
+
+          .loan-sidebar .side-btn {
+            width: auto;
+            border: 1px solid #27272a;
+          }
+
+          .loan-sidebar .side-btn-primary {
+            border-color: #f97316;
+          }
+
+          .loan-sidebar .side-divider {
+            display: none;
           }
         }
 
@@ -1191,9 +1205,7 @@ const FinancialsInfoModal = ({
             color="#ef4444"
           />
 
-          <SectionLabel>
-            {financials.monthLabel || "This Month"}
-          </SectionLabel>
+          <SectionLabel>{financials.monthLabel || "This Month"}</SectionLabel>
           <FinancialsRow
             label="Interest Accrued"
             value={financials.monthlyInterest}
@@ -1235,9 +1247,7 @@ const FinancialsInfoModal = ({
           <FinancialsRow
             label="Collection Rate"
             value={`${financials.collectionRate}%`}
-            color={
-              financials.collectionRate >= 50 ? "#22c55e" : "#ef4444"
-            }
+            color={financials.collectionRate >= 50 ? "#22c55e" : "#ef4444"}
             raw
           />
           <FinancialsRow
@@ -1323,6 +1333,40 @@ const FinancialsCountRow = ({ count, amount, color = "#ef4444" }) => (
     </span>
   </div>
 );
+
+// =========================================================
+// STYLES
+// =========================================================
+
+const pageStyle = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "24px",
+  maxWidth: "1400px",
+  margin: "30px auto",
+  padding: "0 20px 40px",
+  boxSizing: "border-box",
+};
+
+const sidebarStyle = {
+  position: "sticky",
+  top: "20px",
+  width: "210px",
+  flexShrink: 0,
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+  padding: "10px",
+  background: "#111113",
+  border: "1px solid #27272a",
+  borderRadius: "12px",
+  boxSizing: "border-box",
+};
+
+const mainStyle = {
+  flex: 1,
+  minWidth: 0,
+};
 
 const labelStyle = {
   display: "block",
