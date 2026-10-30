@@ -874,7 +874,7 @@ const People = () => {
                           },
                         })
                       }
-                      placeholder="Bill number (max 8 chars)"
+                      placeholder="Bill number (max 12 chars)"
                     />
                   </div>
                 </div>

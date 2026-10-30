@@ -823,6 +823,29 @@ const AddLoanProduct = () => {
         boxSizing: "border-box",
       }}
     >
+      <h1
+  style={{
+    textAlign: "center",
+    color: "#f97316",
+    fontSize: "28px",
+    fontWeight: "800",
+    letterSpacing: "0.08em",
+    margin: "0 0 20px",
+  }}
+>
+  LOAN
+</h1>
+
+<div
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    flexWrap: "wrap",
+    gap: "12px",
+    marginBottom: "26px",
+  }}
+></div>
       <div
         style={{
           display: "flex",

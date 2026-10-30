@@ -588,6 +588,19 @@ const AddBillProduct = () => {
         boxSizing: "border-box",
       }}
     >
+      <h1
+        style={{
+          textAlign: "center",
+          color: "#f97316",
+          fontSize: "28px",
+          fontWeight: "800",
+          letterSpacing: "0.08em",
+          margin: "0 0 20px",
+        }}
+      >
+        BILL
+      </h1>
+
       <div
         style={{
           display: "flex",
@@ -1021,6 +1034,7 @@ const AddBillProduct = () => {
                   borderBottom: "1px solid #1f1f23",
                 }}
               >
+                
                 <div
                   style={{
                     display: "flex",
