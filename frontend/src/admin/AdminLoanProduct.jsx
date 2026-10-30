@@ -357,6 +357,12 @@ const AdminLoanProduct = () => {
         <div className="side-divider" />
 
         <SidebarButton
+          icon="⌕"
+          label="Search loans"
+          onClick={() => document.getElementById("loan-search-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        />
+
+        <SidebarButton
           icon="+"
           label="Add loan"
           primary
@@ -417,7 +423,9 @@ const AdminLoanProduct = () => {
         ====================================================== */}
 
         <div
+          id="loan-search-section"
           style={{
+            scrollMarginTop: "20px",
             background: "#0f0f11",
             border: "1px solid #27272a",
             borderRadius: "12px",
@@ -539,10 +547,13 @@ const AdminLoanProduct = () => {
             className="filters-grid-2"
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr 1fr 1fr 52px",
+              gridTemplateColumns: "repeat(4, minmax(0, 1fr)) 52px",
               gap: "12px",
               marginTop: "14px",
               alignItems: "end",
+              justifyContent: "start",
+              width: "100%",
+              marginLeft: 0,
             }}
           >
             {/* From Date */}
@@ -646,6 +657,7 @@ const AdminLoanProduct = () => {
             background: "#111113",
           }}
         >
+          <div className="loan-table-scroll">
           <div className="loan-row loan-header-row" style={tableRowStyle}>
             <button
               type="button"
@@ -835,6 +847,7 @@ const AdminLoanProduct = () => {
                 </div>
               );
             })}
+          </div>
         </div>
 
         {/* =====================================================
@@ -947,6 +960,22 @@ const AdminLoanProduct = () => {
           margin: 8px 4px;
         }
 
+        /* Only the loan records area scrolls; the table header stays visible. */
+        .loan-table-scroll {
+          max-height: min(68vh, 760px);
+          overflow-y: auto;
+          overflow-x: auto;
+          overscroll-behavior: contain;
+          scrollbar-gutter: stable;
+        }
+
+        .loan-header-row {
+          position: sticky;
+          top: 0;
+          z-index: 5;
+          background: #111113;
+        }
+
         /* ---------- Responsive ---------- */
         @media (max-width: 1000px) {
           .filters-grid {
@@ -954,7 +983,8 @@ const AdminLoanProduct = () => {
           }
 
           .filters-grid-2 {
-            grid-template-columns: 1fr 1fr !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            justify-content: start !important;
           }
         }
 
@@ -963,6 +993,9 @@ const AdminLoanProduct = () => {
           .loan-page {
             flex-direction: column !important;
             gap: 16px !important;
+            width: 100% !important;
+            padding-left: 14px !important;
+            padding-right: 14px !important;
           }
 
           .loan-sidebar {
@@ -1341,9 +1374,10 @@ const FinancialsCountRow = ({ count, amount, color = "#ef4444" }) => (
 const pageStyle = {
   display: "flex",
   alignItems: "flex-start",
-  gap: "24px",
-  maxWidth: "1400px",
-  margin: "30px auto",
+  gap: "20px",
+  width: "100%",
+  maxWidth: "none",
+  margin: "24px 0",
   padding: "0 20px 40px",
   boxSizing: "border-box",
 };
