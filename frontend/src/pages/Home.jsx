@@ -25,8 +25,8 @@ const Home = () => {
       <div className="hero-banner">
         <h1>Welcome to Maa Durga Abhushan Bhandar</h1>
         <p>Where Every Ornament Tells a Story of Love, Tradition & Elegance.</p>
-        <h2>Explore Our Collection</h2>
       </div>
+        <h2 className="hero-banner">Explore Our Collections</h2>
       {loading ? (
         <div>Loading...</div>
       ) : (
