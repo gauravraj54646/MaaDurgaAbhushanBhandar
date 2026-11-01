@@ -23,10 +23,10 @@ const Home = () => {
   return (
     <div className="home-container">
       <div className="hero-banner">
-        <h1>Welcome to ShopNest</h1>
-        <p>Discover the best products at unbeatable prices.</p>
+        <h1>Welcome to Maa Durga Abhushan Bhandar</h1>
+        <p>Where Every Ornament Tells a Story of Love, Tradition & Elegance.</p>
+        <h2>Explore Our Collection</h2>
       </div>
-      <h2>Featured Products</h2>
       {loading ? (
         <div>Loading...</div>
       ) : (
