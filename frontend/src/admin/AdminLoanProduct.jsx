@@ -359,7 +359,11 @@ const AdminLoanProduct = () => {
         <SidebarButton
           icon="⌕"
           label="Search loans"
-          onClick={() => document.getElementById("loan-search-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          onClick={() =>
+            document
+              .getElementById("loan-search-section")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
         />
 
         <SidebarButton
@@ -658,195 +662,201 @@ const AdminLoanProduct = () => {
           }}
         >
           <div className="loan-table-scroll">
-          <div className="loan-row loan-header-row" style={tableRowStyle}>
-            <button
-              type="button"
-              onClick={() => handleSort("name")}
-              style={sortableHeaderStyle}
-            >
-              NAME{sortIndicator("name")}
-            </button>
+            <div className="loan-row loan-header-row" style={tableRowStyle}>
+              <button
+                type="button"
+                onClick={() => handleSort("name")}
+                style={sortableHeaderStyle}
+              >
+                NAME{sortIndicator("name")}
+              </button>
 
-            <button
-              type="button"
-              onClick={() => handleSort("date")}
-              style={sortableHeaderStyle}
-            >
-              DATE OF LOAN{sortIndicator("date")}
-            </button>
+              <button
+                type="button"
+                onClick={() => handleSort("date")}
+                style={sortableHeaderStyle}
+              >
+                DATE OF LOAN{sortIndicator("date")}
+              </button>
 
-            <button
-              type="button"
-              onClick={() => handleSort("loanAmount")}
-              style={{ ...sortableHeaderStyle, textAlign: "right" }}
-            >
-              AMOUNT{sortIndicator("loanAmount")}
-            </button>
-          </div>
-
-          {loading && <div style={emptyStateStyle}>Loading loans...</div>}
-
-          {!loading && error && (
-            <div style={{ ...emptyStateStyle, color: "#ef4444" }}>{error}</div>
-          )}
-
-          {!loading && !error && loans.length === 0 && (
-            <div style={emptyStateStyle}>
-              {hasActiveFilters
-                ? "No loans match your filters."
-                : "No loans found."}
+              <button
+                type="button"
+                onClick={() => handleSort("loanAmount")}
+                style={{ ...sortableHeaderStyle, textAlign: "right" }}
+              >
+                AMOUNT{sortIndicator("loanAmount")}
+              </button>
             </div>
-          )}
 
-          {!loading &&
-            !error &&
-            loans.map((loan) => {
-              const overdue = isOverdue(loan.dueDate);
-              const pastDissolve = isPastDissolve(loan.dissolveDate);
+            {loading && <div style={emptyStateStyle}>Loading loans...</div>}
 
-              return (
-                <div
-                  key={loan._id}
-                  className="loan-row"
-                  style={{
-                    ...tableRowStyle,
-                    cursor: "pointer",
-                    borderTop: "1px solid #1f1f23",
-                    background: overdue
-                      ? "rgba(239, 68, 68, 0.08)"
-                      : "transparent",
-                    borderLeft: overdue
-                      ? "3px solid #ef4444"
-                      : "3px solid transparent",
-                  }}
-                  onClick={() => navigate(`/admin/loan/edit-loan/${loan._id}`)}
-                >
-                  <div style={{ color: "#fff", fontSize: "14px" }}>
-                    {loan.name}
+            {!loading && error && (
+              <div style={{ ...emptyStateStyle, color: "#ef4444" }}>
+                {error}
+              </div>
+            )}
 
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                        gap: "10px",
-                        marginTop: "5px",
-                        fontSize: "10.5px",
-                      }}
-                    >
-                      <span style={{ color: "#71717a" }}>
-                        Customer ID:
-                        <b style={{ color: "#a1a1aa", marginLeft: "4px" }}>
-                          {loan.customerId || "-"}
-                        </b>
-                      </span>
+            {!loading && !error && loans.length === 0 && (
+              <div style={emptyStateStyle}>
+                {hasActiveFilters
+                  ? "No loans match your filters."
+                  : "No loans found."}
+              </div>
+            )}
 
-                      <span
+            {!loading &&
+              !error &&
+              loans.map((loan) => {
+                const overdue = isOverdue(loan.dueDate);
+                const pastDissolve = isPastDissolve(loan.dissolveDate);
+
+                return (
+                  <div
+                    key={loan._id}
+                    className="loan-row"
+                    style={{
+                      ...tableRowStyle,
+                      cursor: "pointer",
+                      borderTop: "1px solid #1f1f23",
+                      background: overdue
+                        ? "rgba(239, 68, 68, 0.08)"
+                        : "transparent",
+                      borderLeft: overdue
+                        ? "3px solid #ef4444"
+                        : "3px solid transparent",
+                    }}
+                    onClick={() =>
+                      navigate(`/admin/loan/edit-loan/${loan._id}`)
+                    }
+                  >
+                    <div style={{ color: "#fff", fontSize: "14px" }}>
+                      {loan.name}
+
+                      <div
                         style={{
-                          width: "1px",
-                          height: "12px",
-                          background: "#3f3f46",
+                          display: "flex",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                          gap: "10px",
+                          marginTop: "5px",
+                          fontSize: "10.5px",
                         }}
-                      />
+                      >
+                        <span style={{ color: "#71717a" }}>
+                          Customer ID:
+                          <b style={{ color: "#a1a1aa", marginLeft: "4px" }}>
+                            {loan.customerId || "-"}
+                          </b>
+                        </span>
 
-                      <span style={{ color: "#71717a" }}>
-                        Loan ID:
-                        <b style={{ color: "#a1a1aa", marginLeft: "4px" }}>
-                          {loan.loanId || "-"}
-                        </b>
-                      </span>
+                        <span
+                          style={{
+                            width: "1px",
+                            height: "12px",
+                            background: "#3f3f46",
+                          }}
+                        />
 
-                      {loan.mobileNo && (
-                        <>
-                          <span
-                            style={{
-                              width: "1px",
-                              height: "12px",
-                              background: "#3f3f46",
-                            }}
-                          />
+                        <span style={{ color: "#71717a" }}>
+                          Loan ID:
+                          <b style={{ color: "#a1a1aa", marginLeft: "4px" }}>
+                            {loan.loanId || "-"}
+                          </b>
+                        </span>
 
-                          <span style={{ color: "#71717a" }}>
-                            Phone:
-                            <b style={{ color: "#a1a1aa", marginLeft: "4px" }}>
-                              {loan.mobileNo}
-                            </b>
-                          </span>
-                        </>
+                        {loan.mobileNo && (
+                          <>
+                            <span
+                              style={{
+                                width: "1px",
+                                height: "12px",
+                                background: "#3f3f46",
+                              }}
+                            />
+
+                            <span style={{ color: "#71717a" }}>
+                              Phone:
+                              <b
+                                style={{ color: "#a1a1aa", marginLeft: "4px" }}
+                              >
+                                {loan.mobileNo}
+                              </b>
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {pastDissolve && (
+                        <span
+                          title="Dissolve date has passed"
+                          style={{
+                            marginLeft: "7px",
+                            fontSize: "11px",
+                            fontWeight: "700",
+                            color: "#a855f7",
+                            border: "1px solid #a855f7",
+                            borderRadius: "4px",
+                            padding: "1px 6px",
+                            cursor: "help",
+                          }}
+                        >
+                          T
+                        </span>
                       )}
                     </div>
 
-                    {pastDissolve && (
-                      <span
-                        title="Dissolve date has passed"
-                        style={{
-                          marginLeft: "7px",
-                          fontSize: "11px",
-                          fontWeight: "700",
-                          color: "#a855f7",
-                          border: "1px solid #a855f7",
-                          borderRadius: "4px",
-                          padding: "1px 6px",
-                          cursor: "help",
-                        }}
-                      >
-                        T
-                      </span>
-                    )}
-                  </div>
+                    <div
+                      className="date-hover-wrap"
+                      style={{
+                        position: "relative",
+                        color: overdue ? "#ef4444" : "#a1a1aa",
+                        fontSize: "13px",
+                        fontWeight: overdue ? "600" : "400",
+                        width: "fit-content",
+                      }}
+                    >
+                      {formatDisplayDate(loan.date)}
+                      {overdue && (
+                        <span
+                          style={{
+                            marginLeft: "8px",
+                            fontSize: "10.5px",
+                            color: "#ef4444",
+                            border: "1px solid #ef4444",
+                            borderRadius: "4px",
+                            padding: "1px 6px",
+                            verticalAlign: "middle",
+                          }}
+                        >
+                          OVERDUE
+                        </span>
+                      )}
 
-                  <div
-                    className="date-hover-wrap"
-                    style={{
-                      position: "relative",
-                      color: overdue ? "#ef4444" : "#a1a1aa",
-                      fontSize: "13px",
-                      fontWeight: overdue ? "600" : "400",
-                      width: "fit-content",
-                    }}
-                  >
-                    {formatDisplayDate(loan.date)}
-                    {overdue && (
-                      <span
-                        style={{
-                          marginLeft: "8px",
-                          fontSize: "10.5px",
-                          color: "#ef4444",
-                          border: "1px solid #ef4444",
-                          borderRadius: "4px",
-                          padding: "1px 6px",
-                          verticalAlign: "middle",
-                        }}
-                      >
-                        OVERDUE
-                      </span>
-                    )}
-
-                    <div className="date-hover-tooltip">
-                      <div className="date-hover-row">
-                        <span>Due Date</span>
-                        <b>{formatDisplayDate(loan.dueDate)}</b>
-                      </div>
-                      <div className="date-hover-row">
-                        <span>Dissolve Date</span>
-                        <b>{formatDisplayDate(loan.dissolveDate)}</b>
+                      <div className="date-hover-tooltip">
+                        <div className="date-hover-row">
+                          <span>Due Date</span>
+                          <b>{formatDisplayDate(loan.dueDate)}</b>
+                        </div>
+                        <div className="date-hover-row">
+                          <span>Dissolve Date</span>
+                          <b>{formatDisplayDate(loan.dissolveDate)}</b>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div
-                    style={{
-                      color: "#22c55e",
-                      fontSize: "14px",
-                      fontWeight: "600",
-                      textAlign: "right",
-                    }}
-                  >
-                    ₹{Number(loan.loanAmount || 0).toFixed(2)}
+                    <div
+                      style={{
+                        color: "#22c55e",
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        textAlign: "right",
+                      }}
+                    >
+                      ₹{Number(loan.loanAmount || 0).toFixed(2)}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </div>
 
@@ -965,7 +975,7 @@ const AdminLoanProduct = () => {
           max-height: min(68vh, 760px);
           overflow-y: auto;
           overflow-x: auto;
-          overscroll-behavior: contain;
+          overscroll-behavior-y: auto;
           scrollbar-gutter: stable;
         }
 
