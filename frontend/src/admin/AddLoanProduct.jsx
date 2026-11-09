@@ -187,6 +187,113 @@ const AddLoanProduct = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showConfirm, setShowConfirm] = useState(false);
+    // =========================================================
+  // CUSTOMER ID SEARCH
+  // =========================================================
+
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchMessage, setSearchMessage] = useState({ type: "", text: "" });
+
+  const handleCustomerSearch = async () => {
+    const id = formData.customerId.trim().toUpperCase();
+
+    if (!id) {
+      setErrors((prev) => ({
+        ...prev,
+        customerId: "Enter a Customer ID to search.",
+      }));
+      fieldRefs.current.customerId?.focus();
+      return;
+    }
+
+    setSearchLoading(true);
+    setSearchMessage({ type: "", text: "" });
+
+    try {
+      const res = await fetch(
+        `/api/people?customerId=${encodeURIComponent(id)}`,
+        {
+          headers: { Authorization: `Bearer ${user.token}` },
+        },
+      );
+
+      const contentType = res.headers.get("content-type") || "";
+
+      if (!contentType.includes("application/json")) {
+        throw new Error(
+          `Server did not return JSON (status ${res.status}). Check the API server is running.`,
+        );
+      }
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to search customer.");
+      }
+
+      // Support different response shapes: [..] or { people: [..] } etc.
+      const list = Array.isArray(data)
+        ? data
+        : data.people || data.data || data.results || [];
+
+      // Exact match on customer ID (case-insensitive)
+      const person = list.find(
+        (p) => String(p.customerId || "").toUpperCase() === id,
+      );
+
+      if (!person) {
+        setSearchMessage({
+          type: "error",
+          text: `No customer found with ID "${id}".`,
+        });
+        return;
+      }
+
+      setSelectedPerson(person);
+
+      setFormData((prev) => ({
+        ...prev,
+        name: person.name || "",
+        address: person.address || "",
+        customerId: person.customerId || id,
+        mobileNo: person.phone || "",
+      }));
+
+      setErrors((prev) => ({
+        ...prev,
+        name: "",
+        address: "",
+        customerId: "",
+        mobileNo: "",
+      }));
+
+      setSearchMessage({
+        type: "success",
+        text: `Customer details loaded for ${person.name || id}.`,
+      });
+    } catch (err) {
+      console.error("Customer search failed:", err);
+      setSearchMessage({
+        type: "error",
+        text: err.message || "Something went wrong while searching.",
+      });
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleClearCustomer = () => {
+    setSelectedPerson(null);
+    setSearchMessage({ type: "", text: "" });
+
+    setFormData((prev) => ({
+      ...prev,
+      name: "",
+      address: "",
+      customerId: "",
+      mobileNo: "",
+    }));
+  };
 
   // =========================================================
   // LOAD PERSON DETAILS WHEN OPENED FROM PEOPLE DIRECTORY
@@ -963,27 +1070,76 @@ const AddLoanProduct = () => {
             CUSTOMER ID + MOBILE
         ====================================================== */}
         <div className="three-col" style={threeColGridStyle}>
-          <div>
+           <div>
             <label style={labelStyle}>Customer ID (max 8 characters)</label>
 
-            <input
-              type="text"
-              placeholder="Customer ID"
-              required
-              maxLength={8}
-              readOnly={Boolean(selectedPerson)}
-              value={formData.customerId}
-              onChange={(e) => {
-                const value = e.target.value
-                  .toUpperCase()
-                  .replace(/[^A-Z0-9]/g, "")
-                  .slice(0, 8);
+            <div style={{ position: "relative" }}>
+              <input
+                type="text"
+                placeholder="Customer ID"
+                required
+                maxLength={8}
+                readOnly={Boolean(selectedPerson)}
+                value={formData.customerId}
+                onChange={(e) => {
+                  const value = e.target.value
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9]/g, "")
+                    .slice(0, 8);
 
-                handleChange("customerId", value);
-              }}
-              ref={(el) => (fieldRefs.current.customerId = el)}
-              style={inputStyle}
-            />
+                  handleChange("customerId", value);
+                  if (searchMessage.text) {
+                    setSearchMessage({ type: "", text: "" });
+                  }
+                }}
+                onKeyDown={(e) => {
+                  // Enter = search, not form submit
+                  if (e.key === "Enter" && !selectedPerson) {
+                    e.preventDefault();
+                    handleCustomerSearch();
+                  }
+                }}
+                ref={(el) => (fieldRefs.current.customerId = el)}
+                style={{ ...inputStyle, paddingRight: "48px" }}
+              />
+
+              {selectedPerson ? (
+                <button
+                  type="button"
+                  onClick={handleClearCustomer}
+                  title="Clear customer and search again"
+                  style={searchIconButtonStyle}
+                >
+                  ✕
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleCustomerSearch}
+                  disabled={searchLoading}
+                  title="Search customer by ID"
+                  style={{
+                    ...searchIconButtonStyle,
+                    color: searchLoading ? "#52525b" : "#f97316",
+                    cursor: searchLoading ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {searchLoading ? "…" : "🔍"}
+                </button>
+              )}
+            </div>
+
+            {searchMessage.text && (
+              <p
+                style={{
+                  color: searchMessage.type === "success" ? "#22c55e" : "#ef4444",
+                  fontSize: "0.8rem",
+                  margin: "5px 0 0",
+                }}
+              >
+                {searchMessage.text}
+              </p>
+            )}
 
             <FieldError msg={errors.customerId} />
           </div>
@@ -2291,6 +2447,24 @@ const deleteButtonStyle = {
   fontSize: "18px",
   padding: "0",
   lineHeight: 1,
+};
+
+const searchIconButtonStyle = {
+  position: "absolute",
+  right: "6px",
+  top: "50%",
+  transform: "translateY(-50%)",
+  width: "36px",
+  height: "36px",
+  border: "none",
+  borderRadius: "6px",
+  background: "transparent",
+  color: "#a1a1aa",
+  fontSize: "16px",
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
 };
 
 export default AddLoanProduct;

@@ -455,6 +455,40 @@ const getPersonById = asyncHandler(
 );
 
 // ============================================================
+// GET PERSON BY CUSTOMER ID (exact match)
+// ============================================================
+
+// @desc    Find one person by exact Customer ID
+// @route   GET /api/people/by-customer-id/:customerId
+// @access  Private/Admin
+
+const getPersonByCustomerId = asyncHandler(async (req, res) => {
+  const customerId = String(req.params.customerId || "")
+    .trim()
+    .toUpperCase();
+
+  if (!/^[A-Z0-9]{1,8}$/.test(customerId)) {
+    return res.status(400).json({ message: "Invalid Customer ID." });
+  }
+
+  // Exact, case-insensitive match (safe even if an old record
+  // was saved in lowercase, since sanitizePersonInput doesn't
+  // uppercase customerId).
+  const person = await Person.findOne({ customerId }).collation({
+    locale: "en",
+    strength: 2,
+  });
+
+  if (!person) {
+    return res
+      .status(404)
+      .json({ message: `No customer found with ID "${customerId}".` });
+  }
+
+  res.status(200).json(person);
+});
+
+// ============================================================
 // CREATE PERSON
 // ============================================================
 
@@ -808,6 +842,7 @@ const deletePerson = asyncHandler(async (req, res) => {
 module.exports = {
   getPeople,
   getPersonById,
+  getPersonByCustomerId,
   createPerson,
   updatePerson,
   deletePerson,

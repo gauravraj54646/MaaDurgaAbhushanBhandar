@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const {
   getPeople,
   getPersonById,
+  getPersonByCustomerId,
   createPerson,
   updatePerson,
   deletePerson,
@@ -33,6 +34,16 @@ router
   .route('/')
   .get(protect, admin, getPeople)
   .post(protect, admin, createPerson);
+
+// Find one person by exact Customer ID.
+// MUST be registered before "/:id", otherwise Express treats
+// "by-customer-id" as an :id value.
+router.get(
+  '/by-customer-id/:customerId',
+  protect,
+  admin,
+  getPersonByCustomerId
+);
 
 // Get one person
 // Update one person
