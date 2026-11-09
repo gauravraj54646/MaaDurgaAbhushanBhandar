@@ -1140,13 +1140,9 @@ const People = () => {
                           </div>
 
                           <div>
-                            <div
-                              style={
-                                personNameStyle
-                              }
-                            >
-                              {person.name}
-                            </div>
+                            <CopyableText text={person.name} label="name">
+                            <span style={personNameStyle}>{person.name}</span>
+                            </CopyableText>
 
                             {person.email && (
                               <div
@@ -1165,13 +1161,9 @@ const People = () => {
 
                       <td style={tdStyle}>
                         {person.customerId ? (
-                          <span
-                            style={
-                              customerIdBadgeStyle
-                            }
-                          >
-                            {person.customerId}
-                          </span>
+                          <CopyableText text={person.customerId} label="Customer ID">
+                          <span style={customerIdBadgeStyle}>{person.customerId}</span>
+                          </CopyableText>
                         ) : (
                           <span
                             style={
@@ -1187,9 +1179,9 @@ const People = () => {
 
                       <td style={tdStyle}>
                         {person.phone ? (
-                          <div>
-                            📞 {person.phone}
-                          </div>
+                         <CopyableText text={person.phone} label="phone number">
+                          <span>📞 {person.phone}</span>
+                         </CopyableText>
                         ) : (
                           <span
                             style={
@@ -1484,6 +1476,51 @@ const People = () => {
         </div>
       </div>
     )}
+        <style>{`
+      .copy-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .copy-btn {
+        opacity: 0;
+        width: 22px;
+        height: 22px;
+        padding: 0;
+        border: 1px solid #3f3f46;
+        border-radius: 5px;
+        background: #18181b;
+        color: #a1a1aa;
+        font-size: 12px;
+        line-height: 1;
+        cursor: pointer;
+        transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+      }
+
+      .copy-wrap:hover .copy-btn,
+      .copy-btn:focus-visible,
+      .copy-btn.copied {
+        opacity: 1;
+      }
+
+      .copy-btn:hover {
+        color: #f97316;
+        border-color: #f97316;
+      }
+
+      .copy-btn.copied {
+        color: #22c55e;
+        border-color: #22c55e;
+      }
+
+      /* Touch screens have no hover, so keep the button visible */
+      @media (hover: none) {
+        .copy-btn {
+          opacity: 1;
+        }
+      }
+    `}</style>
     </>
   );
 };
@@ -1624,6 +1661,55 @@ const MultiEntryField = ({ value, onChange, placeholder }) => {
         </div>
       )}
     </div>
+  );
+};
+
+// ============================================================
+// COPYABLE TEXT (shows a copy button on hover)
+// ============================================================
+
+const CopyableText = ({ text, label, children }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (event) => {
+    event.stopPropagation();
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        // Fallback for browsers/contexts without the Clipboard API
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (error) {
+      console.error("Copy failed:", error);
+    }
+  };
+
+  return (
+    <span className="copy-wrap">
+      {children}
+
+      <button
+        type="button"
+        className={`copy-btn ${copied ? "copied" : ""}`}
+        onClick={handleCopy}
+        title={copied ? "Copied!" : `Copy ${label}`}
+        aria-label={`Copy ${label}`}
+      >
+        {copied ? "✓" : "⧉"}
+      </button>
+    </span>
   );
 };
 
