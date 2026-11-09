@@ -143,6 +143,30 @@ const getBillById = async (req, res) => {
   }
 };
 
+// @desc    Find one bill by exact bill number
+// @route   GET /api/bills/by-bill-no/:billNo
+const getBillByBillNo = async (req, res) => {
+  try {
+    const billNo = String(req.params.billNo || '').trim().toUpperCase();
+
+    if (!/^[A-Z0-9]{1,15}$/.test(billNo)) {
+      return res.status(400).json({ message: 'Invalid Bill No.' });
+    }
+
+    const bill = await Bill.findOne({ billNo, isDeleted: false });
+
+    if (!bill) {
+      return res
+        .status(404)
+        .json({ message: `No bill found with Bill No. "${billNo}".` });
+    }
+
+    res.json(bill);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 const createBill = async (req, res) => {
   try {
     const {
@@ -341,6 +365,7 @@ const deleteBill = async (req, res) => {
 module.exports = {
   getBills,
   getBillById,
+  getBillByBillNo,
   createBill,
   updateBill,
   deleteBill,

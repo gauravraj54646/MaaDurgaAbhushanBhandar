@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const {
   getBills,
   getBillById,
+  getBillByBillNo,   // <-- add
   createBill,
   updateBill,
   deleteBill,
@@ -23,6 +24,11 @@ const validateObjectId = (req, res, next) => {
 };
 
 router.route('/').get(protect, admin, getBills).post(protect, admin, createBill);
+
+// Find one bill by exact Bill No.
+// MUST be registered before "/:id", otherwise Express treats
+// "by-bill-no" as an :id value and validateObjectId returns 404.
+router.get('/by-bill-no/:billNo', protect, admin, getBillByBillNo);
 
 router
   .route('/:id')

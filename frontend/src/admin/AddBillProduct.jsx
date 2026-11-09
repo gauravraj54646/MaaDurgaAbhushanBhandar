@@ -110,6 +110,155 @@ const AddBillProduct = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showConfirm, setShowConfirm] = useState(false);
+    // =========================================================
+  // BILL NO SEARCH (load an existing bill)
+  // =========================================================
+
+  const [loadedBillId, setLoadedBillId] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchMessage, setSearchMessage] = useState({ type: "", text: "" });
+
+  const toDateInput = (value) => {
+    if (!value) return "";
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0];
+  };
+
+  const makeId = (i) => Date.now() + i + Math.random();
+
+  const handleBillSearch = async () => {
+    const billNo = formData.billNo.trim().toUpperCase();
+
+    if (!billNo) {
+      setSearchMessage({ type: "error", text: "Enter a Bill No. to search." });
+      return;
+    }
+
+    setSearchLoading(true);
+    setSearchMessage({ type: "", text: "" });
+
+    try {
+      const res = await fetch(
+        `/api/bills/by-bill-no/${encodeURIComponent(billNo)}`,
+        { headers: { Authorization: `Bearer ${user.token}` } },
+      );
+
+      const contentType = res.headers.get("content-type") || "";
+
+      if (!contentType.includes("application/json")) {
+        throw new Error(
+          `Server did not return JSON (status ${res.status}). Check the API server is running.`,
+        );
+      }
+
+      const bill = await res.json();
+
+      if (res.status === 404) {
+        setSearchMessage({
+          type: "error",
+          text: `No bill found with Bill No. "${billNo}".`,
+        });
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(bill.message || "Failed to search bill.");
+      }
+
+      const str = (v) => (v === undefined || v === null ? "" : String(v));
+
+      setFormData({
+        billNo: bill.billNo || billNo,
+        billDate: toDateInput(bill.billDate) || getToday(),
+
+        customerName: bill.customerName || "",
+        mobileNo: bill.mobileNo || "",
+        address: bill.address || "",
+        gstin: bill.gstin || "",
+
+        items: (bill.items || []).map((i, idx) => ({
+          id: makeId(idx),
+          itemName: i.itemName || "",
+          category: i.category || "gold",
+          huid: i.huid || "",
+          purity: i.purity || "",
+          hsnCode: i.hsnCode || "",
+          grossWeight: str(i.grossWeight),
+          stoneWeight: str(i.stoneWeight),
+          netWeight: str(i.netWeight),
+          ratePerGram: str(i.ratePerGram),
+          makingChargeType: i.makingChargeType || "perGram",
+          makingCharge: str(i.makingCharge),
+          wastagePercent: str(i.wastagePercent),
+          stoneCharge: str(i.stoneCharge),
+          quantity: str(i.quantity || 1),
+        })),
+
+        exchangeItems: (bill.exchangeItems || []).map((e, idx) => ({
+          id: makeId(idx),
+          description: e.description || "",
+          category: e.category || "gold",
+          grossWeight: str(e.grossWeight),
+          purity: e.purity || "",
+          deduction: str(e.deduction),
+          netWeight: str(e.netWeight),
+          ratePerGram: str(e.ratePerGram),
+        })),
+
+        discount: bill.discount ? str(bill.discount) : "",
+        cgstPercent: bill.cgstPercent ?? 1.5,
+        sgstPercent: bill.sgstPercent ?? 1.5,
+
+        payments: (bill.payments || []).map((p, idx) => ({
+          id: makeId(idx),
+          date: toDateInput(p.date) || getToday(),
+          amount: str(p.amount),
+          mode: p.mode || "cash",
+        })),
+
+        soldBy: bill.soldBy || "",
+        notes: bill.notes || "",
+      });
+
+      setLoadedBillId(bill._id);
+      setErrors({});
+      setSearchMessage({
+        type: "success",
+        text: `Bill ${bill.billNo} loaded. Publishing will update this bill.`,
+      });
+    } catch (err) {
+      console.error("Bill search failed:", err);
+      setSearchMessage({
+        type: "error",
+        text: err.message || "Something went wrong while searching.",
+      });
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleClearBill = () => {
+    setLoadedBillId(null);
+    setSearchMessage({ type: "", text: "" });
+    setErrors({});
+
+    setFormData({
+      billNo: "",
+      billDate: getToday(),
+      customerName: "",
+      mobileNo: "",
+      address: "",
+      gstin: "",
+      items: [],
+      exchangeItems: [],
+      discount: "",
+      cgstPercent: 1.5,
+      sgstPercent: 1.5,
+      payments: [{ id: Date.now(), date: getToday(), amount: "", mode: "cash" }],
+      soldBy: "",
+      notes: "",
+    });
+  };
 
   // =========================================================
   // HANDLE NORMAL FIELD
@@ -530,14 +679,17 @@ const AddBillProduct = () => {
         notes: formData.notes,
       };
 
-      const res = await fetch("/api/bills", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${user.token}`,
+      const res = await fetch(
+        loadedBillId ? `/api/bills/${loadedBillId}` : "/api/bills",
+        {
+          method: loadedBillId ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${user.token}`,
+          },
+          body: JSON.stringify(submitData),
         },
-        body: JSON.stringify(submitData),
-      });
+      );
 
       const contentType = res.headers.get("content-type") || "";
 
@@ -550,7 +702,11 @@ const AddBillProduct = () => {
       const responseData = await res.json();
 
       if (res.ok) {
-        alert(`Bill ${responseData.billNo || ""} created successfully!`);
+               alert(
+          `Bill ${responseData.billNo || ""} ${
+            loadedBillId ? "updated" : "created"
+          } successfully!`,
+        );
         navigate("/admin/bill/products");
       } else {
         alert(responseData.message || "Error creating bill");
@@ -612,7 +768,7 @@ const AddBillProduct = () => {
         }}
       >
         <h2 style={{ color: "#f97316", margin: 0, fontSize: "22px" }}>
-          Create New Bill
+          {loadedBillId ? "Edit Bill" : "Create New Bill"}
         </h2>
 
         <button
@@ -643,21 +799,75 @@ const AddBillProduct = () => {
         ====================================================== */}
         <div className="two-col" style={twoColGridStyle}>
           <div>
-            <label style={labelStyle}>Bill No. (leave blank to auto-generate)</label>
+            <label style={labelStyle}>
+              Bill No. (leave blank to auto-generate)
+            </label>
 
-            <input
-              type="text"
-              placeholder="e.g. INV0001"
-              maxLength={15}
-              value={formData.billNo}
-              onChange={(e) =>
-                handleChange(
-                  "billNo",
-                  e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15),
-                )
-              }
-              style={inputStyle}
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                type="text"
+                placeholder="e.g. INV0001"
+                maxLength={15}
+                readOnly={Boolean(loadedBillId)}
+                value={formData.billNo}
+                onChange={(e) => {
+                  handleChange(
+                    "billNo",
+                    e.target.value
+                      .toUpperCase()
+                      .replace(/[^A-Z0-9]/g, "")
+                      .slice(0, 15),
+                  );
+                  if (searchMessage.text) {
+                    setSearchMessage({ type: "", text: "" });
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !loadedBillId) {
+                    e.preventDefault();
+                    handleBillSearch();
+                  }
+                }}
+                style={{ ...inputStyle, paddingRight: "48px" }}
+              />
+
+              {loadedBillId ? (
+                <button
+                  type="button"
+                  onClick={handleClearBill}
+                  title="Clear bill and search again"
+                  style={searchIconButtonStyle}
+                >
+                  ✕
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleBillSearch}
+                  disabled={searchLoading}
+                  title="Search bill by Bill No."
+                  style={{
+                    ...searchIconButtonStyle,
+                    color: searchLoading ? "#52525b" : "#f97316",
+                    cursor: searchLoading ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {searchLoading ? "…" : "🔍"}
+                </button>
+              )}
+            </div>
+
+            {searchMessage.text && (
+              <p
+                style={{
+                  color: searchMessage.type === "success" ? "#22c55e" : "#ef4444",
+                  fontSize: "0.8rem",
+                  margin: "5px 0 0",
+                }}
+              >
+                {searchMessage.text}
+              </p>
+            )}
           </div>
 
           <div>
@@ -1443,7 +1653,7 @@ const AddBillProduct = () => {
             fontSize: "15px",
           }}
         >
-          {loading ? "Creating..." : "Publish Bill"}
+          {loading ? "Saving..." : loadedBillId ? "Update Bill" : "Publish Bill"}
         </button>
       </form>
 
@@ -1881,5 +2091,23 @@ const deleteButtonStyle = {
   padding: "0",
   lineHeight: 1,
 };
+const searchIconButtonStyle = {
+  position: "absolute",
+  right: "6px",
+  top: "50%",
+  transform: "translateY(-50%)",
+  width: "36px",
+  height: "36px",
+  border: "none",
+  borderRadius: "6px",
+  background: "transparent",
+  color: "#a1a1aa",
+  fontSize: "16px",
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
 
 export default AddBillProduct;
