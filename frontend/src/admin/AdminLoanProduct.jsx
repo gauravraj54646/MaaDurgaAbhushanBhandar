@@ -1081,6 +1081,43 @@ const AdminLoanProduct = () => {
           color: #fff;
           font-weight: 600;
         }
+
+                /* ==========================================
+           GLOBAL FONT SIZE INCREASE — 30%
+        ========================================== */
+
+        .loan-page h2 {
+          font-size: 28.6px !important;
+        }
+
+        .loan-page .side-btn {
+          font-size: 17.55px !important;
+        }
+
+        .loan-page label {
+          font-size: 13.65px !important;
+        }
+
+        .loan-page input {
+          font-size: 16.9px !important;
+        }
+
+        .loan-page .loan-row > button {
+          font-size: 14.3px !important;
+        }
+
+        .loan-page .loan-row > div {
+          font-size: 18.2px !important;
+        }
+
+        .loan-page .loan-row > div div,
+        .loan-page .loan-row > div span {
+          font-size: 13.65px !important;
+        }
+
+        .loan-page .date-hover-row {
+          font-size: 15.6px !important;
+        }
       `}</style>
     </div>
   );
