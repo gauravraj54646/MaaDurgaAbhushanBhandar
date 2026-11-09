@@ -303,10 +303,29 @@ const AdminBillProduct = () => {
                   key={bill._id}
                   style={{ borderTop: "1px solid #27272a" }}
                 >
-                  <Td>{bill.billNo}</Td>
-                  <Td>{formatDate(bill.billDate)}</Td>
-                  <Td>{bill.customerName}</Td>
-                  <Td>{bill.mobileNo}</Td>
+                  <Td>
+                    <CopyableText text={bill.billNo || ""} label="Bill No.">
+                      <span>{bill.billNo}</span>
+                    </CopyableText>
+                  </Td>
+
+                  <Td>
+                    <CopyableText text={formatDate(bill.billDate)} label="date">
+                      <span>{formatDate(bill.billDate)}</span>
+                    </CopyableText>
+                  </Td>
+
+                  <Td>
+                    <CopyableText text={bill.customerName || ""} label="customer name">
+                      <span>{bill.customerName}</span>
+                    </CopyableText>
+                  </Td>
+
+                  <Td>
+                    <CopyableText text={bill.mobileNo || ""} label="mobile number">
+                      <span>{bill.mobileNo}</span>
+                    </CopyableText>
+                  </Td>
                   <Td align="right">₹{Number(bill.grandTotal || 0).toFixed(2)}</Td>
                   <Td align="right">₹{Number(bill.balanceDue || 0).toFixed(2)}</Td>
                   <Td>
@@ -447,7 +466,99 @@ const AdminBillProduct = () => {
           </div>
         </div>
       )}
+            <style>{`
+        .copy-wrap {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .copy-btn {
+          opacity: 0;
+          width: 22px;
+          height: 22px;
+          padding: 0;
+          border: 1px solid #3f3f46;
+          border-radius: 5px;
+          background: #18181b;
+          color: #a1a1aa;
+          font-size: 12px;
+          line-height: 1;
+          cursor: pointer;
+          transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .copy-wrap:hover .copy-btn,
+        td:hover .copy-btn,
+        .copy-btn:focus-visible,
+        .copy-btn.copied {
+          opacity: 1;
+        }
+
+        .copy-btn:hover {
+          color: #f97316;
+          border-color: #f97316;
+        }
+
+        .copy-btn.copied {
+          color: #22c55e;
+          border-color: #22c55e;
+        }
+
+        @media (hover: none) {
+          .copy-btn {
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
+  );
+};
+// =========================================================
+// COPYABLE TEXT (shows a copy button on hover)
+// =========================================================
+
+const CopyableText = ({ text, label, children }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (event) => {
+    event.stopPropagation();
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (error) {
+      console.error("Copy failed:", error);
+    }
+  };
+
+  return (
+    <span className="copy-wrap">
+      {children}
+
+      <button
+        type="button"
+        className={`copy-btn ${copied ? "copied" : ""}`}
+        onClick={handleCopy}
+        title={copied ? "Copied!" : `Copy ${label}`}
+        aria-label={`Copy ${label}`}
+      >
+        {copied ? "✓" : "⧉"}
+      </button>
+    </span>
   );
 };
 
