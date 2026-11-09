@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const {
   getBills,
   getBillById,
-  getBillByBillNo,   // <-- add
+  getBillByBillNo,  
   createBill,
   updateBill,
   deleteBill,

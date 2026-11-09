@@ -1,12 +1,16 @@
-import React, { useState, useContext, useRef } from "react";
+import React, { useState, useContext, useRef, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const wordCount = (str = "") => str.trim().split(/\s+/).filter(Boolean).length;
 
 const AddBillProduct = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
+  const selectedPersonFromState = location.state?.person || null;
+  const personIdFromQuery = new URLSearchParams(location.search).get("personId");
+  const [selectedPerson, setSelectedPerson] = useState(selectedPersonFromState);
 
   // =========================================================
   // REFS (for scroll-to-error on invalid submit)
@@ -110,6 +114,44 @@ const AddBillProduct = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showConfirm, setShowConfirm] = useState(false);
+    useEffect(() => {
+    let cancelled = false;
+
+    const applyPerson = (person) => {
+      if (!person || cancelled) return;
+
+      setSelectedPerson(person);
+
+      setFormData((prev) => ({
+        ...prev,
+        customerName: person.name || "",
+        mobileNo: person.phone || "",
+        address: person.address || "",
+      }));
+    };
+
+    if (selectedPersonFromState) {
+      applyPerson(selectedPersonFromState);
+    }
+
+    if (personIdFromQuery && user?.token) {
+      (async () => {
+        try {
+          const response = await fetch(`/api/people/${personIdFromQuery}`, {
+            headers: { Authorization: `Bearer ${user.token}` },
+          });
+          const data = await response.json();
+          if (response.ok) applyPerson(data);
+        } catch (error) {
+          console.error("Failed to load person:", error);
+        }
+      })();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [personIdFromQuery, user?.token, selectedPersonFromState]);
     // =========================================================
   // BILL NO SEARCH (load an existing bill)
   // =========================================================
@@ -662,6 +704,7 @@ const AddBillProduct = () => {
 
       const submitData = {
         ...(formData.billNo.trim() ? { billNo: formData.billNo.trim() } : {}),
+        ...(selectedPerson?._id ? { personId: selectedPerson._id } : {}),
         billDate: formData.billDate,
         customerName: formData.customerName,
         mobileNo: formData.mobileNo.trim(),

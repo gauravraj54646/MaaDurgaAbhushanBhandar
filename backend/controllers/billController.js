@@ -1,5 +1,31 @@
 const Bill = require('../models/Bill');
+const mongoose = require('mongoose');
+const Person = require('../models/Person');
 
+// Adds the bill number to the matching person (by personId, else by phone).
+// $addToSet makes it safe to run more than once.
+const linkBillToPerson = async ({ personId, mobileNo, billNo }) => {
+  try {
+    let person = null;
+
+    if (personId && mongoose.Types.ObjectId.isValid(personId)) {
+      person = await Person.findById(personId);
+    }
+
+    if (!person && mobileNo) {
+      person = await Person.findOne({ phone: String(mobileNo).trim() });
+    }
+
+    if (!person) return;
+
+    await Person.updateOne(
+      { _id: person._id },
+      { $addToSet: { billNumbers: billNo }, $set: { hasBill: true } }
+    );
+  } catch (err) {
+    console.error('linkBillToPerson failed:', err.message);
+  }
+};
 // Generates the next sequential bill number, e.g. INV0001 -> INV0002.
 // Falls back to INV0001 when no bills exist yet.
 const generateBillNo = async () => {
@@ -175,7 +201,7 @@ const createBill = async (req, res) => {
       items, exchangeItems,
       discount, cgstPercent, sgstPercent,
       payments, paymentMode, amountPaid,
-      soldBy, notes,
+      soldBy, notes,personId,
     } = req.body;
 
     const bill = new Bill({
@@ -226,6 +252,12 @@ const createBill = async (req, res) => {
     });
 
     const createdBill = await bill.save();
+
+     await linkBillToPerson({
+      personId,
+      mobileNo: createdBill.mobileNo,
+      billNo: createdBill.billNo,
+    });
 
     res.status(201).json(createdBill);
   } catch (error) {
