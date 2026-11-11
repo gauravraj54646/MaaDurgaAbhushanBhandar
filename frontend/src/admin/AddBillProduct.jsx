@@ -87,7 +87,7 @@ const AddBillProduct = () => {
   const [formData, setFormData] = useState({
     billNo: "", // left blank -> backend auto-generates (INV0001, ...)
     billDate: getToday(),
-    billType: "jewellery",
+    billType: "simple",
     description: "",
     simpleAmount: "",
 
@@ -293,7 +293,7 @@ const AddBillProduct = () => {
     setFormData({
       billNo: "",
       billDate: getToday(),
-      billType: "jewellery",
+      billType: "simple",
       description: "",
       simpleAmount: "",
       customerName: "",
@@ -1712,7 +1712,7 @@ const AddBillProduct = () => {
             }}
           >
             <SummaryBox label="Items Subtotal" value={itemsSubtotal} />
-            {isSimple && (
+            {!isSimple && (
               <>
             <SummaryBox label="Exchange Total" value={exchangeTotal} color="#ef4444" />
             <SummaryBox label="Taxable Amount" value={taxableAmount} />
