@@ -136,14 +136,14 @@ const AdminBillDashboard = () => {
         }}
       >
         <ActionCard
-          title="📄 Manage Bills"
-          description="Search, filter, edit, or delete existing bills."
-          onClick={() => navigate("/admin/bill/products")}
-        />
-        <ActionCard
           title="🧾 Create New Bill"
           description="Bill a customer for a new jewelry purchase."
           onClick={() => navigate("/admin/bill/add-bill")}
+        />
+        <ActionCard
+          title="📄 Manage Bills"
+          description="Search, filter, edit, or delete existing bills."
+          onClick={() => navigate("/admin/bill/products")}
         />
       </div>
 

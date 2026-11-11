@@ -870,8 +870,8 @@ const AddBillProduct = () => {
       >
                 <div style={{ display: "flex", gap: "10px" }}>
           {[
-            { value: "jewellery", label: "💍 Jewellery Bill" },
             { value: "simple", label: "🧾 Simple Bill" },
+            { value: "jewellery", label: "💍 Jewellery Bill" },
           ].map((opt) => {
             const active = formData.billType === opt.value;
             return (
