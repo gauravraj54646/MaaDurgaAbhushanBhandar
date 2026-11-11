@@ -173,6 +173,25 @@ const billSchema = new mongoose.Schema(
       required: true,
       default: Date.now,
     },
+        // "jewellery" = full itemised bill, "simple" = description + amount
+    billType: {
+      type: String,
+      enum: ["jewellery", "simple"],
+      default: "jewellery",
+    },
+    description: {
+      type: String,
+      trim: true,
+      validate: {
+        validator: (v) => !v || v.trim().split(/\s+/).filter(Boolean).length <= 300,
+        message: "Description must be 300 words or fewer.",
+      },
+    },
+    simpleAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
 
     // ----- Customer -----
     customerName: {
@@ -205,12 +224,15 @@ const billSchema = new mongoose.Schema(
       uppercase: true,
     },
 
-    // ----- Items purchased -----
-    items: {
+    // ----- Items purchased -----  //
+      items: {
       type: [billItemSchema],
-      required: true,
+      default: [],
       validate: {
-        validator: (v) => v.length > 0 && v.length <= 100,
+        validator: function (v) {
+          if (this.billType === "simple") return true;
+          return v.length > 0 && v.length <= 100;
+        },
         message: "Bill must have between 1 and 100 items.",
       },
     },
@@ -337,33 +359,42 @@ const billSchema = new mongoose.Schema(
 // "next is not a function". A plain sync function works instead.
 billSchema.pre("validate", function () {
   // 1. compute each item's amount
-  this.items.forEach((item) => {
-    const metalValue = item.netWeight * item.ratePerGram;
-    const wastageValue = metalValue * (item.wastagePercent / 100);
+    const isSimple = this.billType === "simple";
 
-    let makingValue = 0;
-    if (item.makingChargeType === "flat") makingValue = item.makingCharge;
-    else if (item.makingChargeType === "perGram")
-      makingValue = item.makingCharge * item.netWeight;
-    else if (item.makingChargeType === "percentage")
-      makingValue = metalValue * (item.makingCharge / 100);
+  if (!isSimple) {
+    // 1. compute each item's amount
+    this.items.forEach((item) => {
+      const metalValue = item.netWeight * item.ratePerGram;
+      const wastageValue = metalValue * (item.wastagePercent / 100);
 
-    const lineTotal =
-      (metalValue + wastageValue + makingValue + item.stoneCharge) *
-      item.quantity;
+      let makingValue = 0;
+      if (item.makingChargeType === "flat") makingValue = item.makingCharge;
+      else if (item.makingChargeType === "perGram")
+        makingValue = item.makingCharge * item.netWeight;
+      else if (item.makingChargeType === "percentage")
+        makingValue = metalValue * (item.makingCharge / 100);
 
-    item.amount = Math.round(lineTotal * 100) / 100;
-  });
+      const lineTotal =
+        (metalValue + wastageValue + makingValue + item.stoneCharge) *
+        item.quantity;
 
-  // 2. compute exchange item amounts
-  this.exchangeItems.forEach((ex) => {
-    ex.amount = Math.round(ex.netWeight * ex.ratePerGram * 100) / 100;
-  });
+      item.amount = Math.round(lineTotal * 100) / 100;
+    });
+
+    // 2. compute exchange item amounts
+    this.exchangeItems.forEach((ex) => {
+      ex.amount = Math.round(ex.netWeight * ex.ratePerGram * 100) / 100;
+    });
+  }
 
   // 3. roll up totals
-  this.itemsSubtotal = this.items.reduce((sum, i) => sum + i.amount, 0);
-  this.exchangeTotal = this.exchangeItems.reduce((sum, e) => sum + e.amount, 0);
-
+  this.itemsSubtotal = isSimple
+    ? Math.round((this.simpleAmount || 0) * 100) / 100
+    : this.items.reduce((sum, i) => sum + i.amount, 0);
+  this.exchangeTotal = isSimple
+    ? 0
+    : this.exchangeItems.reduce((sum, e) => sum + e.amount, 0);
+    
   this.taxableAmount = Math.max(this.itemsSubtotal - this.discount, 0);
   this.cgstAmount = Math.round(this.taxableAmount * (this.cgstPercent / 100) * 100) / 100;
   this.sgstAmount = Math.round(this.taxableAmount * (this.sgstPercent / 100) * 100) / 100;

@@ -87,6 +87,9 @@ const AddBillProduct = () => {
   const [formData, setFormData] = useState({
     billNo: "", // left blank -> backend auto-generates (INV0001, ...)
     billDate: getToday(),
+    billType: "jewellery",
+    description: "",
+    simpleAmount: "",
 
     customerName: "",
     mobileNo: "",
@@ -212,6 +215,9 @@ const AddBillProduct = () => {
       setFormData({
         billNo: bill.billNo || billNo,
         billDate: toDateInput(bill.billDate) || getToday(),
+        billType: bill.billType || "jewellery",
+        description: bill.description || "",
+        simpleAmount: bill.simpleAmount ? String(bill.simpleAmount) : "",
 
         customerName: bill.customerName || "",
         mobileNo: bill.mobileNo || "",
@@ -287,6 +293,9 @@ const AddBillProduct = () => {
     setFormData({
       billNo: "",
       billDate: getToday(),
+      billType: "jewellery",
+      description: "",
+      simpleAmount: "",
       customerName: "",
       mobileNo: "",
       address: "",
@@ -351,17 +360,23 @@ const AddBillProduct = () => {
     return netWeight * ratePerGram;
   };
 
+  const isSimple = formData.billType === "simple";
+
   const itemAmounts = formData.items.map(calculateItemAmount);
   const exchangeAmounts = formData.exchangeItems.map(calculateExchangeAmount);
 
-  const itemsSubtotal = itemAmounts.reduce((sum, a) => sum + a, 0);
-  const exchangeTotal = exchangeAmounts.reduce((sum, a) => sum + a, 0);
+  const itemsSubtotal = isSimple
+    ? Number(formData.simpleAmount || 0)
+    : itemAmounts.reduce((sum, a) => sum + a, 0);
+  const exchangeTotal = isSimple
+    ? 0
+    : exchangeAmounts.reduce((sum, a) => sum + a, 0);
 
-  const discountValue = Number(formData.discount || 0);
+  const discountValue = isSimple ? 0 : Number(formData.discount || 0);
   const taxableAmount = Math.max(itemsSubtotal - discountValue, 0);
 
-  const cgstAmount = taxableAmount * (Number(formData.cgstPercent || 0) / 100);
-  const sgstAmount = taxableAmount * (Number(formData.sgstPercent || 0) / 100);
+  const cgstAmount = isSimple ? 0 : taxableAmount * (Number(formData.cgstPercent || 0) / 100);
+  const sgstAmount = isSimple ? 0 : taxableAmount * (Number(formData.sgstPercent || 0) / 100);
 
   const preRound = taxableAmount + cgstAmount + sgstAmount - exchangeTotal;
   const grandTotal = Math.max(Math.round(preRound), 0);
@@ -574,33 +589,45 @@ const AddBillProduct = () => {
       errs.billDate = "Bill date is required.";
     }
 
-    if (formData.items.length === 0) {
-      errs.items = "Add at least one item to the bill.";
+    if (isSimple) {
+      if (!formData.description.trim()) {
+        errs.description = "Description is required.";
+      } else if (wordCount(formData.description) > 300) {
+        errs.description = "Description must be 300 words or fewer.";
+      }
+
+      if (formData.simpleAmount === "" || Number(formData.simpleAmount) <= 0) {
+        errs.simpleAmount = "Enter a valid amount.";
+      }
+    } else {
+      if (formData.items.length === 0) {
+        errs.items = "Add at least one item to the bill.";
+      }
+
+      formData.items.forEach((item, index) => {
+        if (!item.itemName.trim()) {
+          errs[`itemName_${index}`] = `Item name is required for Item ${index + 1}.`;
+        }
+
+        if (item.grossWeight === "" || Number(item.grossWeight) < 0) {
+          errs[`itemGrossWeight_${index}`] = `Enter a valid gross weight for Item ${index + 1}.`;
+        }
+
+        if (item.ratePerGram === "" || Number(item.ratePerGram) < 0) {
+          errs[`itemRate_${index}`] = `Enter a valid rate for Item ${index + 1}.`;
+        }
+      });
+
+      formData.exchangeItems.forEach((ex, index) => {
+        if (ex.grossWeight === "" || Number(ex.grossWeight) < 0) {
+          errs[`exchangeWeight_${index}`] = `Enter a valid gross weight for Exchange ${index + 1}.`;
+        }
+
+        if (ex.ratePerGram === "" || Number(ex.ratePerGram) < 0) {
+          errs[`exchangeRate_${index}`] = `Enter a valid rate for Exchange ${index + 1}.`;
+        }
+      });
     }
-
-    formData.items.forEach((item, index) => {
-      if (!item.itemName.trim()) {
-        errs[`itemName_${index}`] = `Item name is required for Item ${index + 1}.`;
-      }
-
-      if (item.grossWeight === "" || Number(item.grossWeight) < 0) {
-        errs[`itemGrossWeight_${index}`] = `Enter a valid gross weight for Item ${index + 1}.`;
-      }
-
-      if (item.ratePerGram === "" || Number(item.ratePerGram) < 0) {
-        errs[`itemRate_${index}`] = `Enter a valid rate for Item ${index + 1}.`;
-      }
-    });
-
-    formData.exchangeItems.forEach((ex, index) => {
-      if (ex.grossWeight === "" || Number(ex.grossWeight) < 0) {
-        errs[`exchangeWeight_${index}`] = `Enter a valid gross weight for Exchange ${index + 1}.`;
-      }
-
-      if (ex.ratePerGram === "" || Number(ex.ratePerGram) < 0) {
-        errs[`exchangeRate_${index}`] = `Enter a valid rate for Exchange ${index + 1}.`;
-      }
-    });
 
     if (formData.discount !== "" && Number(formData.discount) < 0) {
       errs.discount = "Discount cannot be negative.";
@@ -706,15 +733,18 @@ const AddBillProduct = () => {
         ...(formData.billNo.trim() ? { billNo: formData.billNo.trim() } : {}),
         ...(selectedPerson?._id ? { personId: selectedPerson._id } : {}),
         billDate: formData.billDate,
+        billType: formData.billType,
+        description: isSimple ? formData.description.trim() : undefined,
+        simpleAmount: isSimple ? Number(formData.simpleAmount || 0) : 0,
         customerName: formData.customerName,
         mobileNo: formData.mobileNo.trim(),
         address: formData.address,
         gstin: formData.gstin,
-        items: cleanedItems,
-        exchangeItems: cleanedExchangeItems,
-        discount: Number(formData.discount || 0),
-        cgstPercent: Number(formData.cgstPercent || 0),
-        sgstPercent: Number(formData.sgstPercent || 0),
+        items: isSimple ? [] : cleanedItems,
+        exchangeItems: isSimple ? [] : cleanedExchangeItems,
+        discount: isSimple ? 0 : Number(formData.discount || 0),
+        cgstPercent: isSimple ? 0 : Number(formData.cgstPercent || 0),
+        sgstPercent: isSimple ? 0 : Number(formData.sgstPercent || 0),
         payments: cleanedPayments,
         amountPaid: cleanedPayments.reduce((sum, payment) => sum + payment.amount, 0),
         paymentMode: primaryPaymentMode,
@@ -836,7 +866,36 @@ const AddBillProduct = () => {
       <form
         onSubmit={handleSubmit}
         style={{ display: "flex", flexDirection: "column", gap: "18px" }}
+        
       >
+                <div style={{ display: "flex", gap: "10px" }}>
+          {[
+            { value: "jewellery", label: "💍 Jewellery Bill" },
+            { value: "simple", label: "🧾 Simple Bill" },
+          ].map((opt) => {
+            const active = formData.billType === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                disabled={Boolean(loadedBillId)}
+                onClick={() => handleChange("billType", opt.value)}
+                style={{
+                  padding: "10px 18px",
+                  borderRadius: "7px",
+                  border: active ? "1px solid #f97316" : "1px solid #3f3f46",
+                  background: active ? "rgba(249,115,22,0.15)" : "#09090b",
+                  color: active ? "#f97316" : "#a1a1aa",
+                  fontWeight: "600",
+                  fontSize: "13.5px",
+                  cursor: loadedBillId ? "not-allowed" : "pointer",
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
         {/* =====================================================
             BILL NO + BILL DATE
         ====================================================== */}
@@ -999,10 +1058,47 @@ const AddBillProduct = () => {
             />
           </div>
         </div>
+               {isSimple && (
+              
+          <SectionCard>
+            <SectionHeader title="Bill Details" />
 
+            <div style={{ display: "grid", gap: "16px" }}>
+              <div>
+                <label style={smallLabelStyle}>Description</label>
+                <textarea
+                  placeholder="What is this bill for?"
+                  rows="3"
+                  value={formData.description}
+                  onChange={(e) => handleChange("description", e.target.value)}
+                  ref={(el) => (fieldRefs.current.description = el)}
+                  style={{ ...inputStyle, resize: "vertical" }}
+                />
+                <FieldError msg={errors.description} />
+              </div>
+
+              <div style={{ maxWidth: "360px" }}>
+                <label style={smallLabelStyle}>Amount</label>
+                <MoneyInput
+                  placeholder="Amount"
+                  value={formData.simpleAmount}
+                  onChange={(e) => handleChange("simpleAmount", e.target.value)}
+                />
+                {formData.simpleAmount && (
+                  <div style={amountWordsStyle}>
+                    {numberToWords(formData.simpleAmount)}
+                  </div>
+                )}
+                <FieldError msg={errors.simpleAmount} />
+              </div>
+            </div>
+          </SectionCard>
+        )}
         {/* =====================================================
             ITEMS
         ====================================================== */}
+                {!isSimple && (
+        <>
         <SectionCard>
           <div
             style={{
@@ -1469,7 +1565,8 @@ const AddBillProduct = () => {
             </div>
           </div>
         </SectionCard>
-
+</>
+                )}
         {/* =====================================================
             PAYMENTS (full history: each payment has its own date)
         ====================================================== */}
@@ -1615,10 +1712,14 @@ const AddBillProduct = () => {
             }}
           >
             <SummaryBox label="Items Subtotal" value={itemsSubtotal} />
+            {isSimple && (
+              <>
             <SummaryBox label="Exchange Total" value={exchangeTotal} color="#ef4444" />
             <SummaryBox label="Taxable Amount" value={taxableAmount} />
             <SummaryBox label="CGST + SGST" value={cgstAmount + sgstAmount} color="#f59e0b" />
             <SummaryBox label="Round Off" value={roundOff} color="#71717a" />
+            </>
+            )}
             <SummaryBox label="GRAND TOTAL" value={grandTotal} color="#22c55e" large />
           </div>
 

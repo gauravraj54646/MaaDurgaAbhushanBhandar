@@ -133,7 +133,7 @@ const getBills = async (req, res) => {
       Bill.find(filter)
         // Bills list needs the summary fields for the table, without
         // pulling the full items/exchangeItems arrays for every row.
-        .select('billNo billDate customerName mobileNo grandTotal paymentStatus balanceDue')
+        .select('billNo billDate billType customerName mobileNo grandTotal paymentStatus balanceDue')
         .sort({ [sortField]: sortDirection })
         .skip(skip)
         .limit(limitNum),
@@ -202,11 +202,15 @@ const createBill = async (req, res) => {
       discount, cgstPercent, sgstPercent,
       payments, paymentMode, amountPaid,
       soldBy, notes,personId,
+      billType, description, simpleAmount,
     } = req.body;
 
     const bill = new Bill({
-      billNo: billNo ? billNo.trim().toUpperCase() : await generateBillNo(),
+          billNo: billNo ? billNo.trim().toUpperCase() : await generateBillNo(),
       billDate,
+      billType: billType === 'simple' ? 'simple' : 'jewellery',
+      description,
+      simpleAmount,
       customerName,
       mobileNo,
       address,
@@ -272,6 +276,11 @@ const createBill = async (req, res) => {
           isDeleted: false,
         });
         const createdBill = await bill.save();
+        await linkBillToPerson({
+          personId: req.body.personId,
+          mobileNo: createdBill.mobileNo,
+          billNo: createdBill.billNo,
+        });
         return res.status(201).json(createdBill);
       } catch (retryError) {
         return res.status(400).json({ message: retryError.message });
@@ -291,6 +300,7 @@ const updateBill = async (req, res) => {
       discount, cgstPercent, sgstPercent,
       payments, paymentMode, amountPaid,
       soldBy, notes, isCancelled,
+      billType, description, simpleAmount,
     } = req.body;
 
     const bill = await Bill.findOne({
@@ -301,6 +311,9 @@ const updateBill = async (req, res) => {
     if (bill) {
       bill.billNo = billNo ? billNo.trim().toUpperCase() : bill.billNo;
       bill.billDate = billDate ?? bill.billDate;
+      bill.billType = billType ?? bill.billType;
+      bill.description = description ?? bill.description;
+      bill.simpleAmount = simpleAmount ?? bill.simpleAmount;
       bill.customerName = customerName ?? bill.customerName;
       bill.mobileNo = mobileNo ?? bill.mobileNo;
       bill.address = address ?? bill.address;
