@@ -1778,6 +1778,7 @@ const containerStyle = {
   border:
     "1px solid rgba(255,255,255,0.05)",
   color: "#fafafa",
+  zoom: 1.3,
 };
 
 const headerStyle = {
@@ -1792,7 +1793,7 @@ const headerStyle = {
 const titleStyle = {
   margin: 0,
   color: "#f97316",
-  fontSize: "1.8rem",
+  fontSize: "2.3rem",
 };
 
 const subtitleStyle = {
