@@ -1217,19 +1217,32 @@ const People = () => {
 
                       {/* LOAN */}
 
-                      <td style={tdStyle}>
-                        {person.hasLoan ? (
-                          <span style={loanBadgeStyle}>
-                            Loan
-                            {Array.isArray(person.loanIds) &&
-                            person.loanIds.length > 0
-                              ? ` (${person.loanIds.length})`
-                              : ""}
-                          </span>
-                        ) : (
-                          <span style={mutedTextStyle}>—</span>
-                        )}
-                      </td>
+                    {/* LOAN */}
+<td style={tdStyle}>
+  {person.hasLoan ? (
+    <button
+      type="button"
+      onClick={() =>
+        navigate(
+          `/admin/loan/products?customerId=${encodeURIComponent(person.customerId)}`
+        )
+      }
+      style={{
+        ...loanBadgeStyle,
+        border: "none",
+        cursor: "pointer",
+      }}
+      title={`View loans for ${person.customerId}`}
+    >
+      Loan
+      {Array.isArray(person.loanIds) && person.loanIds.length > 0
+        ? ` (${person.loanIds.length})`
+        : ""}
+    </button>
+  ) : (
+    <span style={mutedTextStyle}>—</span>
+  )}
+</td>
 
                       {/* BILL */}
 
