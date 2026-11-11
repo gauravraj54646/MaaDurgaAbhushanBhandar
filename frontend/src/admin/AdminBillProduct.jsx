@@ -19,7 +19,8 @@ const AdminBillProduct = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const [search, setSearch] = useState("");
+  const [nameSearch, setNameSearch] = useState("");
+  const [billNoSearch, setBillNoSearch] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("");
   const [sortBy, setSortBy] = useState("billDate");
   const [sortOrder, setSortOrder] = useState("desc");
@@ -46,10 +47,12 @@ const AdminBillProduct = () => {
         sortOrder,
       });
 
-      if (search.trim()) {
-        // A single search box driving both billNo and customerName lets
-        // staff type either without picking a field first.
-        params.set("customerName", search.trim());
+      if (nameSearch.trim()) {
+        params.set("customerName", nameSearch.trim());
+      }
+
+      if (billNoSearch.trim()) {
+        params.set("billNo", billNoSearch.trim());
       }
 
       if (paymentStatus) {
@@ -71,7 +74,7 @@ const AdminBillProduct = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, page, sortBy, sortOrder, search, paymentStatus]);
+  }, [user, page, sortBy, sortOrder,nameSearch, billNoSearch, paymentStatus]);
 
   useEffect(() => {
     if (!user || user.role !== "admin") {
@@ -214,10 +217,26 @@ const AdminBillProduct = () => {
       >
         <input
           type="text"
-          placeholder="Search by customer name or bill no."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ ...inputStyle, flex: "2 1 260px" }}
+          placeholder="Search by customer name"
+          value={nameSearch}
+          onChange={(e) => {
+            setNameSearch(e.target.value);
+            setPage(1);
+          }}
+          style={{ ...inputStyle, flex: "2 1 220px" }}
+        />
+
+        <input
+          type="text"
+          placeholder="Search by bill no."
+          value={billNoSearch}
+          onChange={(e) => {
+            setBillNoSearch(
+              e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15),
+            );
+            setPage(1);
+          }}
+          style={{ ...inputStyle, flex: "1 1 160px" }}
         />
 
         <select
