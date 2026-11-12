@@ -1246,19 +1246,38 @@ const People = () => {
 
                       {/* BILL */}
 
-                      <td style={tdStyle}>
-                        {person.hasBill ? (
-                          <span style={billBadgeStyle}>
-                            Bill
-                            {Array.isArray(person.billNumbers) &&
-                            person.billNumbers.length > 0
-                              ? ` (${person.billNumbers.length})`
-                              : ""}
-                          </span>
-                        ) : (
-                          <span style={mutedTextStyle}>—</span>
-                        )}
-                      </td>
+                      
+{/* BILL */}
+<td style={tdStyle}>
+  {Array.isArray(person.billNumbers) &&
+  person.billNumbers.length > 0 ? (
+    <button
+      type="button"
+      onClick={() => {
+        const billNumbers = person.billNumbers
+          .filter(Boolean)
+          .map((num) => String(num).trim().toUpperCase());
+
+        navigate(
+          `/admin/bill/products?billNos=${encodeURIComponent(
+            billNumbers.join(",")
+          )}`
+        );
+      }}
+      style={{
+        ...billBadgeStyle,
+        border: "none",
+        cursor: "pointer",
+      }}
+      title="Click to view all bills"
+    >
+      Bill ({person.billNumbers.length})
+    </button>
+  ) : (
+    <span style={mutedTextStyle}>—</span>
+  )}
+</td>
+
 
                       {/* ACTIONS */}
 
