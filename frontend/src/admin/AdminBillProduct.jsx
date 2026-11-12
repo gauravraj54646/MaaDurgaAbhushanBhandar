@@ -1,5 +1,11 @@
-import React, { useContext, useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import React, {
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 
 const statusColors = {
@@ -11,6 +17,18 @@ const statusColors = {
 const AdminBillProduct = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
+
+const billNumbersFromUrl = useMemo(() => {
+  const params = new URLSearchParams(location.search);
+
+  return (params.get("billNos") || "")
+    .split(",")
+    .map((num) => num.trim().toUpperCase())
+    .filter(Boolean);
+}, [location.search]);
+
+const isMultipleBillView = billNumbersFromUrl.length > 0;
 
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,48 +51,121 @@ const AdminBillProduct = () => {
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
 
-  const fetchBills = useCallback(async () => {
-    if (!user?.token) return;
+const fetchBills = useCallback(async () => {
+  if (!user?.token) return;
 
-    setLoading(true);
-    setError("");
+  setLoading(true);
+  setError("");
 
-    try {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: "20",
-        sortBy,
-        sortOrder,
-      });
+  try {
+    // MULTIPLE BILL VIEW:
+    // Fetch every page so the customer sees all their bills.
+    if (isMultipleBillView) {
+      const allBills = [];
+      let currentPage = 1;
+      let pages = 1;
 
-      if (nameSearch.trim()) {
-        params.set("customerName", nameSearch.trim());
-      }
+      do {
+        const params = new URLSearchParams({
+          page: String(currentPage),
+          limit: "100",
+          sortBy,
+          sortOrder,
+          billNos: billNumbersFromUrl.join(","),
+        });
 
-      if (billNoSearch.trim()) {
-        params.set("billNo", billNoSearch.trim());
-      }
+        const res = await fetch(`/api/bills?${params.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+          },
+        });
 
-      if (paymentStatus) {
-        params.set("paymentStatus", paymentStatus);
-      }
+        const data = await res.json();
 
-      const res = await fetch(`/api/bills?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${user.token}` },
-      });
+        if (!res.ok) {
+          throw new Error(data.message || "Failed to load bills");
+        }
 
-      const data = await res.json();
+        allBills.push(...(data.bills || []));
+        pages = data.totalPages || 1;
+        currentPage++;
+      } while (currentPage <= pages);
 
-      if (!res.ok) throw new Error(data.message || "Failed to load bills");
-
-      setBills(data.bills || []);
-      setTotalPages(data.totalPages || 1);
-    } catch (err) {
-      setError(err.message || "Failed to load bills");
-    } finally {
-      setLoading(false);
+      setBills(allBills);
+      setTotalPages(1);
+      setPage(1);
+      return;
     }
-  }, [user, page, sortBy, sortOrder,nameSearch, billNoSearch, paymentStatus]);
+
+    // NORMAL BILL LIST VIEW — existing filters and pagination
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: "20",
+      sortBy,
+      sortOrder,
+    });
+
+    if (nameSearch.trim()) {
+      params.set("customerName", nameSearch.trim());
+    }
+
+    if (billNoSearch.trim()) {
+      params.set("billNo", billNoSearch.trim());
+    }
+
+    if (paymentStatus) {
+      params.set("paymentStatus", paymentStatus);
+    }
+
+    const res = await fetch(`/api/bills?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${user.token}`,
+      },
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || "Failed to load bills");
+    }
+
+    setBills(data.bills || []);
+    setTotalPages(data.totalPages || 1);
+
+  } catch (err) {
+    setError(err.message || "Failed to load bills");
+  } finally {
+    setLoading(false);
+  }
+}, [
+  user,
+  page,
+  sortBy,
+  sortOrder,
+  nameSearch,
+  billNoSearch,
+  paymentStatus,
+  isMultipleBillView,
+  billNumbersFromUrl,
+]);
+
+const totalGrandAmount = useMemo(
+  () =>
+    bills.reduce(
+      (total, bill) => total + Number(bill.grandTotal || 0),
+      0
+    ),
+  [bills]
+);
+
+const totalBalanceDue = useMemo(
+  () =>
+    bills.reduce(
+      (total, bill) => total + Number(bill.balanceDue || 0),
+      0
+    ),
+  [bills]
+);
 
   useEffect(() => {
     if (!user || user.role !== "admin") {
@@ -88,7 +179,7 @@ const AdminBillProduct = () => {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setPage(1);
-    fetchBills();
+  //  fetchBills();
   };
 
   const toggleSort = (field) => {
@@ -203,9 +294,80 @@ const AdminBillProduct = () => {
         </button>
       </div>
 
+{isMultipleBillView && (
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: "15px",
+      padding: "16px",
+      marginBottom: "20px",
+      background: "#18181b",
+      border: "1px solid #3f3f46",
+      borderRadius: "10px",
+    }}
+  >
+    <div>
+      <div style={{ color: "#a1a1aa", fontSize: "12px" }}>
+        Customer Bills
+      </div>
+
+      <div style={{ color: "#e4e4e7", fontSize: "13px", marginTop: "5px" }}>
+        {billNumbersFromUrl.join(", ")}
+      </div>
+    </div>
+
+    <div style={{ display: "flex", gap: "25px", flexWrap: "wrap" }}>
+      <div>
+        <div style={{ color: "#a1a1aa", fontSize: "12px" }}>
+          Total Bills
+        </div>
+        <div style={{ color: "#fff", fontSize: "20px", fontWeight: "700" }}>
+          {bills.length}
+        </div>
+      </div>
+
+      <div>
+        <div style={{ color: "#a1a1aa", fontSize: "12px" }}>
+          Combined Grand Total
+        </div>
+        <div style={{ color: "#22c55e", fontSize: "20px", fontWeight: "700" }}>
+          ₹{totalGrandAmount.toLocaleString("en-IN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </div>
+      </div>
+
+      <div>
+        <div style={{ color: "#a1a1aa", fontSize: "12px" }}>
+          Total Balance Due
+        </div>
+        <div style={{ color: "#f59e0b", fontSize: "20px", fontWeight: "700" }}>
+          ₹{totalBalanceDue.toLocaleString("en-IN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </div>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      onClick={() =>
+  navigate("/admin/bill/products", { replace: true })}
+      style={secondaryButtonStyle}
+    >
+      Show All Bills
+    </button>
+  </div>
+)}
       {/* =====================================================
           FILTERS
       ====================================================== */}
+     {!isMultipleBillView && (
       <form
         onSubmit={handleSearchSubmit}
         style={{
@@ -256,8 +418,8 @@ const AdminBillProduct = () => {
         <button type="submit" style={secondaryButtonStyle}>
           Search
         </button>
-      </form>
-
+        </form>
+)}
       {error && (
         <div
           style={{
@@ -389,7 +551,7 @@ const AdminBillProduct = () => {
       {/* =====================================================
           PAGINATION
       ====================================================== */}
-      {totalPages > 1 && (
+      {!isMultipleBillView && totalPages > 1 && (
         <div
           style={{
             display: "flex",

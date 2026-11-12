@@ -53,41 +53,76 @@ const cleanPayments = (payments) =>
     mode: p.mode,
   }));
 
+
 const getBills = async (req, res) => {
   try {
     const {
       page = 1,
       limit = 20,
       billNo,
-      customerName, // partial, case-insensitive match
-      mobileNo, // partial match
-      fromDate, // inclusive lower bound on billDate
-      toDate, // inclusive upper bound on billDate
-      minAmount, // inclusive lower bound on grandTotal
-      maxAmount, // inclusive upper bound on grandTotal
-      paymentStatus, // 'paid' | 'partial' | 'pending'
-      sortBy = 'billDate', // 'billDate' | 'grandTotal' | 'customerName'
-      sortOrder = 'desc', // 'asc' | 'desc'
+      billNos,
+      customerName,
+      mobileNo,
+      fromDate,
+      toDate,
+      minAmount,
+      maxAmount,
+      paymentStatus,
+      sortBy = 'billDate',
+      sortOrder = 'desc',
     } = req.query;
 
     const filter = { isDeleted: false };
 
-    if (billNo) {
-      filter.billNo = { $regex: billNo.trim(), $options: 'i' };
+    // MULTIPLE BILL NUMBERS
+    // Example: ?billNos=INV0001,INV0002,INV0003
+    if (billNos) {
+      const billNumberList = [
+        ...new Set(
+          (Array.isArray(billNos) ? billNos : billNos.split(','))
+            .map((num) => String(num).trim().toUpperCase())
+            .filter(Boolean)
+        ),
+      ];
+
+      if (
+        billNumberList.length === 0 ||
+        billNumberList.length > 100 ||
+        billNumberList.some((num) => !/^[A-Z0-9]{1,15}$/.test(num))
+      ) {
+        return res.status(400).json({
+          message: 'Invalid bill numbers.',
+        });
+      }
+
+      filter.billNo = { $in: billNumberList };
     }
+    // EXISTING SINGLE BILL NUMBER SEARCH
+    else if (billNo) {
+      filter.billNo = {
+        $regex: billNo.trim(),
+        $options: 'i',
+      };
+    }
+
     if (customerName) {
-      filter.customerName = { $regex: customerName.trim(), $options: 'i' };
+      filter.customerName = {
+        $regex: customerName.trim(),
+        $options: 'i',
+      };
     }
+
     if (mobileNo) {
-      // Strip everything but digits, capped at 10 (a full Indian
-      // mobile number) so oversized/garbage input can't be used to
-      // build a huge regex.
       const digitsOnly = mobileNo.trim().replace(/\D/g, '').slice(0, 10);
 
       if (digitsOnly) {
-        filter.mobileNo = { $regex: digitsOnly, $options: 'i' };
+        filter.mobileNo = {
+          $regex: digitsOnly,
+          $options: 'i',
+        };
       }
     }
+
     if (paymentStatus) {
       filter.paymentStatus = paymentStatus;
     }
@@ -100,7 +135,6 @@ const getBills = async (req, res) => {
       }
 
       if (toDate) {
-        // include the whole day for the "to" bound
         const end = new Date(toDate);
         end.setHours(23, 59, 59, 999);
         filter.billDate.$lte = end;
@@ -119,24 +153,33 @@ const getBills = async (req, res) => {
       }
     }
 
-    // Only these fields may be sorted on — prevents arbitrary/unsafe
-    // sort keys being passed in via query string.
-    const allowedSortFields = ['billDate', 'grandTotal', 'customerName'];
-    const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'billDate';
+    // Allowed sorting fields
+    const allowedSortFields = [
+      'billDate',
+      'grandTotal',
+      'customerName',
+    ];
+
+    const sortField = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : 'billDate';
+
     const sortDirection = sortOrder === 'asc' ? 1 : -1;
 
+    // Pagination
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
     const skip = (pageNum - 1) * limitNum;
 
     const [bills, total] = await Promise.all([
       Bill.find(filter)
-        // Bills list needs the summary fields for the table, without
-        // pulling the full items/exchangeItems arrays for every row.
-        .select('billNo billDate billType customerName mobileNo grandTotal paymentStatus balanceDue')
+        .select(
+          'billNo billDate billType customerName mobileNo grandTotal paymentStatus balanceDue'
+        )
         .sort({ [sortField]: sortDirection })
         .skip(skip)
         .limit(limitNum),
+
       Bill.countDocuments(filter),
     ]);
 
@@ -148,7 +191,9 @@ const getBills = async (req, res) => {
       totalPages: Math.ceil(total / limitNum) || 1,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: error.message,
+    });
   }
 };
 
