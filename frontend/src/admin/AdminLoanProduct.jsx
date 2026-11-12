@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 
 const PAGE_SIZE = 12;
@@ -73,6 +73,10 @@ const SidebarButton = ({ icon, label, onClick, primary = false, title }) => (
 const AdminLoanProduct = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const customerIdFromUrl =
+  new URLSearchParams(location.search).get("customerId") || "";
 
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +102,7 @@ const AdminLoanProduct = () => {
 
   const [toDateInput, setToDateInput] = useState(getToday());
   const [nameInput, setNameInput] = useState("");
-  const [customerIdInput, setCustomerIdInput] = useState("");
+  const [customerIdInput, setCustomerIdInput] = useState(customerIdFromUrl.toUpperCase());
   const [loanIdInput, setLoanIdInput] = useState("");
   const [phoneInput, setPhoneInput] = useState("");
   const [fromDateInput, setFromDateInput] = useState("");
@@ -107,7 +111,7 @@ const AdminLoanProduct = () => {
 
   const [appliedFilters, setAppliedFilters] = useState({
     name: "",
-    customerId: "",
+   customerId: customerIdFromUrl.toUpperCase(),
     loanId: "",
     phone: "",
     fromDate: "",
@@ -119,7 +123,20 @@ const AdminLoanProduct = () => {
   // Default: newest loan first ("now to before date")
   const [sortBy, setSortBy] = useState("date");
   const [sortOrder, setSortOrder] = useState("desc");
+useEffect(() => {
+  const customerId =
+    new URLSearchParams(location.search).get("customerId") || "";
 
+  const formattedId = customerId.trim().toUpperCase();
+
+  setCustomerIdInput(formattedId);
+  setPage(1);
+
+  setAppliedFilters((prev) => ({
+    ...prev,
+    customerId: formattedId,
+  }));
+}, [location.search]);
   // -----------------------------------------------------------
   // Debounce text/number filter inputs -> appliedFilters
   // -----------------------------------------------------------
@@ -262,6 +279,7 @@ const AdminLoanProduct = () => {
     setToDateInput("");
     setMinAmountInput("");
     setMaxAmountInput("");
+    navigate(location.pathname, { replace: true });
   };
 
   // -----------------------------------------------------------
