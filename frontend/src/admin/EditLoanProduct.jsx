@@ -1408,18 +1408,20 @@ if (formData.returnDate) {
             </div>
           </div>
 
-          {/* SIGNED */}
-          <div>
-            <label style={labelStyle}>Signed</label>
-            <select
-              value={formData.signed}
-              onChange={(e) => handleChange("signed", e.target.value)}
-              style={{ ...inputStyle, cursor: "pointer", maxWidth: "320px" }}
-            >
-              <option value="no">No</option>
-              <option value="yes">Yes</option>
-            </select>
-          </div>
+          {/* SIGNED — Jewellery Loan only */}
+          {formData.loanType === "jewellery" && (
+            <div>
+              <label style={labelStyle}>Signed</label>
+              <select
+                value={formData.signed}
+                onChange={(e) => handleChange("signed", e.target.value)}
+                style={{ ...inputStyle, cursor: "pointer", maxWidth: "320px" }}
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </div>
+          )}
 
           {/* FINAL SETTLEMENT */}
           <div>
