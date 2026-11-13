@@ -148,7 +148,7 @@ const AddLoanProduct = () => {
   // =========================================================
 
   const [formData, setFormData] = useState({
-    loanType: "jewellery",
+    loanType:  "simple",
     name: "",
     address: "",
     customerId: "",
@@ -707,7 +707,7 @@ if (
   errs.loanAmount = "Enter a loan amount greater than zero.";
 }
     // Reloans
-    if (formData.loanType === "jewellery") {
+  
     formData.reloans.forEach((reloan, index) => {
       if (!reloan.issueDate) {
         errs[`reloanDate_${index}`] = `Issue date is required for Reloan ${
@@ -721,7 +721,7 @@ if (
         }.`;
       }
     });
-  }
+  
     // =========================================================
     // PAYMENTS
     // =========================================================
@@ -849,7 +849,7 @@ const submitData = {
   interest: Number(originalLoan.interest.toFixed(2)),
   totalAmount: Number(originalLoan.total.toFixed(2)),
 
-  reloans: isSimple ? [] : cleanedReloans,
+  reloans: cleanedReloans,
   payments: cleanedPayments,
 };
       const res = await fetch("/api/loans", {
@@ -1061,7 +1061,7 @@ const submitData = {
                   roi: 0,
                   dissolveDate: "",
                   signed: "no",
-                  reloans: [],
+               //   reloans: [],
                 }
               : {
                   dueDate: getDueDate(),
@@ -1410,41 +1410,48 @@ const submitData = {
         {/*    ===================================================
           Return Date
         ================================================ */}
-        {formData.loanType === "jewellery" && (
-        <div className="two-col" style={twoColGridStyle}>
-          <div>
-            <label style={labelStyle}>Return Date</label>
+       <div
+  className="two-col"
+  style={{
+    ...twoColGridStyle,
+    gridTemplateColumns:
+      formData.loanType === "jewellery" ? "repeat(2, 1fr)" : "1fr",
+  }}
+>
+  {/* Return Date - Both loan types */}
+  <div>
+    <label style={labelStyle}>Return Date</label>
 
-            <input
-              type="date"
-              value={formData.returnDate}
-              onChange={(e) => handleChange("returnDate", e.target.value)}
-              style={{
-                ...inputStyle,
-                cursor: "pointer",
-                maxWidth: "320px",
-              }}
-            />
-          </div>{" "}
-          {/* =====================================================
-            DISSOLVE DATE
-        ====================================================== */}
-          <div>
-            <label style={labelStyle}>Dissolve Date</label>
+    <input
+      type="date"
+      value={formData.returnDate}
+      onChange={(e) => handleChange("returnDate", e.target.value)}
+      style={{
+        ...inputStyle,
+        cursor: "pointer",
+        maxWidth: "320px",
+      }}
+    />
+  </div>
 
-            <input
-              type="date"
-              value={formData.dissolveDate}
-              onChange={(e) => handleChange("dissolveDate", e.target.value)}
-              style={{
-                ...inputStyle,
-                cursor: "pointer",
-                maxWidth: "320px",
-              }}
-            />
-          </div>
-        </div>
-        )}
+  {/* Dissolve Date - Jewellery Loan only */}
+  {formData.loanType === "jewellery" && (
+    <div>
+      <label style={labelStyle}>Dissolve Date</label>
+
+      <input
+        type="date"
+        value={formData.dissolveDate}
+        onChange={(e) => handleChange("dissolveDate", e.target.value)}
+        style={{
+          ...inputStyle,
+          cursor: "pointer",
+          maxWidth: "320px",
+        }}
+      />
+    </div>
+  )}
+</div>
         {/* =====================================================
             ORIGINAL LOAN
         ====================================================== */}
@@ -1530,7 +1537,7 @@ const submitData = {
         {/* =====================================================
             RELOANS
         ====================================================== */}
-        {formData.loanType === "jewellery" && (
+
         <SectionCard>
           <div
             style={{
@@ -1719,7 +1726,7 @@ const submitData = {
             </div>
           )}
         </SectionCard>
-        )}
+        
         {/* =====================================================
             PAYMENTS - SEPARATE FROM RELOANS
         ====================================================== */}
