@@ -1042,8 +1042,8 @@ const submitData = {
 
   <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
     {[
-      { value: "jewellery", label: "Jewellery Loan" },
       { value: "simple", label: "Simple Loan" },
+      { value: "jewellery", label: "Jewellery Loan" },
     ].map((option) => (
       <button
         key={option.value}

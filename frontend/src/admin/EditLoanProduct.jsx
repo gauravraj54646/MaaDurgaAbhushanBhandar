@@ -87,6 +87,7 @@ const EditLoanProduct = () => {
   // Loan data
   // -----------------------------------------------------------
   const [formData, setFormData] = useState({
+    loanType: "jewellery",
     name: "",
     address: "",
     customerId: "",
@@ -166,6 +167,7 @@ const EditLoanProduct = () => {
         }
 
         setFormData({
+          loanType: data.loanType || "jewellery",
           name: data.name || "",
           address: data.address || "",
           customerId: data.customerId || "",
@@ -220,6 +222,11 @@ const EditLoanProduct = () => {
   // stay exactly as stored, since the original loan is locked.
   // -----------------------------------------------------------
   const calculateLoan = (amount, issueDate) => {
+    if (formData.loanType === "simple") {
+      const principal = Number(amount || 0);
+      return { days: 0, interest: 0, total: Number.isFinite(principal) ? principal : 0 };
+    }
+
     if (
       amount === "" || amount === null || amount === undefined ||
       !issueDate ||
@@ -381,9 +388,12 @@ const EditLoanProduct = () => {
     if (!formData.description.trim()) errs.description = "Description is required.";
     if (wordCount(formData.description) > 300) errs.description = "Description must be 300 words or fewer.";
 
-    if (!formData.dueDate) errs.dueDate = "Due Date is required.";
-
-    if (formData.roi === "" || Number(formData.roi) < 0) errs.roi = "Enter a valid ROI.";
+    if (formData.loanType === "jewellery") {
+      if (!formData.dueDate) errs.dueDate = "Due Date is required.";
+      if (formData.roi === "" || Number(formData.roi) < 0) {
+        errs.roi = "Enter a valid ROI.";
+      }
+    }
 
     formData.reloans.forEach((r, index) => {
       if (!r.issueDate) errs[`reloanDate_${index}`] = `Issue date is required for Reloan ${index + 1}.`;
@@ -551,28 +561,30 @@ if (formData.returnDate) {
 
       // Locked fields (customerId, date, loanAmount/interest/totalAmount)
       // are sent back unchanged so the backend record stays consistent.
+      const isSimple = formData.loanType === "simple";
       const payload = {
+        loanType: formData.loanType,
         name: formData.name,
         address: formData.address,
         customerId: formData.customerId,
         loanId: formData.loanId,     
         mobileNo: formData.mobileNo,
         description: formData.description,
-        goldWeight: Number(formData.goldWeight || 0),
-        silverWeight: Number(formData.silverWeight || 0),
+        goldWeight: isSimple ? 0 : Number(formData.goldWeight || 0),
+        silverWeight: isSimple ? 0 : Number(formData.silverWeight || 0),
 
         date: formData.date,
         loanAmount: Number(formData.loanAmount),
         interest: Number(originalLoan.interest.toFixed(2)),
         totalAmount: Number(originalLoan.total.toFixed(2)),
 
-        dueDate: formData.dueDate,
-        available: formData.available,
-        roi: Number(formData.roi),
+        dueDate: isSimple ? undefined : formData.dueDate,
+        available: isSimple ? undefined : formData.available,
+        roi: isSimple ? 0 : Number(formData.roi),
         returnDate: formData.returnDate,
-        dissolveDate: formData.dissolveDate,
+        dissolveDate: isSimple ? undefined : formData.dissolveDate,
 
-        signed: formData.signed,
+        signed: isSimple ? undefined : formData.signed,
         finalSettlement: formData.finalSettlement,
 
         reloans: cleanedReloans,
@@ -869,7 +881,12 @@ if (formData.returnDate) {
             marginBottom: "26px",
           }}
         >
-          <h1 style={{ color: "#f1990b", margin: 0, fontSize: "28px" }}>Edit Loan</h1>
+          <div>
+            <h1 style={{ color: "#f1990b", margin: 0, fontSize: "28px" }}>Edit Loan</h1>
+            <div style={{ color: "#a1a1aa", fontSize: "12px", marginTop: "4px" }}>
+              {formData.loanType === "simple" ? "Simple Loan" : "Jewellery Loan"}
+            </div>
+          </div>
 
           <button
             type="button"
@@ -990,7 +1007,8 @@ if (formData.returnDate) {
             </div>
           </div>
 
-          {/* GOLD / SILVER WEIGHT */}
+          {/* GOLD / SILVER WEIGHT — Jewellery Loan only */}
+          {formData.loanType === "jewellery" && (
           <div className="two-col" style={twoColGridStyle}>
             <div>
               <label style={labelStyle}>Gold Weight (g)</label>
@@ -1015,12 +1033,17 @@ if (formData.returnDate) {
               />
             </div>
           </div>
+          )}
 
           {/* DESCRIPTION */}
           <div>
             <label style={labelStyle}>Description</label>
             <textarea
-              placeholder="Description of the pledged item(s)"
+              placeholder={
+                formData.loanType === "simple"
+                  ? "Loan purpose or description"
+                  : "Description of the pledged item(s)"
+              }
               required
               rows="4"
               value={formData.description}
@@ -1031,8 +1054,14 @@ if (formData.returnDate) {
             <FieldError msg={errors.description} />
           </div>
 
-          {/* ISSUE DATE (locked) + DUE DATE */}
-          <div className="two-col" style={twoColGridStyle}>
+          {/* ISSUE DATE + DUE DATE (Jewellery Loan only) */}
+          <div
+            className="two-col"
+            style={{
+              ...twoColGridStyle,
+              gridTemplateColumns: formData.loanType === "jewellery" ? "repeat(2, 1fr)" : "1fr",
+            }}
+          >
             <div>
               <label style={labelStyle}>Issue Date (locked)</label>
               <input
@@ -1045,6 +1074,7 @@ if (formData.returnDate) {
               />
             </div>
 
+            {formData.loanType === "jewellery" && (
             <div>
               <label style={labelStyle}>Due Date</label>
               <input
@@ -1057,9 +1087,11 @@ if (formData.returnDate) {
               />
               <FieldError msg={errors.dueDate} />
             </div>
+            )}
           </div>
 
-          {/* AVAILABLE + ROI */}
+          {/* AVAILABLE + ROI — Jewellery Loan only */}
+          {formData.loanType === "jewellery" && (
           <div className="two-col" style={twoColGridStyle}>
             <div>
               <label style={labelStyle}>Available</label>
@@ -1086,10 +1118,18 @@ if (formData.returnDate) {
               <FieldError msg={errors.roi} />
             </div>
           </div>
+          )}
 
           {/* RETURN DATE + DISSOLVE DATE */}
-          <div className="two-col" style={twoColGridStyle}>
+          <div
+            className="two-col"
+            style={{
+              ...twoColGridStyle,
+              gridTemplateColumns: formData.loanType === "jewellery" ? "repeat(2, 1fr)" : "1fr",
+            }}
+          >
             <div ref={(el) => (fieldRefs.current.returnDate = el)}>
+
               <label style={labelStyle}>Return Date</label>
               <input
                 type="date"
@@ -1116,6 +1156,7 @@ if (formData.returnDate) {
   </div>
 )}
             </div>
+            {formData.loanType === "jewellery" && (
             <div>
               <label style={labelStyle}>Dissolve Date</label>
               <input
@@ -1125,6 +1166,7 @@ if (formData.returnDate) {
                 style={{ ...inputStyle, cursor: "pointer" }}
               />
             </div>
+            )}
           </div>
 
           {/* ORIGINAL LOAN (locked) */}
@@ -1352,7 +1394,7 @@ if (formData.returnDate) {
           {/* FINAL SUMMARY */}
           <div style={{ padding: "20px", background: "#111113", border: "1px solid #3f3f46", borderRadius: "10px" }}>
             <div style={{ color: "#f97316", fontSize: "15px", fontWeight: 600, marginBottom: "14px" }}>
-              Final Loan Summary
+              {formData.loanType === "simple" ? "Simple Loan Summary" : "Jewellery Loan Summary"}
             </div>
             <div
               className="summary-grid"
