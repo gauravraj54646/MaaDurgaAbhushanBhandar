@@ -82,7 +82,7 @@ const getLoans = async (req, res) => {
         // Manage Loans list needs name/date/amount for the table,
         // plus dueDate/dissolveDate for the overdue flag + hover info,
         // plus mobileNo for the phone column/search result.
-        .select('name date dueDate dissolveDate returnDate loanAmount customerId loanId mobileNo')
+        .select('name date dueDate dissolveDate returnDate loanAmount customerId loanId mobileNo loanType')
         .sort({ [sortField]: sortDirection })
         .skip(skip)
         .limit(limitNum),
@@ -129,8 +129,10 @@ const createLoan = async (req, res) => {
       date, dueDate, available, returnDate, roi, dissolveDate,
       loanAmount, signed, finalSettlement,
       reloans, payments,
+      loanType,
     } = req.body;
 
+    const isSimple = loanType === 'simple';
     const loan = new LoanProduct({
       name,
       address,
@@ -138,16 +140,17 @@ const createLoan = async (req, res) => {
       loanId,
       mobileNo,
       description,
-      goldWeight,
-      silverWeight,
+      loanType: isSimple ? 'simple' : 'jewellery',
+      goldWeight: isSimple ? 0 : goldWeight,
+      silverWeight: isSimple ? 0 : silverWeight,
       date,
-      dueDate,
-      available,
+      dueDate: isSimple ? undefined : dueDate,
+      available: isSimple ? undefined : available,
       returnDate,
-      roi,
+      roi: isSimple ? 0 : roi,
       dissolveDate,
       loanAmount,
-      signed,
+      signed: isSimple ? undefined : signed,
       finalSettlement,
       isDeleted: false,
       reloans: (reloans || []).map((r) => ({
@@ -179,6 +182,7 @@ const updateLoan = async (req, res) => {
       date, dueDate, available, returnDate, roi, dissolveDate,
       loanAmount, signed, finalSettlement,
       reloans, payments,
+      loanType,
     } = req.body;
 
    const loan = await LoanProduct.findOne({
@@ -191,6 +195,7 @@ const updateLoan = async (req, res) => {
       loan.address = address ?? loan.address;
       loan.customerId = customerId ?? loan.customerId;
       loan.loanId = loanId ?? loan.loanId;
+      loan.loanType = loanType ?? loan.loanType;
       loan.mobileNo = mobileNo ?? loan.mobileNo;
       loan.description = description ?? loan.description;
       loan.goldWeight = goldWeight ?? loan.goldWeight;
@@ -204,6 +209,13 @@ const updateLoan = async (req, res) => {
       loan.loanAmount = loanAmount ?? loan.loanAmount;
       loan.signed = signed ?? loan.signed;
       loan.finalSettlement = finalSettlement ?? loan.finalSettlement;
+      
+      if (loan.loanType === 'simple') {
+        loan.goldWeight = 0;
+        loan.silverWeight = 0;
+        loan.roi = 0;
+        loan.dueDate = undefined;
+      }
 
       if (reloans) {
         loan.reloans = reloans.map((r) => ({

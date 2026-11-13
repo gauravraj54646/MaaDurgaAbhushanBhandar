@@ -11,6 +11,14 @@ const loanProductSchema = new mongoose.Schema(
         message: "Name must be 60 words or fewer.",
       },
     },
+        // "jewellery" = pledged-item loan with due date / ROI / interest,
+    // "simple" = plain amount lent, no interest or due date.
+    // Old loans have no value stored, so they default to jewellery.
+    loanType: {
+      type: String,
+      enum: ["simple", "jewellery"],
+      default: "jewellery",
+    },
     address: {
       type: String,
       required: true,
@@ -74,8 +82,10 @@ const loanProductSchema = new mongoose.Schema(
     },
     dueDate: {
       type: Date,
-      required: true,
-    },
+      required: function () {
+        return this.loanType !== "simple";
+      },
+    },    
     available: {
       type: String,
       enum: ["yes", "no"],

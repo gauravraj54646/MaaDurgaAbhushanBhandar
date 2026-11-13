@@ -148,6 +148,7 @@ const AddLoanProduct = () => {
   // =========================================================
 
   const [formData, setFormData] = useState({
+    loanType: "jewellery",
     name: "",
     address: "",
     customerId: "",
@@ -364,6 +365,15 @@ const AddLoanProduct = () => {
   // =========================================================
 
   const calculateLoan = (amount, issueDate) => {
+      if (formData.loanType === "simple") {
+    const loanAmount = Number(amount || 0);
+
+    return {
+      days: 0,
+      interest: 0,
+      total: Number.isFinite(loanAmount) ? loanAmount : 0,
+    };
+  }
     if (
       amount === "" ||
       amount === null ||
@@ -672,27 +682,32 @@ const AddLoanProduct = () => {
     if (wordCount(formData.description) > 300) {
       errs.description = "Description must be 300 words or fewer.";
     }
+// Dates
+if (!formData.date) {
+  errs.date = "Issue date is required.";
+}
 
-    // Dates
-    if (!formData.date) {
-      errs.date = "Issue date is required.";
-    }
+if (formData.loanType === "jewellery") {
+  if (!formData.dueDate) {
+    errs.dueDate = "Due Date is required.";
+  }
 
-    if (!formData.dueDate) {
-      errs.dueDate = "Due Date is required.";
-    }
-
-    // ROI
-    if (formData.roi === "" || Number(formData.roi) < 0) {
-      errs.roi = "Enter a valid ROI.";
-    }
-
+  if (formData.roi === "" || Number(formData.roi) < 0) {
+    errs.roi = "Enter a valid ROI.";
+  }
+}
     // Original loan
-    if (formData.loanAmount === "" || Number(formData.loanAmount) < 0) {
-      errs.loanAmount = "Enter a valid loan amount.";
-    }
+const amount = Number(formData.loanAmount);
 
+if (
+  formData.loanAmount === "" ||
+  !Number.isFinite(amount) ||
+  amount <= 0
+) {
+  errs.loanAmount = "Enter a loan amount greater than zero.";
+}
     // Reloans
+    if (formData.loanType === "jewellery") {
     formData.reloans.forEach((reloan, index) => {
       if (!reloan.issueDate) {
         errs[`reloanDate_${index}`] = `Issue date is required for Reloan ${
@@ -706,7 +721,7 @@ const AddLoanProduct = () => {
         }.`;
       }
     });
-
+  }
     // =========================================================
     // PAYMENTS
     // =========================================================
@@ -811,28 +826,32 @@ const AddLoanProduct = () => {
         paidDate: payment.paidDate,
       }));
 
-      const submitData = {
-        ...formData,
-        ...(selectedPerson?._id ? { personId: selectedPerson._id } : {}),
-        goldWeight: Number(formData.goldWeight || 0),
+      const isSimple = formData.loanType === "simple";
 
-        silverWeight: Number(formData.silverWeight || 0),
+const submitData = {
+  ...formData,
 
-        mobileNo: formData.mobileNo.trim(),
+  ...(selectedPerson?._id ? { personId: selectedPerson._id } : {}),
 
-        loanAmount: Number(formData.loanAmount),
+  goldWeight: isSimple ? 0 : Number(formData.goldWeight || 0),
+  silverWeight: isSimple ? 0 : Number(formData.silverWeight || 0),
 
-        roi: Number(formData.roi),
+  mobileNo: formData.mobileNo.trim(),
+  loanAmount: Number(formData.loanAmount),
 
-        interest: Number(originalLoan.interest.toFixed(2)),
+  roi: isSimple ? 0 : Number(formData.roi),
 
-        totalAmount: Number(originalLoan.total.toFixed(2)),
+  dueDate: isSimple ? undefined : formData.dueDate,
+  available: isSimple ? undefined : formData.available,
+  signed: isSimple ? undefined : formData.signed,
+  dissolveDate: isSimple ? undefined : formData.dissolveDate,
 
-        reloans: cleanedReloans,
+  interest: Number(originalLoan.interest.toFixed(2)),
+  totalAmount: Number(originalLoan.total.toFixed(2)),
 
-        payments: cleanedPayments,
-      };
-
+  reloans: isSimple ? [] : cleanedReloans,
+  payments: cleanedPayments,
+};
       const res = await fetch("/api/loans", {
         method: "POST",
 
@@ -1018,6 +1037,63 @@ const AddLoanProduct = () => {
           gap: "18px",
         }}
       >
+      <div>
+  <label style={labelStyle}>Loan Type</label>
+
+  <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+    {[
+      { value: "jewellery", label: "Jewellery Loan" },
+      { value: "simple", label: "Simple Loan" },
+    ].map((option) => (
+      <button
+        key={option.value}
+        type="button"
+        onClick={() => {
+          setFormData((prev) => ({
+            ...prev,
+            loanType: option.value,
+            ...(option.value === "simple"
+              ? {
+                  goldWeight: "",
+                  silverWeight: "",
+                  dueDate: "",
+                  available: "yes",
+                  roi: 0,
+                  dissolveDate: "",
+                  signed: "no",
+                  reloans: [],
+                }
+              : {
+                  dueDate: getDueDate(),
+                  roi: 5,
+                  dissolveDate: getDissolveDate(),
+                }),
+          }));
+
+          setErrors({});
+        }}
+        style={{
+          padding: "12px 22px",
+          borderRadius: "8px",
+          border:
+            formData.loanType === option.value
+              ? "1px solid #f97316"
+              : "1px solid #3f3f46",
+          background:
+            formData.loanType === option.value
+              ? "rgba(249,115,22,0.12)"
+              : "#09090b",
+          color:
+            formData.loanType === option.value ? "#f97316" : "#a1a1aa",
+          fontWeight: "600",
+          cursor: "pointer",
+        }}
+      >
+        {option.label}
+      </button>
+    ))}
+  </div>
+</div>
         {/* =====================================================
             NAME
         ====================================================== */}
@@ -1193,6 +1269,8 @@ const AddLoanProduct = () => {
         {/* =====================================================
             GOLD / SILVER WEIGHT
         ====================================================== */}
+        {formData.loanType === "jewellery" && (
+  <>
         <div className="two-col" style={twoColGridStyle}>
           <div>
             <label style={labelStyle}>Gold Weight (g)</label>
@@ -1224,6 +1302,8 @@ const AddLoanProduct = () => {
             />
           </div>
         </div>
+          </>
+)}
         {/* =====================================================
             DESCRIPTION
         ====================================================== */}
@@ -1231,7 +1311,11 @@ const AddLoanProduct = () => {
           <label style={labelStyle}>Description</label>
 
           <textarea
-            placeholder="Description of the pledged item(s)"
+           placeholder={
+  formData.loanType === "simple"
+    ? "Loan purpose or description"
+    : "Description of the pledged item(s)"
+}
             required
             rows="4"
             value={formData.description}
@@ -1245,82 +1329,88 @@ const AddLoanProduct = () => {
         {/* =====================================================
             ISSUE DATE + DUE DATE
         ====================================================== */}
-        <div className="two-col" style={twoColGridStyle}>
-          <div>
-            <label style={labelStyle}>Issue Date</label>
+       {/* =====================================================
+    ISSUE DATE + DUE DATE
+====================================================== */}
+<div
+  className="two-col"
+  style={{
+    ...twoColGridStyle,
+    gridTemplateColumns:
+      formData.loanType === "jewellery" ? "repeat(2, 1fr)" : "1fr",
+  }}
+>
+  <div>
+    <label style={labelStyle}>Issue Date</label>
 
-            <input
-              type="date"
-              required
-              value={formData.date}
-              onChange={(e) => handleChange("date", e.target.value)}
-              ref={(el) => (fieldRefs.current.date = el)}
-              style={{
-                ...inputStyle,
-                cursor: "pointer",
-              }}
-            />
+    <input
+      type="date"
+      required
+      value={formData.date}
+      onChange={(e) => handleChange("date", e.target.value)}
+      ref={(el) => (fieldRefs.current.date = el)}
+      style={{ ...inputStyle, cursor: "pointer" }}
+    />
+    <FieldError msg={errors.date} />
+  </div>
 
-            <FieldError msg={errors.date} />
-          </div>
+  {formData.loanType === "jewellery" && (
+    <div>
+      <label style={labelStyle}>Due Date</label>
 
-          <div>
-            <label style={labelStyle}>Due Date</label>
-
-            <input
-              type="date"
-              required
-              value={formData.dueDate}
-              onChange={(e) => handleChange("dueDate", e.target.value)}
-              ref={(el) => (fieldRefs.current.dueDate = el)}
-              style={{
-                ...inputStyle,
-                cursor: "pointer",
-              }}
-            />
-
-            <FieldError msg={errors.dueDate} />
-          </div>
-        </div>
+      <input
+        type="date"
+        required
+        value={formData.dueDate}
+        onChange={(e) => handleChange("dueDate", e.target.value)}
+        ref={(el) => (fieldRefs.current.dueDate = el)}
+        style={{ ...inputStyle, cursor: "pointer" }}
+      />
+      <FieldError msg={errors.dueDate} />
+    </div>
+  )}
+</div>
         {/* =====================================================
             AVAILABLE + ROI
         ====================================================== */}
-        <div className="two-col" style={twoColGridStyle}>
-          <div>
-            <label style={labelStyle}>Available</label>
+        {formData.loanType === "jewellery" && (
+  <div className="two-col" style={twoColGridStyle}>
+    <div>
+      <label style={labelStyle}>Available</label>
 
-            <select
-              value={formData.available}
-              onChange={(e) => handleChange("available", e.target.value)}
-              style={{ ...inputStyle, cursor: "pointer" }}
-            >
-              <option value="yes">Yes</option>
+      <select
+        value={formData.available}
+        onChange={(e) => handleChange("available", e.target.value)}
+        style={{ ...inputStyle, cursor: "pointer" }}
+      >
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+    </div>
 
-              <option value="no">No</option>
-            </select>
-          </div>
+    <div>
+      <label style={labelStyle}>ROI (%)</label>
 
-          <div>
-            <label style={labelStyle}>ROI (%)</label>
+      <input
+        type="text"
+        inputMode="numeric"
+        min="0"
+        step="0.01"
+        value={formData.roi}
+        onChange={(e) => handleChange("roi", e.target.value)}
+        ref={(el) => (fieldRefs.current.roi = el)}
+        style={inputStyle}
+      />
 
-            <input
-              type="text"
-              inputMode="numeric"
-              min="0"
-              step="0.01"
-              value={formData.roi}
-              onChange={(e) => handleChange("roi", e.target.value)}
-              ref={(el) => (fieldRefs.current.roi = el)}
-              style={inputStyle}
-            />
-
-            <FieldError msg={errors.roi} />
-          </div>
-        </div>
+      <FieldError msg={errors.roi} />
+    </div>
+  </div>
+)}
 
         {/*    ===================================================
           Return Date
         ================================================ */}
+        {formData.loanType === "jewellery" && (
         <div className="two-col" style={twoColGridStyle}>
           <div>
             <label style={labelStyle}>Return Date</label>
@@ -1354,6 +1444,7 @@ const AddLoanProduct = () => {
             />
           </div>
         </div>
+        )}
         {/* =====================================================
             ORIGINAL LOAN
         ====================================================== */}
@@ -1416,7 +1507,7 @@ const AddLoanProduct = () => {
 
           <FieldError msg={errors.loanAmount} />
 
-          {formData.loanAmount !== "" && (
+          {formData.loanAmount !== "" && formData.loanType === "jewellery" && (
             <div
               style={{
                 marginTop: "10px",
@@ -1439,6 +1530,7 @@ const AddLoanProduct = () => {
         {/* =====================================================
             RELOANS
         ====================================================== */}
+        {formData.loanType === "jewellery" && (
         <SectionCard>
           <div
             style={{
@@ -1627,6 +1719,7 @@ const AddLoanProduct = () => {
             </div>
           )}
         </SectionCard>
+        )}
         {/* =====================================================
             PAYMENTS - SEPARATE FROM RELOANS
         ====================================================== */}
@@ -1802,7 +1895,9 @@ const AddLoanProduct = () => {
               marginBottom: "14px",
             }}
           >
-            Final Loan Summary
+            {formData.loanType === "simple"
+  ? "Simple Loan Summary"
+  : "Jewellery Loan Summary"}
           </div>
 
           <div
@@ -1836,6 +1931,7 @@ const AddLoanProduct = () => {
         {/* =====================================================
             SIGNED
         ====================================================== */}
+       {formData.loanType === "jewellery" && ( 
         <div>
           <label style={labelStyle}>Signed</label>
 
@@ -1849,6 +1945,7 @@ const AddLoanProduct = () => {
             <option value="yes">Yes</option>
           </select>
         </div>
+        )}
         {/* =====================================================
             FINAL SETTLEMENT
         ====================================================== */}
