@@ -76,7 +76,7 @@ const AdminLoanProduct = () => {
   const location = useLocation();
 
   const customerIdFromUrl =
-  new URLSearchParams(location.search).get("customerId") || "";
+    new URLSearchParams(location.search).get("customerId") || "";
 
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -102,7 +102,9 @@ const AdminLoanProduct = () => {
 
   const [toDateInput, setToDateInput] = useState(getToday());
   const [nameInput, setNameInput] = useState("");
-  const [customerIdInput, setCustomerIdInput] = useState(customerIdFromUrl.toUpperCase());
+  const [customerIdInput, setCustomerIdInput] = useState(
+    customerIdFromUrl.toUpperCase(),
+  );
   const [loanIdInput, setLoanIdInput] = useState("");
   const [phoneInput, setPhoneInput] = useState("");
   const [fromDateInput, setFromDateInput] = useState("");
@@ -111,7 +113,7 @@ const AdminLoanProduct = () => {
 
   const [appliedFilters, setAppliedFilters] = useState({
     name: "",
-   customerId: customerIdFromUrl.toUpperCase(),
+    customerId: customerIdFromUrl.toUpperCase(),
     loanId: "",
     phone: "",
     fromDate: "",
@@ -123,20 +125,22 @@ const AdminLoanProduct = () => {
   // Default: newest loan first ("now to before date")
   const [sortBy, setSortBy] = useState("date");
   const [sortOrder, setSortOrder] = useState("desc");
-useEffect(() => {
-  const customerId =
-    new URLSearchParams(location.search).get("customerId") || "";
 
-  const formattedId = customerId.trim().toUpperCase();
+  useEffect(() => {
+    const customerId =
+      new URLSearchParams(location.search).get("customerId") || "";
 
-  setCustomerIdInput(formattedId);
-  setPage(1);
+    const formattedId = customerId.trim().toUpperCase();
 
-  setAppliedFilters((prev) => ({
-    ...prev,
-    customerId: formattedId,
-  }));
-}, [location.search]);
+    setCustomerIdInput(formattedId);
+    setPage(1);
+
+    setAppliedFilters((prev) => ({
+      ...prev,
+      customerId: formattedId,
+    }));
+  }, [location.search]);
+
   // -----------------------------------------------------------
   // Debounce text/number filter inputs -> appliedFilters
   // -----------------------------------------------------------
@@ -446,6 +450,7 @@ useEffect(() => {
 
         <div
           id="loan-search-section"
+          className="search-card"
           style={{
             scrollMarginTop: "20px",
             background: "#0f0f11",
@@ -614,6 +619,7 @@ useEffect(() => {
 
               <input
                 type="number"
+                inputMode="decimal"
                 placeholder="₹ Minimum"
                 value={minAmountInput}
                 onChange={(e) => setMinAmountInput(e.target.value)}
@@ -627,6 +633,7 @@ useEffect(() => {
 
               <input
                 type="number"
+                inputMode="decimal"
                 placeholder="₹ Maximum"
                 value={maxAmountInput}
                 onChange={(e) => setMaxAmountInput(e.target.value)}
@@ -637,6 +644,7 @@ useEffect(() => {
             {/* Clear */}
             <button
               type="button"
+              className="filters-clear-btn"
               onClick={clearFilters}
               title="Clear all filters"
               style={{
@@ -768,6 +776,7 @@ useEffect(() => {
                         </span>
 
                         <span
+                          className="meta-sep"
                           style={{
                             width: "1px",
                             height: "12px",
@@ -785,6 +794,7 @@ useEffect(() => {
                         {loan.mobileNo && (
                           <>
                             <span
+                              className="meta-sep"
                               style={{
                                 width: "1px",
                                 height: "12px",
@@ -1004,61 +1014,6 @@ useEffect(() => {
           background: #111113;
         }
 
-        /* ---------- Responsive ---------- */
-        @media (max-width: 1000px) {
-          .filters-grid {
-            grid-template-columns: 1fr 1fr !important;
-          }
-
-          .filters-grid-2 {
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-            justify-content: start !important;
-          }
-        }
-
-        /* Sidebar collapses into a horizontal button bar on small screens */
-        @media (max-width: 820px) {
-          .loan-page {
-            flex-direction: column !important;
-            gap: 16px !important;
-            width: 100% !important;
-            padding-left: 14px !important;
-            padding-right: 14px !important;
-          }
-
-          .loan-sidebar {
-            position: static !important;
-            width: 100% !important;
-            flex-direction: row !important;
-            flex-wrap: wrap !important;
-            align-items: center !important;
-            gap: 8px !important;
-          }
-
-          .loan-sidebar .side-btn {
-            width: auto;
-            border: 1px solid #27272a;
-          }
-
-          .loan-sidebar .side-btn-primary {
-            border-color: #f97316;
-          }
-
-          .loan-sidebar .side-divider {
-            display: none;
-          }
-        }
-
-        @media (max-width: 700px) {
-          .loan-row {
-            grid-template-columns: 1fr 1fr !important;
-          }
-
-          .loan-row > *:nth-child(3) {
-            display: none;
-          }
-        }
-
         input:focus {
           border-color: #f97316 !important;
         }
@@ -1100,7 +1055,7 @@ useEffect(() => {
           font-weight: 600;
         }
 
-                /* ==========================================
+        /* ==========================================
            GLOBAL FONT SIZE INCREASE — 30%
         ========================================== */
 
@@ -1136,6 +1091,152 @@ useEffect(() => {
         .loan-page .date-hover-row {
           font-size: 15.6px !important;
         }
+
+        /* ==========================================
+           RESPONSIVE (kept last so it overrides the
+           font-size rules above)
+        ========================================== */
+
+        @media (max-width: 1000px) {
+          .filters-grid {
+            grid-template-columns: 1fr 1fr !important;
+          }
+
+          .filters-grid-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            justify-content: start !important;
+          }
+
+          .filters-clear-btn {
+            grid-column: 1 / -1;
+            width: 100% !important;
+          }
+        }
+
+        /* Sidebar collapses into a button bar on small screens */
+        @media (max-width: 820px) {
+          .loan-page {
+            flex-direction: column !important;
+            gap: 14px !important;
+            width: 100% !important;
+            margin: 14px 0 !important;
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+          }
+
+          .loan-sidebar {
+            position: static !important;
+            width: 100% !important;
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px !important;
+            padding: 8px !important;
+          }
+
+          .loan-sidebar .side-btn {
+            width: 100%;
+            border: 1px solid #27272a;
+            font-size: 14px !important;
+            padding: 11px 10px;
+            min-width: 0;
+          }
+
+          .loan-sidebar .side-btn-label {
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .loan-sidebar .side-btn-primary {
+            border-color: #f97316;
+          }
+
+          .loan-sidebar .side-divider {
+            display: none;
+          }
+        }
+
+        @media (max-width: 600px) {
+          .loan-page h2 {
+            font-size: 22px !important;
+          }
+
+          .search-card {
+            padding: 14px !important;
+          }
+
+          .filters-grid {
+            grid-template-columns: 1fr !important;
+          }
+
+          .filters-grid-2 {
+            grid-template-columns: 1fr 1fr !important;
+          }
+
+          .loan-page label {
+            font-size: 12px !important;
+          }
+
+          /* Keep the sticky sort header, but compact */
+          .loan-header-row {
+            grid-template-columns: 1fr 1fr 1fr !important;
+            gap: 6px !important;
+            padding: 12px 12px !important;
+          }
+
+          .loan-page .loan-row > button {
+            font-size: 11px !important;
+          }
+
+          /* Each loan becomes a two-line card-like row:
+             name + IDs on top, date (left) and amount (right) below. */
+          .loan-row:not(.loan-header-row) {
+            grid-template-columns: 1fr auto !important;
+            gap: 8px 12px !important;
+            padding: 12px !important;
+          }
+
+          .loan-row:not(.loan-header-row) > div:first-child {
+            grid-column: 1 / -1;
+          }
+
+          .loan-page .loan-row > div {
+            font-size: 15px !important;
+          }
+
+          .loan-page .loan-row > div div,
+          .loan-page .loan-row > div span {
+            font-size: 12px !important;
+          }
+
+          .meta-sep {
+            display: none !important;
+          }
+
+          .loan-table-scroll {
+            max-height: 75vh;
+          }
+        }
+
+        /* No hover on touch devices / phones: show due + dissolve
+           dates inline under the loan date instead of in a tooltip. */
+        @media (max-width: 600px), (hover: none) {
+          .date-hover-tooltip {
+            position: static;
+            opacity: 1;
+            transform: none;
+            min-width: 0;
+            margin-top: 6px;
+            padding: 6px 10px;
+            box-shadow: none;
+            pointer-events: none;
+          }
+
+          .loan-page .date-hover-row {
+            font-size: 12px !important;
+            gap: 10px;
+            padding: 2px 0;
+          }
+        }
       `}</style>
     </div>
   );
@@ -1161,7 +1262,7 @@ const FinancialsInfoModal = ({
       alignItems: "center",
       justifyContent: "center",
       zIndex: 1000,
-      padding: "16px",
+      padding: "12px",
     }}
     onClick={onClose}
   >
@@ -1175,7 +1276,7 @@ const FinancialsInfoModal = ({
         background: "#18181b",
         border: "1px solid #27272a",
         borderRadius: "12px",
-        padding: "26px",
+        padding: "20px",
         boxSizing: "border-box",
       }}
     >
@@ -1200,6 +1301,7 @@ const FinancialsInfoModal = ({
         <button
           type="button"
           onClick={onClose}
+          aria-label="Close"
           style={{
             border: "none",
             background: "transparent",
@@ -1207,7 +1309,7 @@ const FinancialsInfoModal = ({
             fontSize: "18px",
             cursor: "pointer",
             lineHeight: 1,
-            padding: "4px",
+            padding: "8px",
           }}
         >
           ✕
@@ -1241,7 +1343,7 @@ const FinancialsInfoModal = ({
                 border: "1px solid #27272a",
                 borderRadius: "7px",
                 color: "#fff",
-                fontSize: "14px",
+                fontSize: "16px", // 16px stops iOS Safari zooming on focus
                 outline: "none",
                 boxSizing: "border-box",
                 marginBottom: "10px",
@@ -1395,15 +1497,14 @@ const FinancialsRow = ({ label, value, color = "#22c55e", raw = false }) => (
       gap: "12px",
     }}
   >
-    <span style={{ color: "#a1a1aa", fontSize: "13px", whiteSpace: "nowrap" }}>
-      {label}
-    </span>
+    <span style={{ color: "#a1a1aa", fontSize: "13px" }}>{label}</span>
     <span
       style={{
         color,
         fontSize: "16px",
         fontWeight: "700",
         textAlign: "right",
+        whiteSpace: "nowrap",
       }}
     >
       {raw ? value : `₹${Number(value || 0).toFixed(2)}`}
@@ -1421,12 +1522,20 @@ const FinancialsCountRow = ({ count, amount, color = "#ef4444" }) => (
       background: "#09090b",
       border: "1px solid #27272a",
       borderRadius: "8px",
+      gap: "12px",
     }}
   >
     <span style={{ color: "#a1a1aa", fontSize: "13px" }}>
       {Number(count || 0)} loan{Number(count || 0) === 1 ? "" : "s"}
     </span>
-    <span style={{ color, fontSize: "16px", fontWeight: "700" }}>
+    <span
+      style={{
+        color,
+        fontSize: "16px",
+        fontWeight: "700",
+        whiteSpace: "nowrap",
+      }}
+    >
       ₹{Number(amount || 0).toFixed(2)}
     </span>
   </div>
@@ -1465,6 +1574,7 @@ const sidebarStyle = {
 const mainStyle = {
   flex: 1,
   minWidth: 0,
+  width: "100%",
 };
 
 const labelStyle = {
@@ -1486,6 +1596,7 @@ const inputStyle = {
   fontSize: "13px",
   outline: "none",
   boxSizing: "border-box",
+  minWidth: 0,
 };
 
 const tableRowStyle = {

@@ -14,21 +14,51 @@ const statusColors = {
   pending: "#ef4444",
 };
 
+// =========================================================
+// useIsMobile — true when viewport is <= breakpoint
+// =========================================================
+const useIsMobile = (breakpoint = 768) => {
+  const query = `(max-width: ${breakpoint}px)`;
+  const getMatch = () =>
+    typeof window !== "undefined" && window.matchMedia
+      ? window.matchMedia(query).matches
+      : false;
+
+  const [isMobile, setIsMobile] = useState(getMatch);
+
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const mql = window.matchMedia(query);
+    const handler = (e) => setIsMobile(e.matches);
+    setIsMobile(mql.matches);
+
+    if (mql.addEventListener) {
+      mql.addEventListener("change", handler);
+      return () => mql.removeEventListener("change", handler);
+    }
+    mql.addListener(handler);
+    return () => mql.removeListener(handler);
+  }, [query]);
+
+  return isMobile;
+};
+
 const AdminBillProduct = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useIsMobile(768);
 
-const billNumbersFromUrl = useMemo(() => {
-  const params = new URLSearchParams(location.search);
+  const billNumbersFromUrl = useMemo(() => {
+    const params = new URLSearchParams(location.search);
 
-  return (params.get("billNos") || "")
-    .split(",")
-    .map((num) => num.trim().toUpperCase())
-    .filter(Boolean);
-}, [location.search]);
+    return (params.get("billNos") || "")
+      .split(",")
+      .map((num) => num.trim().toUpperCase())
+      .filter(Boolean);
+  }, [location.search]);
 
-const isMultipleBillView = billNumbersFromUrl.length > 0;
+  const isMultipleBillView = billNumbersFromUrl.length > 0;
 
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,129 +73,105 @@ const isMultipleBillView = billNumbersFromUrl.length > 0;
   const [sortBy, setSortBy] = useState("billDate");
   const [sortOrder, setSortOrder] = useState("desc");
 
-  // Password-gated deletion (same pattern as EditLoanProduct's row
-  // deletion) — clicking Delete opens a confirm modal that requires
-  // the admin password before the DELETE request actually fires.
+  // Password-gated deletion
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, billNo }
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
 
-const fetchBills = useCallback(async () => {
-  if (!user?.token) return;
+  const fetchBills = useCallback(async () => {
+    if (!user?.token) return;
 
-  setLoading(true);
-  setError("");
+    setLoading(true);
+    setError("");
 
-  try {
-    // MULTIPLE BILL VIEW:
-    // Fetch every page so the customer sees all their bills.
-    if (isMultipleBillView) {
-      const allBills = [];
-      let currentPage = 1;
-      let pages = 1;
+    try {
+      // MULTIPLE BILL VIEW: fetch every page so the customer sees all bills.
+      if (isMultipleBillView) {
+        const allBills = [];
+        let currentPage = 1;
+        let pages = 1;
 
-      do {
-        const params = new URLSearchParams({
-          page: String(currentPage),
-          limit: "100",
-          sortBy,
-          sortOrder,
-          billNos: billNumbersFromUrl.join(","),
-        });
+        do {
+          const params = new URLSearchParams({
+            page: String(currentPage),
+            limit: "100",
+            sortBy,
+            sortOrder,
+            billNos: billNumbersFromUrl.join(","),
+          });
 
-        const res = await fetch(`/api/bills?${params.toString()}`, {
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-          },
-        });
+          const res = await fetch(`/api/bills?${params.toString()}`, {
+            headers: { Authorization: `Bearer ${user.token}` },
+          });
 
-        const data = await res.json();
+          const data = await res.json();
 
-        if (!res.ok) {
-          throw new Error(data.message || "Failed to load bills");
-        }
+          if (!res.ok) {
+            throw new Error(data.message || "Failed to load bills");
+          }
 
-        allBills.push(...(data.bills || []));
-        pages = data.totalPages || 1;
-        currentPage++;
-      } while (currentPage <= pages);
+          allBills.push(...(data.bills || []));
+          pages = data.totalPages || 1;
+          currentPage++;
+        } while (currentPage <= pages);
 
-      setBills(allBills);
-      setTotalPages(1);
-      setPage(1);
-      return;
+        setBills(allBills);
+        setTotalPages(1);
+        setPage(1);
+        return;
+      }
+
+      // NORMAL BILL LIST VIEW
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: "20",
+        sortBy,
+        sortOrder,
+      });
+
+      if (nameSearch.trim()) params.set("customerName", nameSearch.trim());
+      if (billNoSearch.trim()) params.set("billNo", billNoSearch.trim());
+      if (paymentStatus) params.set("paymentStatus", paymentStatus);
+
+      const res = await fetch(`/api/bills?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to load bills");
+      }
+
+      setBills(data.bills || []);
+      setTotalPages(data.totalPages || 1);
+    } catch (err) {
+      setError(err.message || "Failed to load bills");
+    } finally {
+      setLoading(false);
     }
+  }, [
+    user,
+    page,
+    sortBy,
+    sortOrder,
+    nameSearch,
+    billNoSearch,
+    paymentStatus,
+    isMultipleBillView,
+    billNumbersFromUrl,
+  ]);
 
-    // NORMAL BILL LIST VIEW — existing filters and pagination
-    const params = new URLSearchParams({
-      page: String(page),
-      limit: "20",
-      sortBy,
-      sortOrder,
-    });
+  const totalGrandAmount = useMemo(
+    () => bills.reduce((total, bill) => total + Number(bill.grandTotal || 0), 0),
+    [bills]
+  );
 
-    if (nameSearch.trim()) {
-      params.set("customerName", nameSearch.trim());
-    }
-
-    if (billNoSearch.trim()) {
-      params.set("billNo", billNoSearch.trim());
-    }
-
-    if (paymentStatus) {
-      params.set("paymentStatus", paymentStatus);
-    }
-
-    const res = await fetch(`/api/bills?${params.toString()}`, {
-      headers: {
-        Authorization: `Bearer ${user.token}`,
-      },
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.message || "Failed to load bills");
-    }
-
-    setBills(data.bills || []);
-    setTotalPages(data.totalPages || 1);
-
-  } catch (err) {
-    setError(err.message || "Failed to load bills");
-  } finally {
-    setLoading(false);
-  }
-}, [
-  user,
-  page,
-  sortBy,
-  sortOrder,
-  nameSearch,
-  billNoSearch,
-  paymentStatus,
-  isMultipleBillView,
-  billNumbersFromUrl,
-]);
-
-const totalGrandAmount = useMemo(
-  () =>
-    bills.reduce(
-      (total, bill) => total + Number(bill.grandTotal || 0),
-      0
-    ),
-  [bills]
-);
-
-const totalBalanceDue = useMemo(
-  () =>
-    bills.reduce(
-      (total, bill) => total + Number(bill.balanceDue || 0),
-      0
-    ),
-  [bills]
-);
+  const totalBalanceDue = useMemo(
+    () => bills.reduce((total, bill) => total + Number(bill.balanceDue || 0), 0),
+    [bills]
+  );
 
   useEffect(() => {
     if (!user || user.role !== "admin") {
@@ -179,7 +185,6 @@ const totalBalanceDue = useMemo(
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setPage(1);
-  //  fetchBills();
   };
 
   const toggleSort = (field) => {
@@ -208,9 +213,6 @@ const totalBalanceDue = useMemo(
     setDeleteError("");
 
     try {
-      // Verifies the admin's password before allowing the delete to
-      // proceed — same password-check endpoint EditLoanProduct uses
-      // for its row deletions.
       const verifyRes = await fetch("/api/loans/analytics/financials", {
         method: "POST",
         headers: {
@@ -257,8 +259,18 @@ const totalBalanceDue = useMemo(
     if (!isoDate) return "-";
     const d = new Date(isoDate);
     if (Number.isNaN(d.getTime())) return "-";
-    return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   };
+
+  const formatMoney = (value) =>
+    `₹${Number(value || 0).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
 
   if (!user || user.role !== "admin") {
     return null;
@@ -268,11 +280,13 @@ const totalBalanceDue = useMemo(
     <div
       style={{
         maxWidth: "1360px",
-        margin: "30px auto",
-        padding: "0 20px",
+        margin: isMobile ? "16px auto" : "30px auto",
+        padding: isMobile ? "0 12px" : "0 20px",
         boxSizing: "border-box",
+        width: "100%",
       }}
     >
+      {/* HEADER */}
       <div
         style={{
           display: "flex",
@@ -280,10 +294,18 @@ const totalBalanceDue = useMemo(
           alignItems: "center",
           flexWrap: "wrap",
           gap: "12px",
-          marginBottom: "22px",
+          marginBottom: isMobile ? "16px" : "22px",
         }}
       >
-        <h2 style={{ color: "#f97316", margin: 0, fontSize: "22px" }}>Manage Bills</h2>
+        <h2
+          style={{
+            color: "#f97316",
+            margin: 0,
+            fontSize: isMobile ? "19px" : "22px",
+          }}
+        >
+          Manage Bills
+        </h2>
 
         <button
           type="button"
@@ -294,132 +316,178 @@ const totalBalanceDue = useMemo(
         </button>
       </div>
 
-{isMultipleBillView && (
-  <div
-    style={{
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      flexWrap: "wrap",
-      gap: "15px",
-      padding: "16px",
-      marginBottom: "20px",
-      background: "#18181b",
-      border: "1px solid #3f3f46",
-      borderRadius: "10px",
-    }}
-  >
-    <div>
-      <div style={{ color: "#a1a1aa", fontSize: "12px" }}>
-        Customer Bills
-      </div>
-
-      <div style={{ color: "#e4e4e7", fontSize: "13px", marginTop: "5px" }}>
-        {billNumbersFromUrl.join(", ")}
-      </div>
-    </div>
-
-    <div style={{ display: "flex", gap: "25px", flexWrap: "wrap" }}>
-      <div>
-        <div style={{ color: "#a1a1aa", fontSize: "12px" }}>
-          Total Bills
-        </div>
-        <div style={{ color: "#fff", fontSize: "20px", fontWeight: "700" }}>
-          {bills.length}
-        </div>
-      </div>
-
-      <div>
-        <div style={{ color: "#a1a1aa", fontSize: "12px" }}>
-          Combined Grand Total
-        </div>
-        <div style={{ color: "#22c55e", fontSize: "20px", fontWeight: "700" }}>
-          ₹{totalGrandAmount.toLocaleString("en-IN", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
-        </div>
-      </div>
-
-      <div>
-        <div style={{ color: "#a1a1aa", fontSize: "12px" }}>
-          Total Balance Due
-        </div>
-        <div style={{ color: "#f59e0b", fontSize: "20px", fontWeight: "700" }}>
-          ₹{totalBalanceDue.toLocaleString("en-IN", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
-        </div>
-      </div>
-    </div>
-
-    <button
-      type="button"
-      onClick={() =>
-  navigate("/admin/bill/products", { replace: true })}
-      style={secondaryButtonStyle}
-    >
-      Show All Bills
-    </button>
-  </div>
-)}
-      {/* =====================================================
-          FILTERS
-      ====================================================== */}
-     {!isMultipleBillView && (
-      <form
-        onSubmit={handleSearchSubmit}
-        style={{
-          display: "flex",
-          gap: "10px",
-          flexWrap: "wrap",
-          marginBottom: "18px",
-        }}
-      >
-        <input
-          type="text"
-          placeholder="Search by customer name"
-          value={nameSearch}
-          onChange={(e) => {
-            setNameSearch(e.target.value);
-            setPage(1);
+      {/* MULTIPLE BILL SUMMARY */}
+      {isMultipleBillView && (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: isMobile ? "column" : "row",
+            justifyContent: "space-between",
+            alignItems: isMobile ? "stretch" : "center",
+            flexWrap: "wrap",
+            gap: isMobile ? "14px" : "15px",
+            padding: isMobile ? "14px" : "16px",
+            marginBottom: "20px",
+            background: "#18181b",
+            border: "1px solid #3f3f46",
+            borderRadius: "10px",
           }}
-          style={{ ...inputStyle, flex: "2 1 220px" }}
-        />
-
-        <input
-          type="text"
-          placeholder="Search by bill no."
-          value={billNoSearch}
-          onChange={(e) => {
-            setBillNoSearch(
-              e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15),
-            );
-            setPage(1);
-          }}
-          style={{ ...inputStyle, flex: "1 1 160px" }}
-        />
-
-        <select
-          value={paymentStatus}
-          onChange={(e) => {
-            setPaymentStatus(e.target.value);
-            setPage(1);
-          }}
-          style={{ ...inputStyle, flex: "1 1 160px", cursor: "pointer" }}
         >
-          <option value="">All Payment Statuses</option>
-          <option value="paid">Paid</option>
-          <option value="partial">Partial</option>
-          <option value="pending">Pending</option>
-        </select>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: "#a1a1aa", fontSize: "12px" }}>Customer Bills</div>
 
-        <button type="submit" style={secondaryButtonStyle}>
-          Search
-        </button>
+            <div
+              style={{
+                color: "#e4e4e7",
+                fontSize: "13px",
+                marginTop: "5px",
+                wordBreak: "break-word",
+              }}
+            >
+              {billNumbersFromUrl.join(", ")}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: isMobile ? "grid" : "flex",
+              gridTemplateColumns: isMobile ? "1fr 1fr" : undefined,
+              gap: isMobile ? "12px" : "25px",
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <div style={{ color: "#a1a1aa", fontSize: "12px" }}>Total Bills</div>
+              <div style={{ color: "#fff", fontSize: isMobile ? "17px" : "20px", fontWeight: "700" }}>
+                {bills.length}
+              </div>
+            </div>
+
+            <div style={{ gridColumn: isMobile ? "1 / -1" : undefined }}>
+              <div style={{ color: "#a1a1aa", fontSize: "12px" }}>Combined Grand Total</div>
+              <div style={{ color: "#22c55e", fontSize: isMobile ? "17px" : "20px", fontWeight: "700" }}>
+                {formatMoney(totalGrandAmount)}
+              </div>
+            </div>
+
+            <div style={{ gridColumn: isMobile ? "1 / -1" : undefined }}>
+              <div style={{ color: "#a1a1aa", fontSize: "12px" }}>Total Balance Due</div>
+              <div style={{ color: "#f59e0b", fontSize: isMobile ? "17px" : "20px", fontWeight: "700" }}>
+                {formatMoney(totalBalanceDue)}
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate("/admin/bill/products", { replace: true })}
+            style={{ ...secondaryButtonStyle, width: isMobile ? "100%" : "auto" }}
+          >
+            Show All Bills
+          </button>
+        </div>
+      )}
+
+      {/* FILTERS */}
+      {!isMultipleBillView && (
+        <form
+          onSubmit={handleSearchSubmit}
+          style={{
+            display: "flex",
+            flexDirection: isMobile ? "column" : "row",
+            gap: "10px",
+            flexWrap: "wrap",
+            marginBottom: "14px",
+          }}
+        >
+          <input
+            type="text"
+            placeholder="Search by customer name"
+            value={nameSearch}
+            onChange={(e) => {
+              setNameSearch(e.target.value);
+              setPage(1);
+            }}
+            style={{
+              ...inputStyle,
+              ...(isMobile ? { width: "100%" } : { flex: "2 1 220px" }),
+            }}
+          />
+
+          <input
+            type="text"
+            placeholder="Search by bill no."
+            value={billNoSearch}
+            onChange={(e) => {
+              setBillNoSearch(
+                e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15)
+              );
+              setPage(1);
+            }}
+            style={{
+              ...inputStyle,
+              ...(isMobile ? { width: "100%" } : { flex: "1 1 160px" }),
+            }}
+          />
+
+          <select
+            value={paymentStatus}
+            onChange={(e) => {
+              setPaymentStatus(e.target.value);
+              setPage(1);
+            }}
+            style={{
+              ...inputStyle,
+              cursor: "pointer",
+              ...(isMobile ? { width: "100%" } : { flex: "1 1 160px" }),
+            }}
+          >
+            <option value="">All Payment Statuses</option>
+            <option value="paid">Paid</option>
+            <option value="partial">Partial</option>
+            <option value="pending">Pending</option>
+          </select>
+
+          <button
+            type="submit"
+            style={{ ...secondaryButtonStyle, width: isMobile ? "100%" : "auto" }}
+          >
+            Search
+          </button>
         </form>
-)}
+      )}
+
+      {/* MOBILE SORT CONTROLS (table headers are hidden on mobile) */}
+      {isMobile && (
+        <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
+          <select
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value);
+              setPage(1);
+            }}
+            style={{ ...inputStyle, flex: 1, cursor: "pointer", minWidth: 0 }}
+            aria-label="Sort by"
+          >
+            <option value="billDate">Sort: Date</option>
+            <option value="customerName">Sort: Customer</option>
+            <option value="grandTotal">Sort: Grand Total</option>
+          </select>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+              setPage(1);
+            }}
+            style={{ ...secondaryButtonStyle, padding: "10px 14px" }}
+            aria-label="Toggle sort order"
+          >
+            {sortOrder === "asc" ? "▲ Asc" : "▼ Desc"}
+          </button>
+        </div>
+      )}
+
       {error && (
         <div
           style={{
@@ -437,127 +505,256 @@ const totalBalanceDue = useMemo(
       )}
 
       {/* =====================================================
-          TABLE
+          MOBILE: CARD LIST
       ====================================================== */}
-      <div
-        style={{
-          border: "1px solid #27272a",
-          borderRadius: "10px",
-          overflow: "hidden",
-          overflowX: "auto",
-        }}
-      >
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "800px" }}>
-          <thead>
-            <tr style={{ background: "#111113" }}>
-              <Th>Bill No.</Th>
-              <SortableTh label="Date" field="billDate" sortBy={sortBy} sortOrder={sortOrder} onClick={toggleSort} />
-              <SortableTh label="Customer" field="customerName" sortBy={sortBy} sortOrder={sortOrder} onClick={toggleSort} />
-              <Th>Mobile</Th>
-              <SortableTh label="Grand Total" field="grandTotal" sortBy={sortBy} sortOrder={sortOrder} onClick={toggleSort} align="right" />
-              <Th>Balance Due</Th>
-              <Th>Status</Th>
-              <Th align="right">Actions</Th>
-            </tr>
-          </thead>
+      {isMobile ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          {loading && <div style={emptyCellStyle}>Loading bills...</div>}
 
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={8} style={emptyCellStyle}>
-                  Loading bills...
-                </td>
-              </tr>
-            )}
+          {!loading && bills.length === 0 && (
+            <div style={emptyCellStyle}>No bills found.</div>
+          )}
 
-            {!loading && bills.length === 0 && (
-              <tr>
-                <td colSpan={8} style={emptyCellStyle}>
-                  No bills found.
-                </td>
-              </tr>
-            )}
-
-            {!loading &&
-              bills.map((bill) => (
-                <tr
-                  key={bill._id}
-                  style={{ borderTop: "1px solid #27272a" }}
+          {!loading &&
+            bills.map((bill) => (
+              <div key={bill._id} style={cardStyle}>
+                {/* Top row: bill no + status */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "10px",
+                    marginBottom: "10px",
+                  }}
                 >
-                  <Td>
-                    <CopyableText text={bill.billNo || ""} label="Bill No.">
-                      <span>{bill.billNo}</span>
-                    </CopyableText>
-                  </Td>
-
-                  <Td>
-                    <CopyableText text={formatDate(bill.billDate)} label="date">
-                      <span>{formatDate(bill.billDate)}</span>
-                    </CopyableText>
-                  </Td>
-
-                  <Td>
-                    <CopyableText text={bill.customerName || ""} label="customer name">
-                      <span>{bill.customerName}</span>
-                    </CopyableText>
-                  </Td>
-
-                  <Td>
-                    <CopyableText text={bill.mobileNo || ""} label="mobile number">
-                      <span>{bill.mobileNo}</span>
-                    </CopyableText>
-                  </Td>
-                  <Td align="right">₹{Number(bill.grandTotal || 0).toFixed(2)}</Td>
-                  <Td align="right">₹{Number(bill.balanceDue || 0).toFixed(2)}</Td>
-                  <Td>
-                    <span
-                      style={{
-                        color: statusColors[bill.paymentStatus] || "#a1a1aa",
-                        fontWeight: "700",
-                        fontSize: "12px",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      {bill.paymentStatus}
+                  <CopyableText text={bill.billNo || ""} label="Bill No.">
+                    <span style={{ color: "#f97316", fontWeight: "700", fontSize: "14px" }}>
+                      {bill.billNo}
                     </span>
-                  </Td>
-                  <Td align="right">
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/admin/bill/edit-bill/${bill._id}`)}
-                      style={linkButtonStyle}
-                    >
-                      Edit
-                    </button>
+                  </CopyableText>
 
-                    <button
-                      type="button"
-                      onClick={() => requestDelete(bill._id, bill.billNo)}
+                  <span
+                    style={{
+                      color: statusColors[bill.paymentStatus] || "#a1a1aa",
+                      fontWeight: "700",
+                      fontSize: "11.5px",
+                      textTransform: "uppercase",
+                      border: `1px solid ${statusColors[bill.paymentStatus] || "#3f3f46"}`,
+                      borderRadius: "999px",
+                      padding: "3px 10px",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {bill.paymentStatus}
+                  </span>
+                </div>
+
+                {/* Customer details */}
+                <div style={cardRowStyle}>
+                  <span style={cardLabelStyle}>Customer</span>
+                  <CopyableText text={bill.customerName || ""} label="customer name">
+                    <span style={cardValueStyle}>{bill.customerName || "-"}</span>
+                  </CopyableText>
+                </div>
+
+                <div style={cardRowStyle}>
+                  <span style={cardLabelStyle}>Mobile</span>
+                  <CopyableText text={bill.mobileNo || ""} label="mobile number">
+                    <span style={cardValueStyle}>{bill.mobileNo || "-"}</span>
+                  </CopyableText>
+                </div>
+
+                <div style={cardRowStyle}>
+                  <span style={cardLabelStyle}>Date</span>
+                  <CopyableText text={formatDate(bill.billDate)} label="date">
+                    <span style={cardValueStyle}>{formatDate(bill.billDate)}</span>
+                  </CopyableText>
+                </div>
+
+                {/* Amounts */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "10px",
+                    marginTop: "12px",
+                    paddingTop: "12px",
+                    borderTop: "1px solid #27272a",
+                  }}
+                >
+                  <div>
+                    <div style={cardLabelStyle}>Grand Total</div>
+                    <div style={{ color: "#fff", fontWeight: "700", fontSize: "15px", marginTop: "2px" }}>
+                      {formatMoney(bill.grandTotal)}
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: "right" }}>
+                    <div style={cardLabelStyle}>Balance Due</div>
+                    <div
                       style={{
-                        ...linkButtonStyle,
-                        color: "#ef4444",
-                        marginLeft: "12px",
+                        color: Number(bill.balanceDue || 0) > 0 ? "#f59e0b" : "#22c55e",
+                        fontWeight: "700",
+                        fontSize: "15px",
+                        marginTop: "2px",
                       }}
                     >
-                      Delete
-                    </button>
-                  </Td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </div>
+                      {formatMoney(bill.balanceDue)}
+                    </div>
+                  </div>
+                </div>
 
-      {/* =====================================================
-          PAGINATION
-      ====================================================== */}
+                {/* Actions */}
+                <div style={{ display: "flex", gap: "10px", marginTop: "14px" }}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/admin/bill/edit-bill/${bill._id}`)}
+                    style={{
+                      ...secondaryButtonStyle,
+                      flex: 1,
+                      color: "#f97316",
+                      borderColor: "rgba(249,115,22,0.4)",
+                    }}
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => requestDelete(bill._id, bill.billNo)}
+                    style={{
+                      ...secondaryButtonStyle,
+                      flex: 1,
+                      color: "#ef4444",
+                      borderColor: "rgba(239,68,68,0.4)",
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+        </div>
+      ) : (
+        /* =====================================================
+            DESKTOP: TABLE
+        ====================================================== */
+        <div
+          style={{
+            border: "1px solid #27272a",
+            borderRadius: "10px",
+            overflow: "hidden",
+            overflowX: "auto",
+          }}
+        >
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "800px" }}>
+            <thead>
+              <tr style={{ background: "#111113" }}>
+                <Th>Bill No.</Th>
+                <SortableTh label="Date" field="billDate" sortBy={sortBy} sortOrder={sortOrder} onClick={toggleSort} />
+                <SortableTh label="Customer" field="customerName" sortBy={sortBy} sortOrder={sortOrder} onClick={toggleSort} />
+                <Th>Mobile</Th>
+                <SortableTh label="Grand Total" field="grandTotal" sortBy={sortBy} sortOrder={sortOrder} onClick={toggleSort} align="right" />
+                <Th align="right">Balance Due</Th>
+                <Th>Status</Th>
+                <Th align="right">Actions</Th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={8} style={emptyCellStyle}>
+                    Loading bills...
+                  </td>
+                </tr>
+              )}
+
+              {!loading && bills.length === 0 && (
+                <tr>
+                  <td colSpan={8} style={emptyCellStyle}>
+                    No bills found.
+                  </td>
+                </tr>
+              )}
+
+              {!loading &&
+                bills.map((bill) => (
+                  <tr key={bill._id} style={{ borderTop: "1px solid #27272a" }}>
+                    <Td>
+                      <CopyableText text={bill.billNo || ""} label="Bill No.">
+                        <span>{bill.billNo}</span>
+                      </CopyableText>
+                    </Td>
+
+                    <Td>
+                      <CopyableText text={formatDate(bill.billDate)} label="date">
+                        <span>{formatDate(bill.billDate)}</span>
+                      </CopyableText>
+                    </Td>
+
+                    <Td>
+                      <CopyableText text={bill.customerName || ""} label="customer name">
+                        <span>{bill.customerName}</span>
+                      </CopyableText>
+                    </Td>
+
+                    <Td>
+                      <CopyableText text={bill.mobileNo || ""} label="mobile number">
+                        <span>{bill.mobileNo}</span>
+                      </CopyableText>
+                    </Td>
+                    <Td align="right">₹{Number(bill.grandTotal || 0).toFixed(2)}</Td>
+                    <Td align="right">₹{Number(bill.balanceDue || 0).toFixed(2)}</Td>
+                    <Td>
+                      <span
+                        style={{
+                          color: statusColors[bill.paymentStatus] || "#a1a1aa",
+                          fontWeight: "700",
+                          fontSize: "12px",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {bill.paymentStatus}
+                      </span>
+                    </Td>
+                    <Td align="right">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/admin/bill/edit-bill/${bill._id}`)}
+                        style={linkButtonStyle}
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => requestDelete(bill._id, bill.billNo)}
+                        style={{
+                          ...linkButtonStyle,
+                          color: "#ef4444",
+                          marginLeft: "12px",
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </Td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* PAGINATION */}
       {!isMultipleBillView && totalPages > 1 && (
         <div
           style={{
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            gap: "14px",
+            gap: isMobile ? "10px" : "14px",
             marginTop: "20px",
           }}
         >
@@ -574,7 +771,7 @@ const totalBalanceDue = useMemo(
             Prev
           </button>
 
-          <span style={{ color: "#a1a1aa", fontSize: "13px" }}>
+          <span style={{ color: "#a1a1aa", fontSize: "13px", whiteSpace: "nowrap" }}>
             Page {page} of {totalPages}
           </span>
 
@@ -593,13 +790,16 @@ const totalBalanceDue = useMemo(
         </div>
       )}
 
-      {/* =====================================================
-          DELETE CONFIRMATION MODAL — password-gated
-      ====================================================== */}
+      {/* DELETE CONFIRMATION MODAL — password-gated */}
       {deleteTarget && (
         <div style={overlayStyle} onClick={() => !deleting && setDeleteTarget(null)}>
-          <div onClick={(e) => e.stopPropagation()} style={modalStyle}>
-            <h3 style={{ color: "#ef4444", marginBottom: "10px" }}>Confirm Deletion</h3>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ ...modalStyle, padding: isMobile ? "22px" : "30px" }}
+          >
+            <h3 style={{ color: "#ef4444", marginBottom: "10px", marginTop: 0 }}>
+              Confirm Deletion
+            </h3>
             <p style={{ color: "#a1a1aa", fontSize: "0.9rem", marginBottom: "15px" }}>
               Enter your admin password to delete bill{" "}
               <b style={{ color: "#e4e4e7" }}>{deleteTarget.billNo}</b>. This cannot be undone.
@@ -611,7 +811,7 @@ const totalBalanceDue = useMemo(
               value={deletePassword}
               onChange={(e) => setDeletePassword(e.target.value)}
               autoFocus
-              style={inputStyle}
+              style={{ ...inputStyle, width: "100%" }}
               onKeyDown={(e) => e.key === "Enter" && handleConfirmDelete()}
             />
             <FieldError msg={deleteError} />
@@ -647,15 +847,18 @@ const totalBalanceDue = useMemo(
           </div>
         </div>
       )}
-            <style>{`
+
+      <style>{`
         .copy-wrap {
           display: inline-flex;
           align-items: center;
           gap: 6px;
+          max-width: 100%;
         }
 
         .copy-btn {
           opacity: 0;
+          flex: 0 0 auto;
           width: 22px;
           height: 22px;
           padding: 0;
@@ -695,6 +898,7 @@ const totalBalanceDue = useMemo(
     </div>
   );
 };
+
 // =========================================================
 // COPYABLE TEXT (shows a copy button on hover)
 // =========================================================
@@ -803,11 +1007,46 @@ const Td = ({ children, align = "left" }) => (
 const FieldError = ({ msg }) =>
   msg ? <p style={{ color: "#ef4444", fontSize: "0.8rem", margin: "5px 0 0" }}>{msg}</p> : null;
 
+// =========================================================
+// STYLES
+// =========================================================
+
 const emptyCellStyle = {
   padding: "30px",
   textAlign: "center",
   color: "#52525b",
   fontSize: "13.5px",
+};
+
+const cardStyle = {
+  background: "#111113",
+  border: "1px solid #27272a",
+  borderRadius: "10px",
+  padding: "14px",
+  boxSizing: "border-box",
+  width: "100%",
+};
+
+const cardRowStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "12px",
+  padding: "4px 0",
+};
+
+const cardLabelStyle = {
+  color: "#a1a1aa",
+  fontSize: "11.5px",
+  textTransform: "uppercase",
+  letterSpacing: "0.03em",
+};
+
+const cardValueStyle = {
+  color: "#e4e4e7",
+  fontSize: "13.5px",
+  wordBreak: "break-word",
+  textAlign: "right",
 };
 
 const overlayStyle = {
@@ -829,7 +1068,7 @@ const modalStyle = {
   border: "1px solid #27272a",
   borderRadius: "12px",
   padding: "30px",
-  width: "90%",
+  width: "100%",
   maxWidth: "380px",
   boxSizing: "border-box",
 };
@@ -846,13 +1085,14 @@ const cancelBtnStyle = {
   fontSize: "14px",
 };
 
+// font-size 16px prevents iOS Safari from zooming in when an input is focused
 const inputStyle = {
   padding: "12px",
   background: "#09090b",
   border: "1px solid #27272a",
   borderRadius: "7px",
   color: "#fff",
-  fontSize: "13.5px",
+  fontSize: "16px",
   outline: "none",
   boxSizing: "border-box",
 };

@@ -604,6 +604,7 @@ const EditBillProduct = () => {
 
   return (
     <div
+      className="bill-wrap"
       style={{
         maxWidth: "1360px",
         margin: "30px auto",
@@ -615,6 +616,7 @@ const EditBillProduct = () => {
       }}
     >
       <div
+        className="bill-head"
         style={{
           display: "flex",
           justifyContent: "space-between",
@@ -624,13 +626,14 @@ const EditBillProduct = () => {
           marginBottom: "26px",
         }}
       >
-        <h2 style={{ color: "#f97316", margin: 0, fontSize: "22px" }}>
+        <h2 className="bill-title" style={{ color: "#f97316", margin: 0, fontSize: "22px" }}>
           Edit {isSimple ? "Simple" : "Jewellery"} Bill {formData.billNo ? `— ${formData.billNo}` : ""}
         </h2>
 
         <button
           type="button"
           onClick={() => navigate("/admin/bill/products")}
+          className="head-btn"
           style={{
             padding: "10px 18px",
             borderRadius: "7px",
@@ -647,7 +650,11 @@ const EditBillProduct = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+      <form
+        onSubmit={handleSubmit}
+        className="bill-form"
+        style={{ display: "flex", flexDirection: "column", gap: "18px" }}
+      >
         {/* BILL NO + DATE */}
         <div className="two-col" style={twoColGridStyle}>
           <div>
@@ -697,6 +704,7 @@ const EditBillProduct = () => {
             <input
               type="text"
               required
+              inputMode="numeric"
               maxLength={10}
               value={formData.mobileNo}
               onChange={(e) => handleChange("mobileNo", e.target.value.replace(/[^0-9]/g, ""))}
@@ -706,7 +714,7 @@ const EditBillProduct = () => {
             <FieldError msg={errors.mobileNo} />
           </div>
 
-          <div>
+          <div className="addr-cell">
             <label style={labelStyle}>Address</label>
             <input
               type="text"
@@ -785,6 +793,7 @@ const EditBillProduct = () => {
             return (
               <div
                 key={item.id}
+                className="line-card"
                 style={{ marginBottom: "16px", paddingBottom: "16px", borderBottom: "1px solid #1f1f23" }}
               >
                 <div
@@ -803,6 +812,7 @@ const EditBillProduct = () => {
                     type="button"
                     onClick={() => removeItem(item.id)}
                     title="Remove item"
+                    className="del-btn"
                     style={deleteButtonStyle}
                   >
                     🗑
@@ -810,7 +820,7 @@ const EditBillProduct = () => {
                 </div>
 
                 <div className="item-grid" style={itemGridStyle}>
-                  <div>
+                  <div className="span-2">
                     <label style={smallLabelStyle}>Item Name</label>
                     <input
                       type="text"
@@ -862,7 +872,7 @@ const EditBillProduct = () => {
                     <label style={smallLabelStyle}>Gross Wt. (g)</label>
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
                       value={item.grossWeight}
                       onChange={(e) => updateItem(item.id, "grossWeight", e.target.value)}
                       ref={(el) => (fieldRefs.current[`itemGrossWeight_${index}`] = el)}
@@ -875,7 +885,7 @@ const EditBillProduct = () => {
                     <label style={smallLabelStyle}>Stone Wt. (g)</label>
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
                       value={item.stoneWeight}
                       onChange={(e) => updateItem(item.id, "stoneWeight", e.target.value)}
                       style={inputStyle}
@@ -886,7 +896,7 @@ const EditBillProduct = () => {
                     <label style={smallLabelStyle}>Net Wt. (g)</label>
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
                       value={item.netWeight}
                       onChange={(e) => updateItem(item.id, "netWeight", e.target.value)}
                       style={inputStyle}
@@ -929,7 +939,7 @@ const EditBillProduct = () => {
                     <label style={smallLabelStyle}>Wastage (%)</label>
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
                       value={item.wastagePercent}
                       onChange={(e) => updateItem(item.id, "wastagePercent", e.target.value)}
                       style={inputStyle}
@@ -1005,6 +1015,7 @@ const EditBillProduct = () => {
             return (
               <div
                 key={ex.id}
+                className="line-card"
                 style={{ marginBottom: "14px", paddingBottom: "14px", borderBottom: "1px solid #1f1f23" }}
               >
                 <div
@@ -1023,6 +1034,7 @@ const EditBillProduct = () => {
                     type="button"
                     onClick={() => removeExchangeItem(ex.id)}
                     title="Remove exchange item"
+                    className="del-btn"
                     style={deleteButtonStyle}
                   >
                     🗑
@@ -1030,7 +1042,7 @@ const EditBillProduct = () => {
                 </div>
 
                 <div className="exchange-grid" style={exchangeGridStyle}>
-                  <div>
+                  <div className="span-2">
                     <label style={smallLabelStyle}>Description</label>
                     <input
                       type="text"
@@ -1066,7 +1078,7 @@ const EditBillProduct = () => {
                     <label style={smallLabelStyle}>Gross Wt. (g)</label>
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
                       value={ex.grossWeight}
                       onChange={(e) => updateExchangeItem(ex.id, "grossWeight", e.target.value)}
                       ref={(el) => (fieldRefs.current[`exchangeWeight_${index}`] = el)}
@@ -1079,7 +1091,7 @@ const EditBillProduct = () => {
                     <label style={smallLabelStyle}>Deduction (g)</label>
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
                       value={ex.deduction}
                       onChange={(e) => updateExchangeItem(ex.id, "deduction", e.target.value)}
                       style={inputStyle}
@@ -1090,7 +1102,7 @@ const EditBillProduct = () => {
                     <label style={smallLabelStyle}>Net Wt. (g)</label>
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
                       value={ex.netWeight}
                       onChange={(e) => updateExchangeItem(ex.id, "netWeight", e.target.value)}
                       style={inputStyle}
@@ -1145,7 +1157,7 @@ const EditBillProduct = () => {
               <label style={smallLabelStyle}>CGST (%)</label>
               <input
                 type="text"
-                inputMode="numeric"
+                inputMode="decimal"
                 value={formData.cgstPercent}
                 onChange={(e) => handleChange("cgstPercent", e.target.value)}
                 style={inputStyle}
@@ -1156,7 +1168,7 @@ const EditBillProduct = () => {
               <label style={smallLabelStyle}>SGST (%)</label>
               <input
                 type="text"
-                inputMode="numeric"
+                inputMode="decimal"
                 value={formData.sgstPercent}
                 onChange={(e) => handleChange("sgstPercent", e.target.value)}
                 style={inputStyle}
@@ -1192,6 +1204,7 @@ const EditBillProduct = () => {
           {payments.map((payment, index) => (
             <div
               key={payment.id}
+              className="line-card"
               style={{
                 marginBottom: "14px",
                 paddingBottom: "14px",
@@ -1239,6 +1252,7 @@ const EditBillProduct = () => {
                   type="button"
                   onClick={() => removePayment(payment.id)}
                   title="Remove payment"
+                  className="del-btn del-pay"
                   style={{ ...deleteButtonStyle, alignSelf: "center" }}
                 >
                   🗑
@@ -1264,6 +1278,7 @@ const EditBillProduct = () => {
 
         {/* SUMMARY */}
         <div
+          className="section-card"
           style={{
             padding: "20px",
             background: "#111113",
@@ -1337,6 +1352,15 @@ const EditBillProduct = () => {
           <FieldError msg={errors.notes} />
         </div>
 
+        <div className="save-bar">
+        <div className="save-total">
+          <span>
+            Total: <b style={{ color: "#22c55e" }}>₹{grandTotal.toFixed(2)}</b>
+          </span>
+          <span>
+            Due: <b style={{ color: "#ef4444" }}>₹{balanceDue.toFixed(2)}</b>
+          </span>
+        </div>
         <button
           type="submit"
           disabled={loading}
@@ -1354,6 +1378,7 @@ const EditBillProduct = () => {
         >
           {loading ? "Saving..." : "Save Changes"}
         </button>
+        </div>
       </form>
 
       {showConfirm && (
@@ -1368,20 +1393,96 @@ const EditBillProduct = () => {
       )}
 
       <style>{`
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.7; }
+        input:focus, textarea:focus, select:focus { border-color: #f97316 !important; }
+
+        .save-total { display: none; }
+        .item-grid > *, .exchange-grid > *, .payment-grid > *,
+        .two-col > *, .three-col > * { min-width: 0; }
+
         @media (max-width: 1100px) {
           .summary-grid { grid-template-columns: repeat(3, minmax(120px, 1fr)) !important; }
         }
+
+        /* ---------- tablet + phone ---------- */
         @media (max-width: 900px) {
-          .two-col { grid-template-columns: 1fr !important; }
-          .three-col { grid-template-columns: 1fr !important; }
-          .item-grid, .exchange-grid, .payment-grid { grid-template-columns: 1fr 1fr !important; }
+          .two-col { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+          .three-col { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+          .addr-cell { grid-column: 1 / -1; order: 3; }
+          .item-grid, .exchange-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+          .payment-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+          .span-2 { grid-column: 1 / -1; }
+          .del-pay { justify-self: end; align-self: end !important; }
         }
+
+        /* ---------- phone ---------- */
         @media (max-width: 640px) {
-          .summary-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)) !important; }
-          .item-grid, .exchange-grid, .payment-grid { grid-template-columns: 1fr !important; }
+          .bill-wrap {
+            margin: 0 auto !important;
+            padding: 12px 10px !important;
+            border-radius: 0 !important;
+            border-left: none !important;
+            border-right: none !important;
+          }
+          .bill-head { margin-bottom: 12px !important; gap: 8px !important; align-items: center !important; }
+          .bill-title { font-size: 16px !important; line-height: 1.25; }
+          .head-btn { padding: 7px 10px !important; font-size: 12px !important; }
+          .bill-form { gap: 10px !important; }
+
+          .section-card { padding: 10px !important; border-radius: 8px !important; }
+
+          .bill-wrap label { font-size: 10.5px !important; margin-bottom: 3px !important; letter-spacing: 0.02em; }
+          /* 16px font keeps iOS Safari from zooming on focus */
+          .bill-wrap input, .bill-wrap select, .bill-wrap textarea {
+            padding: 8px 10px !important;
+            font-size: 16px !important;
+            min-height: 40px;
+            border-radius: 6px !important;
+          }
+          .bill-wrap textarea { min-height: 0; }
+          .bill-wrap .money input { padding: 8px 8px 8px 24px !important; }
+          .bill-wrap .money span { font-size: 13px !important; left: 9px !important; }
+
+          .line-card {
+            background: #0d0d0f;
+            border: 1px solid #27272a !important;
+            border-radius: 8px;
+            padding: 8px !important;
+            margin-bottom: 8px !important;
+          }
+
+          .del-btn {
+            width: 36px; height: 36px;
+            display: inline-flex !important;
+            align-items: center; justify-content: center;
+            background: #27272a !important;
+            border-radius: 8px !important;
+            font-size: 16px !important;
+          }
+          .del-pay { height: 40px; }
+
+          .summary-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+          .sum-box { padding: 9px 10px !important; }
+          .sum-large { grid-column: 1 / -1; }
+
+          .save-bar {
+            position: sticky;
+            bottom: 0;
+            z-index: 50;
+            margin: 0 -10px -12px;
+            padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+            background: #18181b;
+            border-top: 1px solid #27272a;
+          }
+          .save-total {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12.5px;
+            color: #a1a1aa;
+            margin-bottom: 6px;
+          }
+          .save-bar button { margin-top: 0 !important; padding: 12px !important; }
         }
-        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.7; }
-        input:focus, textarea:focus, select:focus { border-color: #f97316 !important; }
       `}</style>
     </div>
   );
@@ -1415,7 +1516,7 @@ const ConfirmSaveModal = ({ customerName, grandTotal, amountPaid, loading, onCan
         background: "#18181b",
         border: "1px solid #27272a",
         borderRadius: "12px",
-        padding: "26px",
+        padding: "20px",
         boxSizing: "border-box",
       }}
     >
@@ -1493,7 +1594,7 @@ const ConfirmRow = ({ label, value }) => (
 );
 
 const SectionCard = ({ children }) => (
-  <div style={{ padding: "20px", border: "1px solid #27272a", borderRadius: "10px", background: "#111113" }}>
+  <div className="section-card" style={{ padding: "20px", border: "1px solid #27272a", borderRadius: "10px", background: "#111113" }}>
     {children}
   </div>
 );
@@ -1503,7 +1604,7 @@ const SectionHeader = ({ title, marginBottom = "12px" }) => (
 );
 
 const MoneyInput = ({ value, onChange, compact = false }) => (
-  <div style={{ position: "relative" }}>
+  <div className="money" style={{ position: "relative" }}>
     <span
       style={{
         position: "absolute",
@@ -1520,7 +1621,7 @@ const MoneyInput = ({ value, onChange, compact = false }) => (
 
     <input
       type="text"
-      inputMode="numeric"
+      inputMode="decimal"
       value={value}
       onChange={(e) => {
         const value = e.target.value.replace(/[^0-9.]/g, "");
@@ -1557,7 +1658,10 @@ const AddButton = ({ onClick, text }) => (
 );
 
 const SummaryBox = ({ label, value, color = "#fff", large = false }) => (
-  <div style={{ padding: "14px 12px", background: "#09090b", borderRadius: "8px", border: "1px solid #27272a", minWidth: 0 }}>
+  <div
+    className={large ? "sum-box sum-large" : "sum-box"}
+    style={{ padding: "14px 12px", background: "#09090b", borderRadius: "8px", border: "1px solid #27272a", minWidth: 0 }}
+  >
     <div
       style={{
         color: "#a1a1aa",

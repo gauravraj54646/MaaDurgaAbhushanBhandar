@@ -58,59 +58,22 @@ const AdminBillDashboard = () => {
   }
 
   return (
-    <div
-      style={{
-        maxWidth: "1100px",
-        margin: "30px auto",
-        padding: "0 20px",
-        boxSizing: "border-box",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "12px",
-          marginBottom: "26px",
-        }}
-      >
-        <h2 style={{ color: "#f97316", margin: 0, fontSize: "24px" }}>Bill Management</h2>
+    <div className="abd-wrap">
+      <div className="abd-head">
+        <h2 className="abd-title">Bill Management</h2>
 
         <button
           type="button"
+          className="abd-primary-btn"
           onClick={() => navigate("/admin/bill/add-bill")}
-          style={primaryButtonStyle}
         >
           + Create New Bill
         </button>
       </div>
 
-      {stats.error && (
-        <div
-          style={{
-            marginBottom: "18px",
-            padding: "12px 14px",
-            borderRadius: "8px",
-            border: "1px solid rgba(239,68,68,0.3)",
-            background: "rgba(239,68,68,0.08)",
-            color: "#fca5a5",
-            fontSize: "13px",
-          }}
-        >
-          {stats.error}
-        </div>
-      )}
+      {stats.error && <div className="abd-error">{stats.error}</div>}
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: "16px",
-          marginBottom: "26px",
-        }}
-      >
+      <div className="abd-stats">
         <StatCard
           label="Total Bills"
           value={stats.loading ? "..." : stats.totalBills}
@@ -128,13 +91,7 @@ const AdminBillDashboard = () => {
         />
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "16px",
-        }}
-      >
+      <div className="abd-actions">
         <ActionCard
           title="🧾 Create New Bill"
           description="Bill a customer for a new jewelry purchase."
@@ -148,13 +105,97 @@ const AdminBillDashboard = () => {
       </div>
 
       <style>{`
+        .abd-wrap {
+          max-width: 1100px;
+          margin: 30px auto;
+          padding: 0 20px;
+          box-sizing: border-box;
+        }
+        .abd-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 12px;
+          margin-bottom: 26px;
+        }
+        .abd-title { color: #f97316; margin: 0; font-size: 24px; }
+        .abd-primary-btn {
+          padding: 10px 18px;
+          border-radius: 7px;
+          border: none;
+          background: #f97316;
+          color: #fff;
+          font-size: 13.5px;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .abd-error {
+          margin-bottom: 18px;
+          padding: 12px 14px;
+          border-radius: 8px;
+          border: 1px solid rgba(239,68,68,0.3);
+          background: rgba(239,68,68,0.08);
+          color: #fca5a5;
+          font-size: 13px;
+        }
+        .abd-stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+          margin-bottom: 26px;
+        }
+        .abd-stat {
+          padding: 20px;
+          background: #111113;
+          border: 1px solid #27272a;
+          border-radius: 10px;
+          min-width: 0;
+        }
+        .abd-stat-label { color: #a1a1aa; font-size: 12.5px; margin-bottom: 8px; }
+        .abd-stat-value { font-size: 26px; font-weight: 700; }
+        .abd-actions {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+        }
+        .abd-action {
+          text-align: left;
+          padding: 22px;
+          background: #18181b;
+          border: 1px solid #27272a;
+          border-radius: 10px;
+          cursor: pointer;
+          color: #fff;
+          font-family: inherit;
+        }
+        .abd-action-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+        .abd-action-desc { color: #71717a; font-size: 13px; }
+
         @media (max-width: 700px) {
-          div[style*="grid-template-columns: repeat(3, 1fr)"] {
-            grid-template-columns: 1fr !important;
+          .abd-wrap { margin: 12px auto; padding: 0 10px; }
+          .abd-head { margin-bottom: 12px; gap: 8px; flex-wrap: nowrap; }
+          .abd-title { font-size: 17px; }
+          .abd-primary-btn { padding: 8px 12px; font-size: 12.5px; }
+          .abd-error { margin-bottom: 10px; padding: 9px 11px; font-size: 12px; }
+
+          /* 3 stats stay in one compact row */
+          .abd-stats { gap: 8px; margin-bottom: 12px; }
+          .abd-stat { padding: 10px 8px; text-align: center; }
+          .abd-stat-label {
+            font-size: 10.5px;
+            margin-bottom: 4px;
+            line-height: 1.25;
           }
-          div[style*="grid-template-columns: 1fr 1fr"] {
-            grid-template-columns: 1fr !important;
-          }
+          .abd-stat-value { font-size: 20px; }
+
+          /* action cards: slim full-width rows */
+          .abd-actions { grid-template-columns: 1fr; gap: 8px; }
+          .abd-action { padding: 12px 14px; }
+          .abd-action:active { background: #202024; }
+          .abd-action-title { font-size: 14.5px; margin-bottom: 2px; }
+          .abd-action-desc { font-size: 12px; }
         }
       `}</style>
     </div>
@@ -162,48 +203,19 @@ const AdminBillDashboard = () => {
 };
 
 const StatCard = ({ label, value, color }) => (
-  <div
-    style={{
-      padding: "20px",
-      background: "#111113",
-      border: "1px solid #27272a",
-      borderRadius: "10px",
-    }}
-  >
-    <div style={{ color: "#a1a1aa", fontSize: "12.5px", marginBottom: "8px" }}>{label}</div>
-    <div style={{ color, fontSize: "26px", fontWeight: "700" }}>{value}</div>
+  <div className="abd-stat">
+    <div className="abd-stat-label">{label}</div>
+    <div className="abd-stat-value" style={{ color }}>
+      {value}
+    </div>
   </div>
 );
 
 const ActionCard = ({ title, description, onClick }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    style={{
-      textAlign: "left",
-      padding: "22px",
-      background: "#18181b",
-      border: "1px solid #27272a",
-      borderRadius: "10px",
-      cursor: "pointer",
-      color: "#fff",
-    }}
-  >
-    <div style={{ fontSize: "16px", fontWeight: "700", marginBottom: "6px" }}>{title}</div>
-    <div style={{ color: "#71717a", fontSize: "13px" }}>{description}</div>
+  <button type="button" onClick={onClick} className="abd-action">
+    <div className="abd-action-title">{title}</div>
+    <div className="abd-action-desc">{description}</div>
   </button>
 );
-
-const primaryButtonStyle = {
-  padding: "10px 18px",
-  borderRadius: "7px",
-  border: "none",
-  background: "#f97316",
-  color: "#fff",
-  fontSize: "13.5px",
-  fontWeight: "600",
-  cursor: "pointer",
-  whiteSpace: "nowrap",
-};
 
 export default AdminBillDashboard;

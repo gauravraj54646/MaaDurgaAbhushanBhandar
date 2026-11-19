@@ -38,9 +38,7 @@ const AddLoanProduct = () => {
     date.setFullYear(date.getFullYear() + 3);
     return date.toISOString().split("T")[0];
   };
-  const getReturnDate = () => {
-    return;
-  };
+
   const getDissolveDate = () => {
     const date = new Date();
     date.setFullYear(date.getFullYear() + 5);
@@ -117,11 +115,8 @@ const AddLoanProduct = () => {
     let result = "";
 
     const crore = Math.floor(integerPart / 10000000);
-
     const lakh = Math.floor((integerPart % 10000000) / 100000);
-
     const thousand = Math.floor((integerPart % 100000) / 1000);
-
     const remainder = integerPart % 1000;
 
     if (crore) {
@@ -148,7 +143,7 @@ const AddLoanProduct = () => {
   // =========================================================
 
   const [formData, setFormData] = useState({
-    loanType:  "simple",
+    loanType: "simple",
     name: "",
     address: "",
     customerId: "",
@@ -166,7 +161,7 @@ const AddLoanProduct = () => {
     available: "yes",
 
     roi: 5,
-    returnDate: "", // getReturnDate(),
+    returnDate: "",
     dissolveDate: getDissolveDate(),
 
     // Original loan
@@ -188,7 +183,8 @@ const AddLoanProduct = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showConfirm, setShowConfirm] = useState(false);
-    // =========================================================
+
+  // =========================================================
   // CUSTOMER ID SEARCH
   // =========================================================
 
@@ -365,15 +361,16 @@ const AddLoanProduct = () => {
   // =========================================================
 
   const calculateLoan = (amount, issueDate) => {
-      if (formData.loanType === "simple") {
-    const loanAmount = Number(amount || 0);
+    if (formData.loanType === "simple") {
+      const loanAmount = Number(amount || 0);
 
-    return {
-      days: 0,
-      interest: 0,
-      total: Number.isFinite(loanAmount) ? loanAmount : 0,
-    };
-  }
+      return {
+        days: 0,
+        interest: 0,
+        total: Number.isFinite(loanAmount) ? loanAmount : 0,
+      };
+    }
+
     if (
       amount === "" ||
       amount === null ||
@@ -501,113 +498,6 @@ const AddLoanProduct = () => {
   };
 
   // =========================================================
-  // ADD RELOAN
-  // =========================================================
-
-  const addReloan = () => {
-    if (formData.reloans.length >= 20) {
-      alert("Maximum 20 re-loans are allowed.");
-      return;
-    }
-
-    setFormData((prev) => ({
-      ...prev,
-
-      reloans: [
-        ...prev.reloans,
-
-        {
-          id: Date.now(),
-          issueDate: getToday(),
-          amount: "",
-        },
-      ],
-    }));
-  };
-
-  // =========================================================
-  // REMOVE RELOAN
-  // =========================================================
-
-  const removeReloan = (id) => {
-    setFormData((prev) => ({
-      ...prev,
-
-      reloans: prev.reloans.filter((reloan) => reloan.id !== id),
-    }));
-  };
-
-  // =========================================================
-  // UPDATE RELOAN
-  // =========================================================
-
-  const updateReloan = (id, field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-
-      reloans: prev.reloans.map((reloan) =>
-        reloan.id === id
-          ? {
-              ...reloan,
-              [field]: value,
-            }
-          : reloan,
-      ),
-    }));
-  };
-
-  // =========================================================
-  // ADD PAYMENT
-  // =========================================================
-
-  const addPayment = () => {
-    setFormData((prev) => ({
-      ...prev,
-
-      payments: [
-        ...prev.payments,
-
-        {
-          id: Date.now(),
-          paidAmount: "",
-          paidDate: getToday(),
-        },
-      ],
-    }));
-  };
-
-  // =========================================================
-  // REMOVE PAYMENT
-  // =========================================================
-
-  const removePayment = (id) => {
-    setFormData((prev) => ({
-      ...prev,
-
-      payments: prev.payments.filter((payment) => payment.id !== id),
-    }));
-  };
-
-  // =========================================================
-  // UPDATE PAYMENT
-  // =========================================================
-
-  const updatePayment = (id, field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-
-      payments: prev.payments.map((payment) =>
-        payment.id === id
-          ? {
-              ...payment,
-              [field]: value,
-            }
-          : payment,
-      ),
-    }));
-  };
-
-  // =========================================================
   // SCROLL / FOCUS TO FIRST INVALID FIELD
   // =========================================================
 
@@ -616,8 +506,6 @@ const AddLoanProduct = () => {
 
     if (errorKeys.length === 0) return;
 
-    // Object key order matches the order fields were validated in,
-    // which mirrors the top-to-bottom order of the form.
     const firstErrorKey = errorKeys[0];
     const node = fieldRefs.current[firstErrorKey];
 
@@ -625,8 +513,6 @@ const AddLoanProduct = () => {
 
     node.scrollIntoView({ behavior: "smooth", block: "center" });
 
-    // Give the smooth scroll a moment to settle before focusing,
-    // so the browser doesn't yank the viewport back to the input.
     window.setTimeout(() => {
       if (typeof node.focus === "function") {
         node.focus({ preventScroll: true });
@@ -664,11 +550,13 @@ const AddLoanProduct = () => {
       errs.customerId =
         "Customer ID must contain letters and numbers only, max 8 characters.";
     }
+
     // Loan ID
     if (!/^[A-Z0-9]{1,8}$/.test(formData.loanId)) {
       errs.loanId =
         "Loan ID must contain letters and numbers only, max 8 characters.";
     }
+
     // Mobile
     if (formData.mobileNo && !/^\d{10}$/.test(formData.mobileNo)) {
       errs.mobileNo = "Mobile No. must be exactly 10 digits.";
@@ -682,32 +570,30 @@ const AddLoanProduct = () => {
     if (wordCount(formData.description) > 300) {
       errs.description = "Description must be 300 words or fewer.";
     }
-// Dates
-if (!formData.date) {
-  errs.date = "Issue date is required.";
-}
 
-if (formData.loanType === "jewellery") {
-  if (!formData.dueDate) {
-    errs.dueDate = "Due Date is required.";
-  }
+    // Dates
+    if (!formData.date) {
+      errs.date = "Issue date is required.";
+    }
 
-  if (formData.roi === "" || Number(formData.roi) < 0) {
-    errs.roi = "Enter a valid ROI.";
-  }
-}
+    if (formData.loanType === "jewellery") {
+      if (!formData.dueDate) {
+        errs.dueDate = "Due Date is required.";
+      }
+
+      if (formData.roi === "" || Number(formData.roi) < 0) {
+        errs.roi = "Enter a valid ROI.";
+      }
+    }
+
     // Original loan
-const amount = Number(formData.loanAmount);
+    const amount = Number(formData.loanAmount);
 
-if (
-  formData.loanAmount === "" ||
-  !Number.isFinite(amount) ||
-  amount <= 0
-) {
-  errs.loanAmount = "Enter a loan amount greater than zero.";
-}
+    if (formData.loanAmount === "" || !Number.isFinite(amount) || amount <= 0) {
+      errs.loanAmount = "Enter a loan amount greater than zero.";
+    }
+
     // Reloans
-  
     formData.reloans.forEach((reloan, index) => {
       if (!reloan.issueDate) {
         errs[`reloanDate_${index}`] = `Issue date is required for Reloan ${
@@ -721,20 +607,15 @@ if (
         }.`;
       }
     });
-  
-    // =========================================================
-    // PAYMENTS
-    // =========================================================
 
+    // Payments
     let paidBeforeCurrent = 0;
 
     formData.payments.forEach((payment, index) => {
       const paidAmount = Number(payment.paidAmount || 0);
 
-      // Amount remaining before this payment
       const remainingBeforePayment = grandTotal - paidBeforeCurrent;
 
-      // Payment amount validation
       if (payment.paidAmount === "" || paidAmount <= 0) {
         errs[`paymentAmount_${index}`] =
           `Enter a valid payment amount for Payment ${index + 1}.`;
@@ -745,21 +626,14 @@ if (
           )}.`;
       }
 
-      // Payment date validation
       if (!payment.paidDate) {
         errs[`paymentDate_${index}`] = `Payment date is required for Payment ${
           index + 1
         }.`;
       }
 
-      // Add current payment before checking
-      // the next payment
       paidBeforeCurrent += paidAmount;
     });
-
-    // =========================================================
-    // TOTAL PAYMENTS VALIDATION
-    // =========================================================
 
     const enteredPaidAmount = formData.payments.reduce(
       (sum, payment) => sum + Number(payment.paidAmount || 0),
@@ -769,6 +643,7 @@ if (
     if (enteredPaidAmount > grandTotal) {
       errs.payments = "Total paid amount cannot exceed the total loan amount.";
     }
+
     // Final settlement
     if (formData.finalSettlement && wordCount(formData.finalSettlement) > 100) {
       errs.finalSettlement = "Final Settlement must be 100 words or fewer.";
@@ -787,8 +662,7 @@ if (
   // SUBMIT
   // =========================================================
 
-  // Validates the form and, if valid, opens the confirmation popup
-  // instead of submitting straight away.
+  // Validates the form and, if valid, opens the confirmation popup.
   const handleSubmit = (e) => {
     e.preventDefault();
 
@@ -805,72 +679,61 @@ if (
     setLoading(true);
 
     try {
-      // Remove frontend-only IDs
       const cleanedReloans = formData.reloans.map((reloan) => {
         const calculation = calculateLoan(reloan.amount, reloan.issueDate);
 
         return {
           issueDate: reloan.issueDate,
-
           amount: Number(reloan.amount),
-
           interest: Number(calculation.interest.toFixed(2)),
-
           totalAmount: Number(calculation.total.toFixed(2)),
         };
       });
 
       const cleanedPayments = formData.payments.map((payment) => ({
         paidAmount: Number(payment.paidAmount),
-
         paidDate: payment.paidDate,
       }));
 
       const isSimple = formData.loanType === "simple";
 
-const submitData = {
-  ...formData,
+      const submitData = {
+        ...formData,
 
-  ...(selectedPerson?._id ? { personId: selectedPerson._id } : {}),
+        ...(selectedPerson?._id ? { personId: selectedPerson._id } : {}),
 
-  goldWeight: isSimple ? 0 : Number(formData.goldWeight || 0),
-  silverWeight: isSimple ? 0 : Number(formData.silverWeight || 0),
+        goldWeight: isSimple ? 0 : Number(formData.goldWeight || 0),
+        silverWeight: isSimple ? 0 : Number(formData.silverWeight || 0),
 
-  mobileNo: formData.mobileNo.trim(),
-  loanAmount: Number(formData.loanAmount),
+        mobileNo: formData.mobileNo.trim(),
+        loanAmount: Number(formData.loanAmount),
 
-  roi: isSimple ? 0 : Number(formData.roi),
+        roi: isSimple ? 0 : Number(formData.roi),
 
-  dueDate: isSimple ? undefined : formData.dueDate,
-  available: isSimple ? undefined : formData.available,
-  signed: isSimple ? undefined : formData.signed,
-  dissolveDate: isSimple ? undefined : formData.dissolveDate,
+        dueDate: isSimple ? undefined : formData.dueDate,
+        available: isSimple ? undefined : formData.available,
+        signed: isSimple ? undefined : formData.signed,
+        dissolveDate: isSimple ? undefined : formData.dissolveDate,
 
-  interest: Number(originalLoan.interest.toFixed(2)),
-  totalAmount: Number(originalLoan.total.toFixed(2)),
+        interest: Number(originalLoan.interest.toFixed(2)),
+        totalAmount: Number(originalLoan.total.toFixed(2)),
 
-  reloans: cleanedReloans,
-  payments: cleanedPayments,
-};
+        reloans: cleanedReloans,
+        payments: cleanedPayments,
+      };
+
       const res = await fetch("/api/loans", {
         method: "POST",
-
         headers: {
           "Content-Type": "application/json",
-
           Authorization: `Bearer ${user.token}`,
         },
-
         body: JSON.stringify(submitData),
       });
 
       const contentType = res.headers.get("content-type") || "";
 
       if (!contentType.includes("application/json")) {
-        // The server didn't return JSON at all — usually means the
-        // request never reached the backend (wrong URL, proxy not
-        // configured, or backend not running) and hit something
-        // returning an HTML page instead.
         throw new Error(
           `Server did not return JSON (status ${res.status}). Check that the API server is running and the request URL/proxy is correct.`,
         );
@@ -890,7 +753,7 @@ const submitData = {
               new Set([
                 ...existingLoanIds,
                 formData.loanId.trim().toUpperCase(),
-              ])
+              ]),
             );
 
             await fetch(`/api/people/${selectedPerson._id}`, {
@@ -937,75 +800,19 @@ const submitData = {
   // UI
   // =========================================================
 
-  return (
-    <div
-      style={{
-        maxWidth: "1360px",
-        margin: "30px auto",
-        background: "#18181b",
-        padding: "36px 40px",
-        borderRadius: "14px",
-        border: "1px solid rgba(255,255,255,0.05)",
-        boxSizing: "border-box",
-      }}
-    >
-      <h1
-  style={{
-    textAlign: "center",
-    color: "#f97316",
-    fontSize: "28px",
-    fontWeight: "800",
-    letterSpacing: "0.08em",
-    margin: "0 0 20px",
-  }}
->
-  LOAN
-</h1>
+  const isJewellery = formData.loanType === "jewellery";
 
-<div
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    flexWrap: "wrap",
-    gap: "12px",
-    marginBottom: "26px",
-  }}
-></div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-          gap: "12px",
-          marginBottom: "26px",
-        }}
-      >
-        <h2
-          style={{
-            color: "#f97316",
-            margin: 0,
-            fontSize: "22px",
-          }}
-        >
-          Add New Loan
-        </h2>
+  return (
+    <div className="alp-wrap">
+      <h1 className="alp-title">LOAN</h1>
+
+      <div className="alp-head">
+        <h2 className="alp-subtitle">Add New Loan</h2>
 
         <button
           type="button"
+          className="alp-manage-btn"
           onClick={() => navigate("/admin/loan/products")}
-          style={{
-            padding: "10px 18px",
-            borderRadius: "7px",
-            border: "none",
-            background: "#3f3f46",
-            color: "#fff",
-            fontSize: "13.5px",
-            fontWeight: "600",
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
         >
           📄 Manage Loans
         </button>
@@ -1021,6 +828,7 @@ const submitData = {
             background: "rgba(59,130,246,0.08)",
             color: "#93c5fd",
             fontSize: "13px",
+            lineHeight: 1.5,
           }}
         >
           {personLoading
@@ -1029,71 +837,64 @@ const submitData = {
         </div>
       )}
 
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "18px",
-        }}
-      >
-      <div>
-  <label style={labelStyle}>Loan Type</label>
+      <form onSubmit={handleSubmit} className="alp-form">
+        {/* =====================================================
+            LOAN TYPE
+        ====================================================== */}
+        <div>
+          <label style={labelStyle}>Loan Type</label>
 
-  <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-    {[
-      { value: "simple", label: "Simple Loan" },
-      { value: "jewellery", label: "Jewellery Loan" },
-    ].map((option) => (
-      <button
-        key={option.value}
-        type="button"
-        onClick={() => {
-          setFormData((prev) => ({
-            ...prev,
-            loanType: option.value,
-            ...(option.value === "simple"
-              ? {
-                  goldWeight: "",
-                  silverWeight: "",
-                  dueDate: "",
-                  available: "yes",
-                  roi: 0,
-                  dissolveDate: "",
-                  signed: "no",
-               //   reloans: [],
-                }
-              : {
-                  dueDate: getDueDate(),
-                  roi: 5,
-                  dissolveDate: getDissolveDate(),
-                }),
-          }));
+          <div className="alp-type-row">
+            {[
+              { value: "simple", label: "Simple Loan" },
+              { value: "jewellery", label: "Jewellery Loan" },
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className="alp-type-btn"
+                onClick={() => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    loanType: option.value,
+                    ...(option.value === "simple"
+                      ? {
+                          goldWeight: "",
+                          silverWeight: "",
+                          dueDate: "",
+                          available: "yes",
+                          roi: 0,
+                          dissolveDate: "",
+                          signed: "no",
+                        }
+                      : {
+                          dueDate: getDueDate(),
+                          roi: 5,
+                          dissolveDate: getDissolveDate(),
+                        }),
+                  }));
 
-          setErrors({});
-        }}
-        style={{
-          padding: "12px 22px",
-          borderRadius: "8px",
-          border:
-            formData.loanType === option.value
-              ? "1px solid #f97316"
-              : "1px solid #3f3f46",
-          background:
-            formData.loanType === option.value
-              ? "rgba(249,115,22,0.12)"
-              : "#09090b",
-          color:
-            formData.loanType === option.value ? "#f97316" : "#a1a1aa",
-          fontWeight: "600",
-          cursor: "pointer",
-        }}
-      >
-        {option.label}
-      </button>
-    ))}
-  </div>
-</div>
+                  setErrors({});
+                }}
+                style={{
+                  border:
+                    formData.loanType === option.value
+                      ? "1px solid #f97316"
+                      : "1px solid #3f3f46",
+                  background:
+                    formData.loanType === option.value
+                      ? "rgba(249,115,22,0.12)"
+                      : "#09090b",
+                  color:
+                    formData.loanType === option.value ? "#f97316" : "#a1a1aa",
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* =====================================================
             NAME
         ====================================================== */}
@@ -1104,6 +905,7 @@ const submitData = {
             type="text"
             placeholder="Full name"
             required
+            autoComplete="off"
             readOnly={Boolean(selectedPerson && formData.mobileNo)}
             value={formData.name}
             onChange={(e) => {
@@ -1119,6 +921,7 @@ const submitData = {
 
           <FieldError msg={errors.name} />
         </div>
+
         {/* =====================================================
             ADDRESS
         ====================================================== */}
@@ -1132,21 +935,23 @@ const submitData = {
             readOnly={Boolean(selectedPerson)}
             value={formData.address}
             onChange={(e) => {
-                const value = e.target.value
+              const value = e.target.value
                 .toLowerCase()
                 .replace(/\b\w/g, (char) => char.toUpperCase());
-                handleChange("address", value)}}
+              handleChange("address", value);
+            }}
             ref={(el) => (fieldRefs.current.address = el)}
             style={{ ...inputStyle, resize: "vertical" }}
           />
 
           <FieldError msg={errors.address} />
         </div>
+
         {/* =====================================================
-            CUSTOMER ID + MOBILE
+            CUSTOMER ID + MOBILE + LOAN ID
         ====================================================== */}
-        <div className="three-col" style={threeColGridStyle}>
-           <div>
+        <div className="alp-three">
+          <div>
             <label style={labelStyle}>Customer ID (max 8 characters)</label>
 
             <div style={{ position: "relative" }}>
@@ -1155,6 +960,8 @@ const submitData = {
                 placeholder="Customer ID"
                 required
                 maxLength={8}
+                autoComplete="off"
+                autoCapitalize="characters"
                 readOnly={Boolean(selectedPerson)}
                 value={formData.customerId}
                 onChange={(e) => {
@@ -1176,7 +983,7 @@ const submitData = {
                   }
                 }}
                 ref={(el) => (fieldRefs.current.customerId = el)}
-                style={{ ...inputStyle, paddingRight: "48px" }}
+                style={{ ...inputStyle, paddingRight: "52px" }}
               />
 
               {selectedPerson ? (
@@ -1184,6 +991,7 @@ const submitData = {
                   type="button"
                   onClick={handleClearCustomer}
                   title="Clear customer and search again"
+                  aria-label="Clear customer"
                   style={searchIconButtonStyle}
                 >
                   ✕
@@ -1194,6 +1002,7 @@ const submitData = {
                   onClick={handleCustomerSearch}
                   disabled={searchLoading}
                   title="Search customer by ID"
+                  aria-label="Search customer by ID"
                   style={{
                     ...searchIconButtonStyle,
                     color: searchLoading ? "#52525b" : "#f97316",
@@ -1223,33 +1032,34 @@ const submitData = {
           <div>
             <label style={labelStyle}>Mobile No.</label>
 
-           <input
-  type="text"
-  placeholder="10-digit mobile number"
-  maxLength={10}
-  readOnly={Boolean(selectedPerson && selectedPerson.phone)}
-  value={formData.mobileNo}
-  onChange={(e) =>
-    handleChange(
-      "mobileNo",
-      e.target.value.replace(/[^0-9]/g, "")
-    )
-  }
-  ref={(el) => (fieldRefs.current.mobileNo = el)}
-  style={inputStyle}
-/>
+            <input
+              type="tel"
+              inputMode="numeric"
+              placeholder="10-digit mobile number"
+              maxLength={10}
+              autoComplete="off"
+              readOnly={Boolean(selectedPerson && selectedPerson.phone)}
+              value={formData.mobileNo}
+              onChange={(e) =>
+                handleChange("mobileNo", e.target.value.replace(/[^0-9]/g, ""))
+              }
+              ref={(el) => (fieldRefs.current.mobileNo = el)}
+              style={inputStyle}
+            />
 
             <FieldError msg={errors.mobileNo} />
           </div>
 
           <div>
-            <label style={labelStyle}>loan ID (max 8 characters)</label>
+            <label style={labelStyle}>Loan ID (max 8 characters)</label>
 
             <input
               type="text"
-              placeholder="loan ID"
+              placeholder="Loan ID"
               required
               maxLength={8}
+              autoComplete="off"
+              autoCapitalize="characters"
               value={formData.loanId}
               onChange={(e) => {
                 const value = e.target.value
@@ -1266,44 +1076,40 @@ const submitData = {
             <FieldError msg={errors.loanId} />
           </div>
         </div>
+
         {/* =====================================================
             GOLD / SILVER WEIGHT
         ====================================================== */}
-        {formData.loanType === "jewellery" && (
-  <>
-        <div className="two-col" style={twoColGridStyle}>
-          <div>
-            <label style={labelStyle}>Gold Weight (g)</label>
+        {isJewellery && (
+          <div className="alp-two">
+            <div>
+              <label style={labelStyle}>Gold Weight (g)</label>
 
-            <input
-              type="text"
-              inputMode="numeric"
-              min="0"
-              step="0.001"
-              placeholder="Gold weight in grams"
-              value={formData.goldWeight}
-              onChange={(e) => handleChange("goldWeight", e.target.value)}
-              style={inputStyle}
-            />
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="Gold weight in grams"
+                value={formData.goldWeight}
+                onChange={(e) => handleChange("goldWeight", e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Silver Weight (g)</label>
+
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="Silver weight in grams"
+                value={formData.silverWeight}
+                onChange={(e) => handleChange("silverWeight", e.target.value)}
+                style={inputStyle}
+              />
+            </div>
           </div>
+        )}
 
-          <div>
-            <label style={labelStyle}>Silver Weight (g)</label>
-
-            <input
-              type="text"
-              inputMode="numeric"
-              min="0"
-              step="0.001"
-              placeholder="Silver weight in grams"
-              value={formData.silverWeight}
-              onChange={(e) => handleChange("silverWeight", e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-        </div>
-          </>
-)}
         {/* =====================================================
             DESCRIPTION
         ====================================================== */}
@@ -1311,11 +1117,11 @@ const submitData = {
           <label style={labelStyle}>Description</label>
 
           <textarea
-           placeholder={
-  formData.loanType === "simple"
-    ? "Loan purpose or description"
-    : "Description of the pledged item(s)"
-}
+            placeholder={
+              formData.loanType === "simple"
+                ? "Loan purpose or description"
+                : "Description of the pledged item(s)"
+            }
             required
             rows="4"
             value={formData.description}
@@ -1326,146 +1132,115 @@ const submitData = {
 
           <FieldError msg={errors.description} />
         </div>
+
         {/* =====================================================
             ISSUE DATE + DUE DATE
         ====================================================== */}
-       {/* =====================================================
-    ISSUE DATE + DUE DATE
-====================================================== */}
-<div
-  className="two-col"
-  style={{
-    ...twoColGridStyle,
-    gridTemplateColumns:
-      formData.loanType === "jewellery" ? "repeat(2, 1fr)" : "1fr",
-  }}
->
-  <div>
-    <label style={labelStyle}>Issue Date</label>
+        <div className={isJewellery ? "alp-two" : "alp-one"}>
+          <div>
+            <label style={labelStyle}>Issue Date</label>
 
-    <input
-      type="date"
-      required
-      value={formData.date}
-      onChange={(e) => handleChange("date", e.target.value)}
-      ref={(el) => (fieldRefs.current.date = el)}
-      style={{ ...inputStyle, cursor: "pointer" }}
-    />
-    <FieldError msg={errors.date} />
-  </div>
+            <input
+              type="date"
+              required
+              value={formData.date}
+              onChange={(e) => handleChange("date", e.target.value)}
+              ref={(el) => (fieldRefs.current.date = el)}
+              style={{ ...inputStyle, cursor: "pointer" }}
+            />
+            <FieldError msg={errors.date} />
+          </div>
 
-  {formData.loanType === "jewellery" && (
-    <div>
-      <label style={labelStyle}>Due Date</label>
+          {isJewellery && (
+            <div>
+              <label style={labelStyle}>Due Date</label>
 
-      <input
-        type="date"
-        required
-        value={formData.dueDate}
-        onChange={(e) => handleChange("dueDate", e.target.value)}
-        ref={(el) => (fieldRefs.current.dueDate = el)}
-        style={{ ...inputStyle, cursor: "pointer" }}
-      />
-      <FieldError msg={errors.dueDate} />
-    </div>
-  )}
-</div>
+              <input
+                type="date"
+                required
+                value={formData.dueDate}
+                onChange={(e) => handleChange("dueDate", e.target.value)}
+                ref={(el) => (fieldRefs.current.dueDate = el)}
+                style={{ ...inputStyle, cursor: "pointer" }}
+              />
+              <FieldError msg={errors.dueDate} />
+            </div>
+          )}
+        </div>
+
         {/* =====================================================
             AVAILABLE + ROI
         ====================================================== */}
-        {formData.loanType === "jewellery" && (
-  <div className="two-col" style={twoColGridStyle}>
-    <div>
-      <label style={labelStyle}>Available</label>
+        {isJewellery && (
+          <div className="alp-two">
+            <div>
+              <label style={labelStyle}>Available</label>
 
-      <select
-        value={formData.available}
-        onChange={(e) => handleChange("available", e.target.value)}
-        style={{ ...inputStyle, cursor: "pointer" }}
-      >
-        <option value="yes">Yes</option>
-        <option value="no">No</option>
-      </select>
-    </div>
+              <select
+                value={formData.available}
+                onChange={(e) => handleChange("available", e.target.value)}
+                style={{ ...inputStyle, cursor: "pointer" }}
+              >
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
 
-    <div>
-      <label style={labelStyle}>ROI (%)</label>
+            <div>
+              <label style={labelStyle}>ROI (%)</label>
 
-      <input
-        type="text"
-        inputMode="numeric"
-        min="0"
-        step="0.01"
-        value={formData.roi}
-        onChange={(e) => handleChange("roi", e.target.value)}
-        ref={(el) => (fieldRefs.current.roi = el)}
-        style={inputStyle}
-      />
+              <input
+                type="text"
+                inputMode="decimal"
+                value={formData.roi}
+                onChange={(e) =>
+                  handleChange("roi", e.target.value.replace(/[^0-9.]/g, ""))
+                }
+                ref={(el) => (fieldRefs.current.roi = el)}
+                style={inputStyle}
+              />
 
-      <FieldError msg={errors.roi} />
-    </div>
-  </div>
-)}
+              <FieldError msg={errors.roi} />
+            </div>
+          </div>
+        )}
 
-        {/*    ===================================================
-          Return Date
-        ================================================ */}
-       <div
-  className="two-col"
-  style={{
-    ...twoColGridStyle,
-    gridTemplateColumns:
-      formData.loanType === "jewellery" ? "repeat(2, 1fr)" : "1fr",
-  }}
->
-  {/* Return Date - Both loan types */}
-  <div>
-    <label style={labelStyle}>Return Date</label>
+        {/* =====================================================
+            RETURN DATE + DISSOLVE DATE
+        ====================================================== */}
+        <div className={isJewellery ? "alp-two" : "alp-one"}>
+          <div>
+            <label style={labelStyle}>Return Date</label>
 
-    <input
-      type="date"
-      value={formData.returnDate}
-      onChange={(e) => handleChange("returnDate", e.target.value)}
-      style={{
-        ...inputStyle,
-        cursor: "pointer",
-        maxWidth: "320px",
-      }}
-    />
-  </div>
+            <input
+              type="date"
+              value={formData.returnDate}
+              onChange={(e) => handleChange("returnDate", e.target.value)}
+              style={{ ...inputStyle, cursor: "pointer" }}
+            />
+          </div>
 
-  {/* Dissolve Date - Jewellery Loan only */}
-  {formData.loanType === "jewellery" && (
-    <div>
-      <label style={labelStyle}>Dissolve Date</label>
+          {isJewellery && (
+            <div>
+              <label style={labelStyle}>Dissolve Date</label>
 
-      <input
-        type="date"
-        value={formData.dissolveDate}
-        onChange={(e) => handleChange("dissolveDate", e.target.value)}
-        style={{
-          ...inputStyle,
-          cursor: "pointer",
-          maxWidth: "320px",
-        }}
-      />
-    </div>
-  )}
-</div>
+              <input
+                type="date"
+                value={formData.dissolveDate}
+                onChange={(e) => handleChange("dissolveDate", e.target.value)}
+                style={{ ...inputStyle, cursor: "pointer" }}
+              />
+            </div>
+          )}
+        </div>
+
         {/* =====================================================
             ORIGINAL LOAN
         ====================================================== */}
         <SectionCard>
           <SectionHeader title="Original Loan" />
 
-          <div
-            className="original-loan-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1.3fr 1fr 1fr",
-              gap: "16px",
-            }}
-          >
+          <div className="alp-original">
             {/* Loan Amount */}
             <div ref={(el) => (fieldRefs.current.loanAmount = el)}>
               <label style={smallLabelStyle}>Loan Amount</label>
@@ -1514,7 +1289,7 @@ const submitData = {
 
           <FieldError msg={errors.loanAmount} />
 
-          {formData.loanAmount !== "" && formData.loanType === "jewellery" && (
+          {formData.loanAmount !== "" && isJewellery && (
             <div
               style={{
                 marginTop: "10px",
@@ -1523,29 +1298,17 @@ const submitData = {
               }}
             >
               Interest calculated for{" "}
-              <b
-                style={{
-                  color: "#f59e0b",
-                }}
-              >
-                {originalLoan.days}
-              </b>{" "}
-              days
+              <b style={{ color: "#f59e0b" }}>{originalLoan.days}</b> days
             </div>
           )}
         </SectionCard>
+
         {/* Re-Loans and Payments are managed only from Edit Loan. */}
+
         {/* =====================================================
             FINAL SUMMARY
         ====================================================== */}
-        <div
-          style={{
-            padding: "20px",
-            background: "#111113",
-            border: "1px solid #3f3f46",
-            borderRadius: "10px",
-          }}
-        >
+        <div className="alp-summary-card">
           <div
             style={{
               color: "#f97316",
@@ -1555,25 +1318,14 @@ const submitData = {
             }}
           >
             {formData.loanType === "simple"
-  ? "Simple Loan Summary"
-  : "Jewellery Loan Summary"}
+              ? "Simple Loan Summary"
+              : "Jewellery Loan Summary"}
           </div>
 
-          <div
-            className="summary-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(5, minmax(140px, 1fr))",
-              gap: "12px",
-            }}
-          >
+          <div className="alp-summary">
             <SummaryBox label="Loan Amount" value={grandLoanAmount} />
 
-            <SummaryBox
-              label="Interest"
-              value={grandInterest}
-              color="#f59e0b"
-            />
+            <SummaryBox label="Interest" value={grandInterest} color="#f59e0b" />
 
             <SummaryBox label="Total Amount" value={grandTotal} />
 
@@ -1587,24 +1339,26 @@ const submitData = {
             />
           </div>
         </div>
+
         {/* =====================================================
             SIGNED
         ====================================================== */}
-       {formData.loanType === "jewellery" && ( 
-        <div>
-          <label style={labelStyle}>Signed</label>
+        {isJewellery && (
+          <div>
+            <label style={labelStyle}>Signed</label>
 
-          <select
-            value={formData.signed}
-            onChange={(e) => handleChange("signed", e.target.value)}
-            style={{ ...inputStyle, cursor: "pointer", maxWidth: "320px" }}
-          >
-            <option value="no">No</option>
-
-            <option value="yes">Yes</option>
-          </select>
-        </div>
+            <select
+              value={formData.signed}
+              onChange={(e) => handleChange("signed", e.target.value)}
+              className="alp-narrow"
+              style={{ ...inputStyle, cursor: "pointer" }}
+            >
+              <option value="no">No</option>
+              <option value="yes">Yes</option>
+            </select>
+          </div>
         )}
+
         {/* =====================================================
             FINAL SETTLEMENT
         ====================================================== */}
@@ -1622,22 +1376,17 @@ const submitData = {
 
           <FieldError msg={errors.finalSettlement} />
         </div>
+
         {/* =====================================================
             SUBMIT
         ====================================================== */}
         <button
           type="submit"
           disabled={loading}
+          className="alp-submit"
           style={{
-            marginTop: "8px",
-            padding: "14px",
-            borderRadius: "8px",
-            border: "none",
             background: loading ? "#52525b" : "#f97316",
-            color: "#fff",
             cursor: loading ? "not-allowed" : "pointer",
-            fontWeight: "600",
-            fontSize: "15px",
           }}
         >
           {loading ? "Creating..." : "Publish Loan"}
@@ -1666,83 +1415,7 @@ const submitData = {
           RESPONSIVE CSS
       ====================================================== */}
 
-      <style>{`
-        input[type="number"]::-webkit-inner-spin-button,
-        input[type="number"]::-webkit-outer-spin-button {
-          -webkit-appearance: none;
-          margin: 0;
-        }
-
-        input[type="number"] {
-          -moz-appearance: textfield;
-        }
-
-        /* Laptop / tablet: keep reloan + payment rows on one line but
-           give interest/total columns enough room so numbers don't clip */
-        @media (max-width: 1100px) {
-          .original-loan-grid {
-            grid-template-columns: 1fr !important;
-          }
-
-          .summary-grid {
-            grid-template-columns: repeat(3, minmax(120px, 1fr)) !important;
-          }
-        }
-
-        @media (max-width: 900px) {
-          .two-col {
-            grid-template-columns: 1fr !important;
-          }
-
-.three-col {
-  display: grid;
-  grid-template-columns: 1fr 2fr 1fr !important;
-  gap: 10px;
-}
-
-          .reloan-row,
-          .reloan-header {
-            grid-template-columns: 26px 1.1fr 1fr 95px 105px 30px !important;
-            gap: 6px !important;
-          }
-        }
-
-        @media (max-width: 640px) {
-          .summary-grid {
-            grid-template-columns: repeat(2, minmax(120px, 1fr)) !important;
-          }
-
-          .payment-row,
-          .payment-header {
-            grid-template-columns: 24px 1fr 1fr 28px !important;
-            gap: 6px !important;
-          }
-        }
-
-        @media (max-width: 560px) {
-          .reloan-row,
-          .reloan-header {
-            grid-template-columns: 22px 1fr 1fr 78px 88px 26px !important;
-            gap: 4px !important;
-            font-size: 11px;
-          }
-
-          .summary-grid {
-            grid-template-columns: 1fr 1fr !important;
-          }
-        }
-
-        input[type="date"]::-webkit-calendar-picker-indicator {
-          filter: invert(1);
-          opacity: 0.7;
-        }
-
-        input:focus,
-        textarea:focus,
-        select:focus {
-          border-color: #f97316 !important;
-        }
-      `}</style>
+      <style>{responsiveCss}</style>
     </div>
   );
 };
@@ -1779,30 +1452,10 @@ const ConfirmPublishModal = ({
   <div
     role="dialog"
     aria-modal="true"
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.6)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 1000,
-      padding: "16px",
-    }}
+    className="alp-overlay"
     onClick={onCancel}
   >
-    <div
-      onClick={(e) => e.stopPropagation()}
-      style={{
-        width: "100%",
-        maxWidth: "440px",
-        background: "#18181b",
-        border: "1px solid #27272a",
-        borderRadius: "12px",
-        padding: "26px",
-        boxSizing: "border-box",
-      }}
-    >
+    <div className="alp-modal" onClick={(e) => e.stopPropagation()}>
       <div
         style={{
           color: "#f97316",
@@ -1846,19 +1499,15 @@ const ConfirmPublishModal = ({
         />
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-        }}
-      >
+      <div className="alp-modal-actions">
         <button
           type="button"
           onClick={onCancel}
           disabled={loading}
           style={{
             flex: 1,
-            padding: "12px",
+            padding: "13px",
+            minHeight: "46px",
             borderRadius: "8px",
             border: "1px solid #3f3f46",
             background: "transparent",
@@ -1877,7 +1526,8 @@ const ConfirmPublishModal = ({
           disabled={loading}
           style={{
             flex: 1,
-            padding: "12px",
+            padding: "13px",
+            minHeight: "46px",
             borderRadius: "8px",
             border: "none",
             background: loading ? "#52525b" : "#f97316",
@@ -1900,6 +1550,7 @@ const ConfirmRow = ({ label, value }) => (
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
+      gap: "12px",
       padding: "10px 12px",
       background: "#09090b",
       border: "1px solid #27272a",
@@ -1910,6 +1561,7 @@ const ConfirmRow = ({ label, value }) => (
       style={{
         color: "#a1a1aa",
         fontSize: "13px",
+        flexShrink: 0,
       }}
     >
       {label}
@@ -1920,6 +1572,9 @@ const ConfirmRow = ({ label, value }) => (
         color: "#fff",
         fontSize: "14px",
         fontWeight: "600",
+        textAlign: "right",
+        wordBreak: "break-word",
+        minWidth: 0,
       }}
     >
       {value}
@@ -1928,25 +1583,8 @@ const ConfirmRow = ({ label, value }) => (
 );
 
 const SectionCard = ({ children }) => (
-  <div
-    style={{
-      padding: "20px",
-      border: "1px solid #27272a",
-      borderRadius: "10px",
-      background: "#111113",
-    }}
-  >
-    {children}
-  </div>
+  <div className="alp-card">{children}</div>
 );
-
-const amountWordsStyle = {
-  color: "#a1a1aa",
-  fontSize: "12px",
-  marginTop: "5px",
-  lineHeight: "1.4",
-  fontStyle: "italic",
-};
 
 const SectionHeader = ({ title, marginBottom = "12px" }) => (
   <div
@@ -1984,18 +1622,17 @@ const MoneyInput = ({ placeholder, value, onChange, compact = false }) => (
       value={value}
       onChange={(e) => {
         // Only allow numbers
-        const value = e.target.value.replace(/\D/g, "");
+        const cleaned = e.target.value.replace(/\D/g, "");
 
         onChange({
           target: {
-            value,
+            value: cleaned,
           },
         });
       }}
       style={{
         ...inputStyle,
         padding: compact ? "10px 8px 10px 25px" : "13px 12px 13px 30px",
-        fontSize: compact ? "13px" : "15px",
         minWidth: 0,
       }}
     />
@@ -2031,27 +1668,6 @@ const ReadOnlyMoneyInput = ({ placeholder, value }) => (
       }}
     />
   </div>
-);
-
-const AddButton = ({ onClick, disabled = false, text }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={disabled}
-    style={{
-      border: "none",
-      background: disabled ? "#27272a" : "#f97316",
-      color: "#fff",
-      borderRadius: "7px",
-      padding: "9px 14px",
-      cursor: disabled ? "not-allowed" : "pointer",
-      fontSize: "13px",
-      fontWeight: "600",
-      whiteSpace: "nowrap",
-    }}
-  >
-    {text}
-  </button>
 );
 
 const SummaryBox = ({ label, value, color = "#fff", large = false }) => (
@@ -2106,23 +1722,17 @@ const FieldError = ({ msg }) =>
     </p>
   ) : null;
 
-const SmallError = ({ msg }) =>
-  msg ? (
-    <div
-      style={{
-        color: "#ef4444",
-        fontSize: "11px",
-        marginTop: "4px",
-        marginLeft: "32px",
-      }}
-    >
-      {msg}
-    </div>
-  ) : null;
-
 // =========================================================
 // STYLES
 // =========================================================
+
+const amountWordsStyle = {
+  color: "#a1a1aa",
+  fontSize: "12px",
+  marginTop: "5px",
+  lineHeight: "1.4",
+  fontStyle: "italic",
+};
 
 const inputStyle = {
   width: "100%",
@@ -2134,6 +1744,7 @@ const inputStyle = {
   fontSize: "15px",
   outline: "none",
   boxSizing: "border-box",
+  minWidth: 0,
 };
 
 const labelStyle = {
@@ -2154,64 +1765,13 @@ const smallLabelStyle = {
   textTransform: "uppercase",
 };
 
-const twoColGridStyle = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "18px",
-};
-
-const threeColGridStyle = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1.3fr 1fr",
-  gap: "28px",
-};
-
-const reloanGridStyle = {
-  display: "grid",
-  gridTemplateColumns: "32px 1.1fr 1fr 120px 130px 32px",
-  gap: "10px",
-  alignItems: "center",
-  fontSize: "11px",
-  color: "#71717a",
-  letterSpacing: "0.02em",
-};
-
-const paymentGridStyle = {
-  display: "grid",
-  gridTemplateColumns: "32px 1fr 1fr 32px",
-  gap: "10px",
-  alignItems: "center",
-  fontSize: "11px",
-  color: "#71717a",
-  letterSpacing: "0.02em",
-};
-
-const subTotalStyle = {
-  display: "flex",
-  justifyContent: "flex-end",
-  gap: "24px",
-  flexWrap: "wrap",
-  color: "#a1a1aa",
-  fontSize: "13px",
-};
-
-const deleteButtonStyle = {
-  border: "none",
-  background: "transparent",
-  color: "#ef4444",
-  cursor: "pointer",
-  fontSize: "18px",
-  padding: "0",
-  lineHeight: 1,
-};
-
 const searchIconButtonStyle = {
   position: "absolute",
-  right: "6px",
+  right: "4px",
   top: "50%",
   transform: "translateY(-50%)",
-  width: "36px",
-  height: "36px",
+  width: "42px",
+  height: "42px",
   border: "none",
   borderRadius: "6px",
   background: "transparent",
@@ -2222,5 +1782,317 @@ const searchIconButtonStyle = {
   alignItems: "center",
   justifyContent: "center",
 };
+
+// =========================================================
+// RESPONSIVE CSS (desktop defaults + tablet + mobile)
+// =========================================================
+
+const responsiveCss = `
+  .alp-wrap {
+    max-width: 1360px;
+    margin: 30px auto;
+    background: #18181b;
+    padding: 36px 40px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.05);
+    box-sizing: border-box;
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  .alp-wrap *,
+  .alp-wrap *::before,
+  .alp-wrap *::after {
+    box-sizing: border-box;
+  }
+
+  .alp-title {
+    text-align: center;
+    color: #f97316;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    margin: 0 0 20px;
+  }
+
+  .alp-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 26px;
+  }
+
+  .alp-subtitle {
+    color: #f97316;
+    margin: 0;
+    font-size: 22px;
+  }
+
+  .alp-manage-btn {
+    padding: 10px 18px;
+    border-radius: 7px;
+    border: none;
+    background: #3f3f46;
+    color: #fff;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .alp-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .alp-form > * { min-width: 0; }
+
+  .alp-type-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .alp-type-btn {
+    padding: 12px 22px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  .alp-one {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .alp-two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+
+  .alp-three {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr 1fr;
+    gap: 28px;
+  }
+
+  .alp-one > *, .alp-two > *, .alp-three > * { min-width: 0; }
+
+  .alp-one input[type="date"] {
+    max-width: 320px;
+  }
+
+  .alp-narrow {
+    max-width: 320px;
+  }
+
+  .alp-card {
+    padding: 20px;
+    border: 1px solid #27272a;
+    border-radius: 10px;
+    background: #111113;
+  }
+
+  .alp-original {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr 1fr;
+    gap: 16px;
+  }
+
+  .alp-original > * { min-width: 0; }
+
+  .alp-summary-card {
+    padding: 20px;
+    background: #111113;
+    border: 1px solid #3f3f46;
+    border-radius: 10px;
+  }
+
+  .alp-summary {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  .alp-submit {
+    margin-top: 8px;
+    padding: 14px;
+    border-radius: 8px;
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    font-size: 15px;
+    width: 100%;
+  }
+
+  .alp-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+  }
+
+  .alp-modal {
+    width: 100%;
+    max-width: 440px;
+    max-height: 92vh;
+    overflow-y: auto;
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 12px;
+    padding: 26px;
+    box-sizing: border-box;
+  }
+
+  .alp-modal-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type="number"] { -moz-appearance: textfield; }
+
+  input[type="date"] {
+    min-height: 46px;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.7;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    border-color: #f97316 !important;
+  }
+
+  /* ---------- Laptop / small desktop ---------- */
+  @media (max-width: 1100px) {
+    .alp-original { grid-template-columns: 1fr; }
+    .alp-summary  { grid-template-columns: repeat(3, minmax(120px, 1fr)); }
+  }
+
+  /* ---------- Tablet ---------- */
+  @media (max-width: 900px) {
+    .alp-wrap { padding: 28px 24px; margin: 20px auto; }
+    .alp-three { gap: 16px; grid-template-columns: 1fr 1fr; }
+    .alp-three > :first-child { grid-column: 1 / -1; }
+  }
+
+  /* ---------- Mobile ---------- */
+  @media (max-width: 640px) {
+    .alp-wrap {
+      margin: 0;
+      padding: 18px 14px 24px;
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+      min-height: 100vh;
+    }
+
+    .alp-title { font-size: 22px; margin-bottom: 14px; }
+
+    .alp-head {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .alp-subtitle { font-size: 18px; text-align: center; }
+
+    .alp-manage-btn {
+      width: 100%;
+      padding: 12px;
+      min-height: 44px;
+    }
+
+    .alp-form { gap: 16px; }
+
+    /* Loan type buttons: two equal-width tap targets */
+    .alp-type-row { flex-wrap: nowrap; gap: 8px; }
+    .alp-type-btn {
+      flex: 1;
+      padding: 12px 8px;
+      min-height: 46px;
+      font-size: 13.5px;
+    }
+
+    /* Stack all grids */
+    .alp-two,
+    .alp-three {
+      grid-template-columns: 1fr !important;
+      gap: 16px;
+    }
+    .alp-three > :first-child { grid-column: auto; }
+
+    .alp-one input[type="date"],
+    .alp-narrow {
+      max-width: none;
+    }
+
+    /* 16px+ stops iOS Safari from zooming in on focus */
+    .alp-wrap input,
+    .alp-wrap select,
+    .alp-wrap textarea {
+      font-size: 16px !important;
+      min-height: 46px;
+    }
+
+    .alp-wrap textarea { min-height: 0; }
+
+    .alp-card,
+    .alp-summary-card { padding: 14px; }
+
+    .alp-summary {
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .alp-summary > :last-child { grid-column: 1 / -1; }
+
+    .alp-submit {
+      padding: 15px;
+      min-height: 50px;
+      position: sticky;
+      bottom: 10px;
+      z-index: 5;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+    }
+
+    /* Modal becomes a bottom sheet */
+    .alp-overlay { align-items: flex-end; padding: 0; }
+    .alp-modal {
+      max-width: none;
+      border-radius: 14px 14px 0 0;
+      padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+      max-height: 90vh;
+    }
+    .alp-modal-actions { flex-direction: column-reverse; }
+  }
+
+  /* ---------- Very small phones ---------- */
+  @media (max-width: 360px) {
+    .alp-wrap { padding: 14px 10px 20px; }
+    .alp-summary { grid-template-columns: 1fr; }
+  }
+`;
 
 export default AddLoanProduct;

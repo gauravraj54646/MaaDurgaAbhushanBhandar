@@ -81,10 +81,82 @@
   transform: translateY(-1px);
 }
 
+/* ---------- tablet ---------- */
+@media (max-width: 900px) {
+  .navbar {
+    padding: 14px 24px;
+  }
+  .navbar-links {
+    gap: 20px;
+  }
+}
+
+/* ---------- phone ---------- */
 @media (max-width: 768px) {
   .navbar {
-    padding: 15px 20px;
     flex-direction: column;
-    gap: 15px;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px 12px 0;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
+  }
+
+  .navbar-brand a {
+    font-size: 20px;
+    letter-spacing: -0.5px;
+    gap: 6px;
+    justify-content: center;
+  }
+
+  .navbar-brand a::after {
+    font-size: 26px;
+    line-height: 0;
+  }
+
+  /* links become one swipeable row instead of wrapping */
+  .navbar-links {
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    white-space: nowrap;
+    padding: 0 0 8px;
+    margin: 0 -12px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .navbar-links::-webkit-scrollbar {
+    display: none;
+  }
+
+  .navbar-links a,
+  .navbar-links span {
+    flex: 0 0 auto;
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .navbar-links a:active {
+    background: rgba(249, 115, 22, 0.15);
+    color: #fff;
+  }
+
+  /* hover underline makes no sense on touch */
+  .navbar-links a::after {
+    display: none;
+  }
+
+  .btn-logout {
+    flex: 0 0 auto;
+    padding: 6px 12px;
+    font-size: 13px;
+    margin-left: auto;
+  }
+
+  .btn-logout:hover {
+    transform: none;
   }
 }

@@ -127,28 +127,27 @@ const EditLoanProduct = () => {
   const [confirmError, setConfirmError] = useState("");
   const [confirming, setConfirming] = useState(false);
 
-  // Delete-row confirmation (password-gated, same pattern as save) —
-  // fires when removing a reloan or payment row
+  // Delete-row confirmation (password-gated)
   const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'reloan' | 'payment', id, label }
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
 
-  // Delete-whole-loan confirmation (password-gated) — fires from the
-  // trash icon in the header
+  // Delete-whole-loan confirmation (password-gated)
   const [showDeleteLoanModal, setShowDeleteLoanModal] = useState(false);
   const [deleteLoanPassword, setDeleteLoanPassword] = useState("");
   const [deleteLoanError, setDeleteLoanError] = useState("");
   const [deletingLoan, setDeletingLoan] = useState(false);
 
   useEffect(() => {
-  if (!unlocked) {
-    document.body.style.overflow = "hidden";
-  }
-  return () => {
-    document.body.style.overflow = "";
-  };
-}, [unlocked]);
+    if (!unlocked) {
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [unlocked]);
+
   // -----------------------------------------------------------
   // Fetch loan
   // -----------------------------------------------------------
@@ -217,9 +216,7 @@ const EditLoanProduct = () => {
   }, [id, user]);
 
   // -----------------------------------------------------------
-  // Interest calc (same formula used on Add Loan) — used only for
-  // the still-editable reloans. The original loan's interest/total
-  // stay exactly as stored, since the original loan is locked.
+  // Interest calc (same formula used on Add Loan)
   // -----------------------------------------------------------
   const calculateLoan = (amount, issueDate) => {
     if (formData.loanType === "simple") {
@@ -266,11 +263,7 @@ const EditLoanProduct = () => {
   const reloanInterest = reloanCalculations.reduce((sum, c) => sum + c.interest, 0);
   const reloanTotal = reloanCalculations.reduce((sum, c) => sum + c.total, 0);
 
-  // Original loan's interest/total are recalculated live off the locked
-  // loanAmount + date + roi — same formula Add Loan uses — instead of
-  // showing whatever interest/totalAmount happened to be stored at
-  // creation time (which would otherwise never account for days that
-  // have passed since).
+  // Original loan's interest/total are recalculated live.
   const originalLoan = calculateLoan(formData.loanAmount, formData.date);
 
   const grandLoanAmount = Number(formData.loanAmount || 0) + reloanAmount;
@@ -305,17 +298,17 @@ const EditLoanProduct = () => {
     }));
   };
 
-  const removeReloan = (id) => {
+  const removeReloan = (rid) => {
     setFormData((prev) => ({
       ...prev,
-      reloans: prev.reloans.filter((r) => r.id !== id),
+      reloans: prev.reloans.filter((r) => r.id !== rid),
     }));
   };
 
-  const updateReloan = (id, field, value) => {
+  const updateReloan = (rid, field, value) => {
     setFormData((prev) => ({
       ...prev,
-      reloans: prev.reloans.map((r) => (r.id === id ? { ...r, [field]: value } : r)),
+      reloans: prev.reloans.map((r) => (r.id === rid ? { ...r, [field]: value } : r)),
     }));
   };
 
@@ -329,17 +322,17 @@ const EditLoanProduct = () => {
     }));
   };
 
-  const removePayment = (id) => {
+  const removePayment = (pid) => {
     setFormData((prev) => ({
       ...prev,
-      payments: prev.payments.filter((p) => p.id !== id),
+      payments: prev.payments.filter((p) => p.id !== pid),
     }));
   };
 
-  const updatePayment = (id, field, value) => {
+  const updatePayment = (pid, field, value) => {
     setFormData((prev) => ({
       ...prev,
-      payments: prev.payments.map((p) => (p.id === id ? { ...p, [field]: value } : p)),
+      payments: prev.payments.map((p) => (p.id === pid ? { ...p, [field]: value } : p)),
     }));
   };
 
@@ -351,8 +344,6 @@ const EditLoanProduct = () => {
 
     if (errorKeys.length === 0) return;
 
-    // Object key order matches the order fields were validated in,
-    // which mirrors the top-to-bottom order of the form.
     const firstErrorKey = errorKeys[0];
     const node = fieldRefs.current[firstErrorKey];
 
@@ -360,8 +351,6 @@ const EditLoanProduct = () => {
 
     node.scrollIntoView({ behavior: "smooth", block: "center" });
 
-    // Give the smooth scroll a moment to settle before focusing,
-    // so the browser doesn't yank the viewport back to the input.
     window.setTimeout(() => {
       if (typeof node.focus === "function") {
         node.focus({ preventScroll: true });
@@ -429,21 +418,18 @@ const EditLoanProduct = () => {
       errs.finalSettlement = "Final Settlement must be 100 words or fewer.";
     }
 
-    // Return Date validation
-// Return Date is allowed only when:
-// 1. At least one payment has been made, and
-// 2. Total paid amount is greater than or equal to
-//    Original Loan Amount + Total Reloan Amount.
-if (formData.returnDate) {
-  if (enteredPaidAmount <= 0) {
-    errs.returnDate =
-      "Return Date cannot be added because no payment has been made.";
-  } else if (enteredPaidAmount < grandLoanAmount) {
-    errs.returnDate =
-      `Return Date can only be added when total payment is at least ` +
-      `Loan Amount + Reloan Amount (₹${grandLoanAmount.toFixed(2)}).`;
-  }
-}
+    // Return Date is allowed only when at least one payment has been made
+    // and total paid >= Original Loan Amount + Total Reloan Amount.
+    if (formData.returnDate) {
+      if (enteredPaidAmount <= 0) {
+        errs.returnDate =
+          "Return Date cannot be added because no payment has been made.";
+      } else if (enteredPaidAmount < grandLoanAmount) {
+        errs.returnDate =
+          `Return Date can only be added when total payment is at least ` +
+          `Loan Amount + Reloan Amount (₹${grandLoanAmount.toFixed(2)}).`;
+      }
+    }
 
     setErrors(errs);
 
@@ -455,7 +441,7 @@ if (formData.returnDate) {
   };
 
   // -----------------------------------------------------------
-  // Unlock gate (password #1 — required before any field can be edited)
+  // Unlock gate (password #1)
   // -----------------------------------------------------------
   const handleUnlock = async (e) => {
     e.preventDefault();
@@ -466,9 +452,6 @@ if (formData.returnDate) {
     setUnlocking(true);
     setUnlockError("");
     try {
-      // Reuses the same password-check endpoint as the "More Info"
-      // financials panel on the Manage Loans page — that one is known
-      // to work against the current backend.
       const res = await fetch("/api/loans/analytics/financials", {
         method: "POST",
         headers: {
@@ -502,7 +485,7 @@ if (formData.returnDate) {
   };
 
   // -----------------------------------------------------------
-  // Submit gate (password #2 — required again before saving)
+  // Submit gate (password #2)
   // -----------------------------------------------------------
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -559,15 +542,13 @@ if (formData.returnDate) {
         paidDate: p.paidDate,
       }));
 
-      // Locked fields (customerId, date, loanAmount/interest/totalAmount)
-      // are sent back unchanged so the backend record stays consistent.
       const isSimple = formData.loanType === "simple";
       const payload = {
         loanType: formData.loanType,
         name: formData.name,
         address: formData.address,
         customerId: formData.customerId,
-        loanId: formData.loanId,     
+        loanId: formData.loanId,
         mobileNo: formData.mobileNo,
         description: formData.description,
         goldWeight: isSimple ? 0 : Number(formData.goldWeight || 0),
@@ -624,16 +605,16 @@ if (formData.returnDate) {
   };
 
   // -----------------------------------------------------------
-  // Delete gate (password-confirmed removal of a reloan/payment row)
+  // Delete gate (reloan / payment row)
   // -----------------------------------------------------------
-  const requestDeleteReloan = (id, label) => {
-    setDeleteTarget({ type: "reloan", id, label });
+  const requestDeleteReloan = (rid, label) => {
+    setDeleteTarget({ type: "reloan", id: rid, label });
     setDeletePassword("");
     setDeleteError("");
   };
 
-  const requestDeletePayment = (id, label) => {
-    setDeleteTarget({ type: "payment", id, label });
+  const requestDeletePayment = (pid, label) => {
+    setDeleteTarget({ type: "payment", id: pid, label });
     setDeletePassword("");
     setDeleteError("");
   };
@@ -685,8 +666,7 @@ if (formData.returnDate) {
   };
 
   // -----------------------------------------------------------
-  // Delete gate (password-confirmed removal of the ENTIRE loan) —
-  // fires from the trash icon in the header
+  // Delete gate (ENTIRE loan)
   // -----------------------------------------------------------
   const handleConfirmDeleteLoan = async () => {
     if (!deleteLoanPassword) {
@@ -772,41 +752,14 @@ if (formData.returnDate) {
   // -----------------------------------------------------------
   // Gate: unlock screen shown before any field is editable
   // -----------------------------------------------------------
- 
   if (!unlocked) {
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px",
-        boxSizing: "border-box",
-        background: "#000", // match your page background
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "420px",
-          background: "#18181b",
-          border: "1px solid #27272a",
-          borderRadius: "12px",
-          padding: "32px",
-          boxSizing: "border-box",
-          transform: "translateY(40px)", // nudge slightly below true center
-        }}
-      >
+    return (
+      <div className="el-unlock">
+        <div className="el-unlock-card">
           <div style={{ color: "#f97316", fontSize: "18px", fontWeight: 700, marginBottom: "4px" }}>
             Confirm Admin Password
           </div>
-          <div style={{ color: "#71717a", fontSize: "12.5px", marginBottom: "20px" }}>
+          <div style={{ color: "#71717a", fontSize: "12.5px", marginBottom: "20px", lineHeight: 1.5 }}>
             Enter your admin password to unlock editing for{" "}
             <b style={{ color: "#e4e4e7" }}>{formData.name || "this loan"}</b>.
           </div>
@@ -822,7 +775,7 @@ if (formData.returnDate) {
             />
             <FieldError msg={unlockError} />
 
-            <div style={{ display: "flex", gap: "10px", marginTop: "18px" }}>
+            <div className="el-modal-actions" style={{ marginTop: "18px" }}>
               <button
                 type="button"
                 onClick={() => navigate("/admin/loan/products")}
@@ -851,6 +804,8 @@ if (formData.returnDate) {
             </div>
           </form>
         </div>
+
+        <style>{responsiveCss}</style>
       </div>
     );
   }
@@ -858,30 +813,14 @@ if (formData.returnDate) {
   // -----------------------------------------------------------
   // UI — full edit form
   // -----------------------------------------------------------
+  const isJewellery = formData.loanType === "jewellery";
+
   return (
     <div style={pageWrapStyle}>
-      <div
-        style={{
-          maxWidth: "1360px",
-          margin: "30px auto",
-          background: "#18181b",
-          padding: "36px 40px",
-          borderRadius: "14px",
-          border: "1px solid rgba(255,255,255,0.05)",
-          boxSizing: "border-box",
-        }}
-      >
-        <div
-          className="header-row"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr auto 1fr",
-            alignItems: "center",
-            gap: "12px",
-            marginBottom: "26px",
-          }}
-        >
-          <div>
+      <div className="el-wrap">
+        {/* HEADER */}
+        <div className="el-header">
+          <div className="el-header-title">
             <h1 style={{ color: "#f1990b", margin: 0, fontSize: "28px" }}>Edit Loan</h1>
             <div style={{ color: "#a1a1aa", fontSize: "12px", marginTop: "4px" }}>
               {formData.loanType === "simple" ? "Simple Loan" : "Jewellery Loan"}
@@ -890,6 +829,7 @@ if (formData.returnDate) {
 
           <button
             type="button"
+            className="el-header-del"
             onClick={() => {
               setDeleteLoanPassword("");
               setDeleteLoanError("");
@@ -897,45 +837,20 @@ if (formData.returnDate) {
             }}
             title="Delete this loan"
             aria-label="Delete this loan"
-            style={{
-              justifySelf: "center",
-              width: "42px",
-              height: "42px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              border: "1px solid #ef4444",
-              background: "rgba(239,68,68,0.08)",
-              color: "#ef4444",
-              borderRadius: "9px",
-              fontSize: "18px",
-              cursor: "pointer",
-            }}
           >
             🗑
           </button>
 
           <button
             type="button"
+            className="el-header-manage"
             onClick={() => navigate("/admin/loan/products")}
-            style={{
-              justifySelf: "end",
-              padding: "10px 18px",
-              borderRadius: "7px",
-              border: "none",
-              background: "#3f3f46",
-              color: "#f1998b",
-              fontSize: "13.5px",
-              fontWeight: 600,
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
           >
             📄 Manage Loans
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+        <form onSubmit={handleSubmit} className="el-form">
           {/* NAME */}
           <div>
             <label style={labelStyle}>Name</label>
@@ -943,6 +858,7 @@ if (formData.returnDate) {
               type="text"
               placeholder="Full name"
               required
+              autoComplete="off"
               value={formData.name}
               onChange={(e) => handleChange("name", e.target.value)}
               ref={(el) => (fieldRefs.current.name = el)}
@@ -966,8 +882,8 @@ if (formData.returnDate) {
             <FieldError msg={errors.address} />
           </div>
 
-          {/* CUSTOMER ID (locked) + MOBILE */}
-          <div className="three-col" style={threeColGridStyle}>
+          {/* CUSTOMER ID (locked) + MOBILE + LOAN ID (locked) */}
+          <div className="el-three">
             <div>
               <label style={labelStyle}>Customer ID (locked)</label>
               <input
@@ -982,9 +898,11 @@ if (formData.returnDate) {
             <div>
               <label style={labelStyle}>Mobile No.</label>
               <input
-                type="text"
+                type="tel"
+                inputMode="numeric"
                 placeholder="10-digit mobile number"
                 maxLength={10}
+                autoComplete="off"
                 value={formData.mobileNo}
                 onChange={(e) => handleChange("mobileNo", e.target.value.replace(/[^0-9]/g, ""))}
                 ref={(el) => (fieldRefs.current.mobileNo = el)}
@@ -993,8 +911,6 @@ if (formData.returnDate) {
               <FieldError msg={errors.mobileNo} />
             </div>
 
-                      {/* loan ID (locked) + MOBILE */}
-         
             <div>
               <label style={labelStyle}>Loan ID (locked)</label>
               <input
@@ -1008,31 +924,31 @@ if (formData.returnDate) {
           </div>
 
           {/* GOLD / SILVER WEIGHT — Jewellery Loan only */}
-          {formData.loanType === "jewellery" && (
-          <div className="two-col" style={twoColGridStyle}>
-            <div>
-              <label style={labelStyle}>Gold Weight (g)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="Gold weight in grams"
-                value={formData.goldWeight}
-                onChange={(e) => handleChange("goldWeight", e.target.value)}
-                style={inputStyle}
-              />
+          {isJewellery && (
+            <div className="el-two">
+              <div>
+                <label style={labelStyle}>Gold Weight (g)</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Gold weight in grams"
+                  value={formData.goldWeight}
+                  onChange={(e) => handleChange("goldWeight", e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Silver Weight (g)</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Silver weight in grams"
+                  value={formData.silverWeight}
+                  onChange={(e) => handleChange("silverWeight", e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
             </div>
-            <div>
-              <label style={labelStyle}>Silver Weight (g)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="Silver weight in grams"
-                value={formData.silverWeight}
-                onChange={(e) => handleChange("silverWeight", e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          </div>
           )}
 
           {/* DESCRIPTION */}
@@ -1055,13 +971,7 @@ if (formData.returnDate) {
           </div>
 
           {/* ISSUE DATE + DUE DATE (Jewellery Loan only) */}
-          <div
-            className="two-col"
-            style={{
-              ...twoColGridStyle,
-              gridTemplateColumns: formData.loanType === "jewellery" ? "repeat(2, 1fr)" : "1fr",
-            }}
-          >
+          <div className={isJewellery ? "el-two" : "el-one"}>
             <div>
               <label style={labelStyle}>Issue Date (locked)</label>
               <input
@@ -1074,62 +984,55 @@ if (formData.returnDate) {
               />
             </div>
 
-            {formData.loanType === "jewellery" && (
-            <div>
-              <label style={labelStyle}>Due Date</label>
-              <input
-                type="date"
-                required
-                value={formData.dueDate}
-                onChange={(e) => handleChange("dueDate", e.target.value)}
-                ref={(el) => (fieldRefs.current.dueDate = el)}
-                style={{ ...inputStyle, cursor: "pointer" }}
-              />
-              <FieldError msg={errors.dueDate} />
-            </div>
+            {isJewellery && (
+              <div>
+                <label style={labelStyle}>Due Date</label>
+                <input
+                  type="date"
+                  required
+                  value={formData.dueDate}
+                  onChange={(e) => handleChange("dueDate", e.target.value)}
+                  ref={(el) => (fieldRefs.current.dueDate = el)}
+                  style={{ ...inputStyle, cursor: "pointer" }}
+                />
+                <FieldError msg={errors.dueDate} />
+              </div>
             )}
           </div>
 
           {/* AVAILABLE + ROI — Jewellery Loan only */}
-          {formData.loanType === "jewellery" && (
-          <div className="two-col" style={twoColGridStyle}>
-            <div>
-              <label style={labelStyle}>Available</label>
-              <select
-                value={formData.available}
-                onChange={(e) => handleChange("available", e.target.value)}
-                style={{ ...inputStyle, cursor: "pointer" }}
-              >
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
-              </select>
-            </div>
+          {isJewellery && (
+            <div className="el-two">
+              <div>
+                <label style={labelStyle}>Available</label>
+                <select
+                  value={formData.available}
+                  onChange={(e) => handleChange("available", e.target.value)}
+                  style={{ ...inputStyle, cursor: "pointer" }}
+                >
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
 
-            <div>
-              <label style={labelStyle}>ROI (%)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={formData.roi}
-                onChange={(e) => handleChange("roi", e.target.value)}
-                ref={(el) => (fieldRefs.current.roi = el)}
-                style={inputStyle}
-              />
-              <FieldError msg={errors.roi} />
+              <div>
+                <label style={labelStyle}>ROI (%)</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={formData.roi}
+                  onChange={(e) => handleChange("roi", e.target.value.replace(/[^0-9.]/g, ""))}
+                  ref={(el) => (fieldRefs.current.roi = el)}
+                  style={inputStyle}
+                />
+                <FieldError msg={errors.roi} />
+              </div>
             </div>
-          </div>
           )}
 
           {/* RETURN DATE + DISSOLVE DATE */}
-          <div
-            className="two-col"
-            style={{
-              ...twoColGridStyle,
-              gridTemplateColumns: formData.loanType === "jewellery" ? "repeat(2, 1fr)" : "1fr",
-            }}
-          >
+          <div className={isJewellery ? "el-two" : "el-one"}>
             <div ref={(el) => (fieldRefs.current.returnDate = el)}>
-
               <label style={labelStyle}>Return Date</label>
               <input
                 type="date"
@@ -1139,43 +1042,39 @@ if (formData.returnDate) {
               />
               <FieldError msg={errors.returnDate} />
 
-{!formData.returnDate && totalPaid < grandLoanAmount && (
-  <div
-    style={{
-      color: "#71717a",
-      fontSize: "11px",
-      marginTop: "5px",
-      lineHeight: 1.4,
-    }}
-  >
-    Return Date will be valid after total payment reaches{" "}
-    <b style={{ color: "#f59e0b" }}>
-      ₹{grandLoanAmount.toFixed(2)}
-    </b>{" "}
-    (Loan + Reloan).
-  </div>
-)}
+              {!formData.returnDate && totalPaid < grandLoanAmount && (
+                <div
+                  style={{
+                    color: "#71717a",
+                    fontSize: "11px",
+                    marginTop: "5px",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  Return Date will be valid after total payment reaches{" "}
+                  <b style={{ color: "#f59e0b" }}>₹{grandLoanAmount.toFixed(2)}</b>{" "}
+                  (Loan + Reloan).
+                </div>
+              )}
             </div>
-            {formData.loanType === "jewellery" && (
-            <div>
-              <label style={labelStyle}>Dissolve Date</label>
-              <input
-                type="date"
-                value={formData.dissolveDate}
-                onChange={(e) => handleChange("dissolveDate", e.target.value)}
-                style={{ ...inputStyle, cursor: "pointer" }}
-              />
-            </div>
+
+            {isJewellery && (
+              <div>
+                <label style={labelStyle}>Dissolve Date</label>
+                <input
+                  type="date"
+                  value={formData.dissolveDate}
+                  onChange={(e) => handleChange("dissolveDate", e.target.value)}
+                  style={{ ...inputStyle, cursor: "pointer" }}
+                />
+              </div>
             )}
           </div>
 
           {/* ORIGINAL LOAN (locked) */}
           <SectionCard>
             <SectionHeader title="Original Loan (locked)" />
-            <div
-              className="original-loan-grid"
-              style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr", gap: "16px" }}
-            >
+            <div className="el-original">
               <div>
                 <label style={smallLabelStyle}>Loan Amount</label>
                 <ReadOnlyMoneyInput value={formData.loanAmount !== "" ? Number(formData.loanAmount).toFixed(2) : ""} />
@@ -1192,7 +1091,7 @@ if (formData.returnDate) {
                 <ReadOnlyMoneyInput value={formData.loanAmount !== "" ? originalLoan.total.toFixed(2) : ""} />
               </div>
             </div>
-            <div style={{ marginTop: "10px", color: "#71717a", fontSize: "12.5px" }}>
+            <div style={{ marginTop: "10px", color: "#71717a", fontSize: "12.5px", lineHeight: 1.5 }}>
               Loan date and amount are fixed at creation. Interest and total
               above are recalculated live for{" "}
               <b style={{ color: "#f59e0b" }}>{originalLoan.days}</b> days
@@ -1237,23 +1136,26 @@ if (formData.returnDate) {
               return (
                 <div
                   key={r.id}
+                  className="el-row-wrap"
                   ref={(el) => {
                     fieldRefs.current[`reloanDate_${index}`] = el;
                     fieldRefs.current[`reloanAmount_${index}`] = el;
                   }}
-                  style={{ marginBottom: "10px", paddingBottom: "10px", borderBottom: "1px solid #1f1f23" }}
                 >
                   <div className="reloan-row" style={reloanGridStyle}>
-                    <div style={{ color: "#a1a1aa", fontSize: "13px", textAlign: "center" }}>{index + 1}</div>
+                    <div className="rl-num" style={{ color: "#a1a1aa", fontSize: "13px", textAlign: "center" }}>
+                      {index + 1}
+                    </div>
 
                     <input
+                      className="rl-date"
                       type="date"
                       value={r.issueDate}
                       onChange={(e) => updateReloan(r.id, "issueDate", e.target.value)}
                       style={{ ...inputStyle, padding: "10px 8px", fontSize: "13px" }}
                     />
 
-                    <div>
+                    <div className="rl-amt">
                       <MoneyInput
                         placeholder="Amount"
                         value={r.amount}
@@ -1267,15 +1169,30 @@ if (formData.returnDate) {
                       )}
                     </div>
 
-                    <div style={{ color: "#f59e0b", fontSize: "13px", textAlign: "right", whiteSpace: "nowrap" }}>
+                    <div
+                      className="rl-int"
+                      data-label="Interest"
+                      style={{ color: "#f59e0b", fontSize: "13px", textAlign: "right", whiteSpace: "nowrap" }}
+                    >
                       ₹{calc.interest.toFixed(2)}
                     </div>
 
-                    <div style={{ color: "#22c55e", fontSize: "13px", fontWeight: 600, textAlign: "right", whiteSpace: "nowrap" }}>
+                    <div
+                      className="rl-total"
+                      data-label="Total"
+                      style={{ color: "#22c55e", fontSize: "13px", fontWeight: 600, textAlign: "right", whiteSpace: "nowrap" }}
+                    >
                       ₹{calc.total.toFixed(2)}
                     </div>
 
-                    <button type="button" onClick={() => requestDeleteReloan(r.id, `Reloan ${index + 1}`)} title="Remove reloan" style={deleteButtonStyle}>
+                    <button
+                      type="button"
+                      className="rl-del"
+                      onClick={() => requestDeleteReloan(r.id, `Reloan ${index + 1}`)}
+                      title="Remove reloan"
+                      aria-label={`Remove reloan ${index + 1}`}
+                      style={deleteButtonStyle}
+                    >
                       🗑
                     </button>
                   </div>
@@ -1303,103 +1220,110 @@ if (formData.returnDate) {
 
           {/* PAYMENTS */}
           <div ref={(el) => (fieldRefs.current.payments = el)}>
-          <SectionCard>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: "10px",
-                marginBottom: formData.payments.length ? "16px" : "0",
-              }}
-            >
-              <div>
-                <SectionHeader title="Payments" marginBottom="2px" />
-                <div style={{ color: "#71717a", fontSize: "12.5px" }}>
-                  Paid amount is deducted from total. Payment date is stored only.
-                </div>
-              </div>
-              <AddButton onClick={addPayment} text="+ Add Payment" />
-            </div>
-
-            {formData.payments.length > 0 && (
-              <div className="payment-header" style={paymentGridStyle}>
-                <span>#</span>
-                <span>PAID AMOUNT</span>
-                <span>PAID DATE</span>
-                <span />
-              </div>
-            )}
-
-            {formData.payments.map((p, index) => (
+            <SectionCard>
               <div
-                key={p.id}
-                ref={(el) => {
-                  fieldRefs.current[`paymentAmount_${index}`] = el;
-                  fieldRefs.current[`paymentDate_${index}`] = el;
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                  marginBottom: formData.payments.length ? "16px" : "0",
                 }}
-                style={{ marginBottom: "10px", paddingBottom: "10px", borderBottom: "1px solid #1f1f23" }}
               >
-                <div className="payment-row" style={paymentGridStyle}>
-                  <div style={{ color: "#a1a1aa", fontSize: "13px", textAlign: "center" }}>{index + 1}</div>
+                <div>
+                  <SectionHeader title="Payments" marginBottom="2px" />
+                  <div style={{ color: "#71717a", fontSize: "12.5px", lineHeight: 1.4 }}>
+                    Paid amount is deducted from total. Payment date is stored only.
+                  </div>
+                </div>
+                <AddButton onClick={addPayment} text="+ Add Payment" />
+              </div>
 
-                  <div>
-                    <MoneyInput
-                      placeholder="Paid Amount"
-                      value={p.paidAmount}
-                      onChange={(e) => updatePayment(p.id, "paidAmount", e.target.value)}
-                      compact
+              {formData.payments.length > 0 && (
+                <div className="payment-header" style={paymentGridStyle}>
+                  <span>#</span>
+                  <span>PAID AMOUNT</span>
+                  <span>PAID DATE</span>
+                  <span />
+                </div>
+              )}
+
+              {formData.payments.map((p, index) => (
+                <div
+                  key={p.id}
+                  className="el-row-wrap"
+                  ref={(el) => {
+                    fieldRefs.current[`paymentAmount_${index}`] = el;
+                    fieldRefs.current[`paymentDate_${index}`] = el;
+                  }}
+                >
+                  <div className="payment-row" style={paymentGridStyle}>
+                    <div className="pm-num" style={{ color: "#a1a1aa", fontSize: "13px", textAlign: "center" }}>
+                      {index + 1}
+                    </div>
+
+                    <div className="pm-amt">
+                      <MoneyInput
+                        placeholder="Paid Amount"
+                        value={p.paidAmount}
+                        onChange={(e) => updatePayment(p.id, "paidAmount", e.target.value)}
+                        compact
+                      />
+                      {p.paidAmount && (
+                        <div style={{ ...amountWordsStyle, fontSize: "10.5px", marginTop: "4px", whiteSpace: "normal" }}>
+                          {numberToWords(p.paidAmount)}
+                        </div>
+                      )}
+                    </div>
+
+                    <input
+                      className="pm-date"
+                      type="date"
+                      value={p.paidDate}
+                      onChange={(e) => updatePayment(p.id, "paidDate", e.target.value)}
+                      style={{ ...inputStyle, padding: "10px 8px", fontSize: "13px" }}
                     />
-                    {p.paidAmount && (
-                      <div style={{ ...amountWordsStyle, fontSize: "10.5px", marginTop: "4px", whiteSpace: "normal" }}>
-                        {numberToWords(p.paidAmount)}
-                      </div>
-                    )}
+
+                    <button
+                      type="button"
+                      className="pm-del"
+                      onClick={() => requestDeletePayment(p.id, `Payment ${index + 1}`)}
+                      title="Remove payment"
+                      aria-label={`Remove payment ${index + 1}`}
+                      style={deleteButtonStyle}
+                    >
+                      🗑
+                    </button>
                   </div>
 
-                  <input
-                    type="date"
-                    value={p.paidDate}
-                    onChange={(e) => updatePayment(p.id, "paidDate", e.target.value)}
-                    style={{ ...inputStyle, padding: "10px 8px", fontSize: "13px" }}
-                  />
-
-                  <button type="button" onClick={() => requestDeletePayment(p.id, `Payment ${index + 1}`)} title="Remove payment" style={deleteButtonStyle}>
-                    🗑
-                  </button>
+                  {errors[`paymentAmount_${index}`] && <SmallError msg={errors[`paymentAmount_${index}`]} />}
+                  {errors[`paymentDate_${index}`] && <SmallError msg={errors[`paymentDate_${index}`]} />}
                 </div>
+              ))}
 
-                {errors[`paymentAmount_${index}`] && <SmallError msg={errors[`paymentAmount_${index}`]} />}
-                {errors[`paymentDate_${index}`] && <SmallError msg={errors[`paymentDate_${index}`]} />}
-              </div>
-            ))}
+              {formData.payments.length === 0 && (
+                <div style={{ color: "#52525b", fontSize: "13px", textAlign: "center", padding: "14px" }}>
+                  No payment added
+                </div>
+              )}
 
-            {formData.payments.length === 0 && (
-              <div style={{ color: "#52525b", fontSize: "13px", textAlign: "center", padding: "14px" }}>
-                No payment added
-              </div>
-            )}
+              {formData.payments.length > 0 && (
+                <div style={{ ...subTotalStyle, borderTop: "1px solid #27272a", marginTop: "8px", paddingTop: "12px" }}>
+                  <span>Total Paid: <b style={{ color: "#ef4444" }}>₹{totalPaid.toFixed(2)}</b></span>
+                </div>
+              )}
 
-            {formData.payments.length > 0 && (
-              <div style={{ ...subTotalStyle, borderTop: "1px solid #27272a", marginTop: "8px", paddingTop: "12px" }}>
-                <span>Total Paid: <b style={{ color: "#ef4444" }}>₹{totalPaid.toFixed(2)}</b></span>
-              </div>
-            )}
-
-            {errors.payments && <SmallError msg={errors.payments} />}
-          </SectionCard>
+              {errors.payments && <SmallError msg={errors.payments} />}
+            </SectionCard>
           </div>
 
           {/* FINAL SUMMARY */}
-          <div style={{ padding: "20px", background: "#111113", border: "1px solid #3f3f46", borderRadius: "10px" }}>
+          <div className="el-summary-card">
             <div style={{ color: "#f97316", fontSize: "15px", fontWeight: 600, marginBottom: "14px" }}>
               {formData.loanType === "simple" ? "Simple Loan Summary" : "Jewellery Loan Summary"}
             </div>
-            <div
-              className="summary-grid"
-              style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(140px, 1fr))", gap: "12px" }}
-            >
+            <div className="el-summary">
               <SummaryBox label="Loan Amount" value={grandLoanAmount} />
               <SummaryBox label="Interest" value={grandInterest} color="#f59e0b" />
               <SummaryBox label="Total Amount" value={grandTotal} />
@@ -1409,13 +1333,14 @@ if (formData.returnDate) {
           </div>
 
           {/* SIGNED — Jewellery Loan only */}
-          {formData.loanType === "jewellery" && (
+          {isJewellery && (
             <div>
               <label style={labelStyle}>Signed</label>
               <select
                 value={formData.signed}
                 onChange={(e) => handleChange("signed", e.target.value)}
-                style={{ ...inputStyle, cursor: "pointer", maxWidth: "320px" }}
+                className="el-narrow"
+                style={{ ...inputStyle, cursor: "pointer" }}
               >
                 <option value="no">No</option>
                 <option value="yes">Yes</option>
@@ -1441,16 +1366,10 @@ if (formData.returnDate) {
           <button
             type="submit"
             disabled={loading}
+            className="el-submit"
             style={{
-              marginTop: "8px",
-              padding: "14px",
-              borderRadius: "8px",
-              border: "none",
               background: loading ? "#52525b" : "#f97316",
-              color: "#fff",
               cursor: loading ? "not-allowed" : "pointer",
-              fontWeight: 600,
-              fontSize: "15px",
             }}
           >
             {loading ? "Saving..." : "Save Changes"}
@@ -1459,9 +1378,9 @@ if (formData.returnDate) {
 
         {/* SAVE CONFIRMATION MODAL — password #2 */}
         {showConfirmModal && (
-          <div style={overlayStyle} onClick={() => !confirming && setShowConfirmModal(false)}>
-            <div onClick={(e) => e.stopPropagation()} style={modalStyle}>
-              <h3 style={{ color: "#f97316", marginBottom: "10px" }}>Confirm Admin Password</h3>
+          <div className="el-overlay" onClick={() => !confirming && setShowConfirmModal(false)}>
+            <div onClick={(e) => e.stopPropagation()} className="el-modal">
+              <h3 style={{ color: "#f97316", marginTop: 0, marginBottom: "10px" }}>Confirm Admin Password</h3>
               <p style={{ color: "#a1a1aa", fontSize: "0.9rem", marginBottom: "15px" }}>
                 Enter your admin password to save these changes.
               </p>
@@ -1475,7 +1394,7 @@ if (formData.returnDate) {
                 onKeyDown={(e) => e.key === "Enter" && handleConfirmSave()}
               />
               <FieldError msg={confirmError} />
-              <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+              <div className="el-modal-actions" style={{ marginTop: "20px" }}>
                 <button
                   type="button"
                   onClick={() => setShowConfirmModal(false)}
@@ -1509,9 +1428,9 @@ if (formData.returnDate) {
 
         {/* DELETE CONFIRMATION MODAL — password-gated row removal */}
         {deleteTarget && (
-          <div style={overlayStyle} onClick={() => !deleting && setDeleteTarget(null)}>
-            <div onClick={(e) => e.stopPropagation()} style={modalStyle}>
-              <h3 style={{ color: "#ef4444", marginBottom: "10px" }}>Confirm Deletion</h3>
+          <div className="el-overlay" onClick={() => !deleting && setDeleteTarget(null)}>
+            <div onClick={(e) => e.stopPropagation()} className="el-modal">
+              <h3 style={{ color: "#ef4444", marginTop: 0, marginBottom: "10px" }}>Confirm Deletion</h3>
               <p style={{ color: "#a1a1aa", fontSize: "0.9rem", marginBottom: "15px" }}>
                 Enter your admin password to remove <b style={{ color: "#e4e4e7" }}>{deleteTarget.label}</b>. This cannot be undone.
               </p>
@@ -1525,7 +1444,7 @@ if (formData.returnDate) {
                 onKeyDown={(e) => e.key === "Enter" && handleConfirmDelete()}
               />
               <FieldError msg={deleteError} />
-              <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+              <div className="el-modal-actions" style={{ marginTop: "20px" }}>
                 <button
                   type="button"
                   onClick={() => setDeleteTarget(null)}
@@ -1557,11 +1476,11 @@ if (formData.returnDate) {
           </div>
         )}
 
-        {/* DELETE LOAN CONFIRMATION MODAL — password-gated, deletes the whole record */}
+        {/* DELETE LOAN CONFIRMATION MODAL */}
         {showDeleteLoanModal && (
-          <div style={overlayStyle} onClick={() => !deletingLoan && setShowDeleteLoanModal(false)}>
-            <div onClick={(e) => e.stopPropagation()} style={modalStyle}>
-              <h3 style={{ color: "#ef4444", marginBottom: "10px" }}>Delete This Loan?</h3>
+          <div className="el-overlay" onClick={() => !deletingLoan && setShowDeleteLoanModal(false)}>
+            <div onClick={(e) => e.stopPropagation()} className="el-modal">
+              <h3 style={{ color: "#ef4444", marginTop: 0, marginBottom: "10px" }}>Delete This Loan?</h3>
 
               <div
                 style={{
@@ -1602,7 +1521,7 @@ if (formData.returnDate) {
               />
               <FieldError msg={deleteLoanError} />
 
-              <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+              <div className="el-modal-actions" style={{ marginTop: "20px" }}>
                 <button
                   type="button"
                   onClick={() => setShowDeleteLoanModal(false)}
@@ -1634,51 +1553,7 @@ if (formData.returnDate) {
           </div>
         )}
 
-        <style>{`
-          input[type="date"]::-webkit-calendar-picker-indicator {
-            filter: invert(1);
-            opacity: 0.7;
-          }
-
-          input:focus, textarea:focus, select:focus {
-            border-color: #f97316 !important;
-          }
-
-          @media (max-width: 1100px) {
-            .original-loan-grid { grid-template-columns: 1fr !important; }
-            .summary-grid { grid-template-columns: repeat(3, minmax(120px, 1fr)) !important; }
-          }
-
-          @media (max-width: 900px) {
-            .two-col { grid-template-columns: 1fr !important; }
-            .reloan-row, .reloan-header {
-              grid-template-columns: 26px 1.1fr 1fr 95px 105px 30px !important;
-              gap: 6px !important;
-            }
-          }
-
-          @media (max-width: 640px) {
-            .header-row {
-              grid-template-columns: 1fr auto !important;
-              row-gap: 10px;
-            }
-            .header-row h1 { grid-column: 1 / 2; }
-            .summary-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)) !important; }
-            .payment-row, .payment-header {
-              grid-template-columns: 24px 1fr 1fr 28px !important;
-              gap: 6px !important;
-            }
-          }
-
-          @media (max-width: 560px) {
-            .reloan-row, .reloan-header {
-              grid-template-columns: 22px 1fr 1fr 78px 88px 26px !important;
-              gap: 4px !important;
-              font-size: 11px;
-            }
-            .summary-grid { grid-template-columns: 1fr 1fr !important; }
-          }
-        `}</style>
+        <style>{responsiveCss}</style>
       </div>
     </div>
   );
@@ -1688,11 +1563,7 @@ if (formData.returnDate) {
 // SMALL COMPONENTS
 // =========================================================
 
-const SectionCard = ({ children }) => (
-  <div style={{ padding: "20px", border: "1px solid #27272a", borderRadius: "10px", background: "#111113" }}>
-    {children}
-  </div>
-);
+const SectionCard = ({ children }) => <div className="el-card">{children}</div>;
 
 const SectionHeader = ({ title, marginBottom = "12px" }) => (
   <div style={{ color: "#f97316", fontSize: "15px", fontWeight: 600, marginBottom }}>{title}</div>
@@ -1761,6 +1632,7 @@ const AddButton = ({ onClick, disabled = false, text }) => (
     type="button"
     onClick={onClick}
     disabled={disabled}
+    className="el-add-btn"
     style={{
       border: "none",
       background: disabled ? "#27272a" : "#f97316",
@@ -1804,7 +1676,11 @@ const FieldError = ({ msg }) =>
   msg ? <p style={{ color: "#ef4444", fontSize: "0.8rem", margin: "5px 0 0" }}>{msg}</p> : null;
 
 const SmallError = ({ msg }) =>
-  msg ? <div style={{ color: "#ef4444", fontSize: "11px", marginTop: "4px", marginLeft: "32px" }}>{msg}</div> : null;
+  msg ? (
+    <div className="el-small-error" style={{ color: "#ef4444", fontSize: "11px", marginTop: "4px", marginLeft: "32px" }}>
+      {msg}
+    </div>
+  ) : null;
 
 // =========================================================
 // STYLES
@@ -1822,6 +1698,7 @@ const inputStyle = {
   fontSize: "15px",
   outline: "none",
   boxSizing: "border-box",
+  minWidth: 0,
 };
 
 const labelStyle = {
@@ -1840,13 +1717,6 @@ const smallLabelStyle = {
   fontWeight: 600,
   letterSpacing: "0.02em",
   textTransform: "uppercase",
-};
-
-const twoColGridStyle = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px" };
-const threeColGridStyle = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1.3fr 1fr",
-  gap: "28px",
 };
 
 const reloanGridStyle = {
@@ -1872,7 +1742,7 @@ const paymentGridStyle = {
 const subTotalStyle = {
   display: "flex",
   justifyContent: "flex-end",
-  gap: "24px",
+  gap: "8px 24px",
   flexWrap: "wrap",
   color: "#a1a1aa",
   fontSize: "13px",
@@ -1903,27 +1773,6 @@ const emptyStateStyle = {
   fontSize: "13px",
 };
 
-const overlayStyle = {
-  position: "fixed",
-  top: 0, left: 0, right: 0, bottom: 0,
-  background: "rgba(0,0,0,0.6)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 1000,
-  padding: "16px",
-};
-
-const modalStyle = {
-  background: "#18181b",
-  border: "1px solid #27272a",
-  borderRadius: "12px",
-  padding: "30px",
-  width: "90%",
-  maxWidth: "380px",
-  boxSizing: "border-box",
-};
-
 const cancelBtnStyle = {
   flex: "0 0 auto",
   padding: "12px 16px",
@@ -1935,5 +1784,342 @@ const cancelBtnStyle = {
   fontWeight: 600,
   fontSize: "14px",
 };
+
+// =========================================================
+// RESPONSIVE CSS (desktop defaults + tablet + mobile)
+// =========================================================
+
+const responsiveCss = `
+  .el-wrap {
+    max-width: 1360px;
+    margin: 30px auto;
+    background: #18181b;
+    padding: 36px 40px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.05);
+    box-sizing: border-box;
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  .el-wrap *, .el-wrap *::before, .el-wrap *::after,
+  .el-unlock *, .el-overlay * { box-sizing: border-box; }
+
+  /* ---------- Header ---------- */
+  .el-header {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 26px;
+  }
+
+  .el-header-del {
+    justify-self: center;
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #ef4444;
+    background: rgba(239,68,68,0.08);
+    color: #ef4444;
+    border-radius: 9px;
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  .el-header-manage {
+    justify-self: end;
+    padding: 10px 18px;
+    border-radius: 7px;
+    border: none;
+    background: #3f3f46;
+    color: #f1998b;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  /* ---------- Form layout ---------- */
+  .el-form { display: flex; flex-direction: column; gap: 18px; }
+  .el-form > * { min-width: 0; }
+
+  .el-one { display: grid; grid-template-columns: 1fr; gap: 18px; }
+  .el-two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .el-three { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 28px; }
+  .el-one > *, .el-two > *, .el-three > * { min-width: 0; }
+  .el-one input[type="date"] { max-width: 320px; }
+  .el-narrow { max-width: 320px; }
+
+  .el-card {
+    padding: 20px;
+    border: 1px solid #27272a;
+    border-radius: 10px;
+    background: #111113;
+  }
+
+  .el-original { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 16px; }
+  .el-original > * { min-width: 0; }
+
+  .el-summary-card {
+    padding: 20px;
+    background: #111113;
+    border: 1px solid #3f3f46;
+    border-radius: 10px;
+  }
+
+  .el-summary {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  .el-row-wrap {
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #1f1f23;
+  }
+
+  .rl-int::before, .rl-total::before { content: none; }
+
+  .el-submit {
+    margin-top: 8px;
+    padding: 14px;
+    border-radius: 8px;
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    font-size: 15px;
+    width: 100%;
+  }
+
+  /* ---------- Modals ---------- */
+  .el-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+  }
+
+  .el-modal {
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 12px;
+    padding: 30px;
+    width: 90%;
+    max-width: 380px;
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+
+  .el-modal-actions { display: flex; gap: 10px; }
+
+  /* ---------- Unlock screen ---------- */
+  .el-unlock {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: #000;
+    overflow-y: auto;
+  }
+
+  .el-unlock-card {
+    width: 100%;
+    max-width: 420px;
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 12px;
+    padding: 32px;
+    transform: translateY(40px);
+  }
+
+  input[type="date"] {
+    min-height: 44px;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.7;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    border-color: #f97316 !important;
+  }
+
+  /* ---------- Laptop / small desktop ---------- */
+  @media (max-width: 1100px) {
+    .el-original { grid-template-columns: 1fr; }
+    .el-summary { grid-template-columns: repeat(3, minmax(120px, 1fr)); }
+  }
+
+  /* ---------- Tablet ---------- */
+  @media (max-width: 900px) {
+    .el-wrap { padding: 28px 24px; margin: 20px auto; }
+    .el-three { gap: 16px; grid-template-columns: 1fr 1fr; }
+    .el-three > :first-child { grid-column: 1 / -1; }
+    .reloan-row, .reloan-header {
+      grid-template-columns: 26px 1.1fr 1fr 95px 105px 30px !important;
+      gap: 6px !important;
+    }
+  }
+
+  /* ---------- Mobile ---------- */
+  @media (max-width: 640px) {
+    .el-wrap {
+      margin: 0;
+      padding: 16px 14px 24px;
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+      min-height: 100vh;
+    }
+
+    /* Header: title + delete on one row, Manage Loans below */
+    .el-header {
+      grid-template-columns: 1fr auto;
+      row-gap: 12px;
+      margin-bottom: 18px;
+    }
+    .el-header-title h1 { font-size: 22px !important; }
+    .el-header-del { justify-self: end; width: 44px; height: 44px; }
+    .el-header-manage {
+      grid-column: 1 / -1;
+      justify-self: stretch;
+      width: 100%;
+      padding: 12px;
+      min-height: 44px;
+    }
+
+    .el-form { gap: 16px; }
+
+    .el-two, .el-three { grid-template-columns: 1fr !important; gap: 16px; }
+    .el-three > :first-child { grid-column: auto; }
+    .el-one input[type="date"], .el-narrow { max-width: none; }
+
+    /* 16px stops iOS Safari zooming on focus; comfortable tap height */
+    .el-wrap input, .el-wrap select, .el-wrap textarea,
+    .el-overlay input, .el-unlock input {
+      font-size: 16px !important;
+      min-height: 46px;
+    }
+    .el-wrap textarea { min-height: 0; }
+
+    .el-card, .el-summary-card { padding: 14px; }
+
+    .el-add-btn { min-height: 40px; }
+
+    .el-summary { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .el-summary > :last-child { grid-column: 1 / -1; }
+
+    /* ----- Reloan rows become compact cards ----- */
+    .reloan-header, .payment-header { display: none !important; }
+
+    .el-row-wrap {
+      background: #09090b;
+      border: 1px solid #27272a;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .reloan-row {
+      grid-template-columns: 28px 1fr 1fr 40px !important;
+      grid-template-areas:
+        "num date date del"
+        "amt amt amt amt"
+        "int int total total" !important;
+      gap: 8px !important;
+      font-size: 12px;
+    }
+    .rl-num   { grid-area: num; }
+    .rl-date  { grid-area: date; }
+    .rl-amt   { grid-area: amt; }
+    .rl-int   { grid-area: int; }
+    .rl-total { grid-area: total; }
+    .rl-del   { grid-area: del; }
+
+    .rl-int, .rl-total {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left !important;
+      font-size: 14px !important;
+    }
+    .rl-int::before, .rl-total::before {
+      content: attr(data-label);
+      color: #71717a;
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 2px;
+    }
+
+    /* ----- Payment rows ----- */
+    .payment-row {
+      grid-template-columns: 28px 1fr 40px !important;
+      grid-template-areas:
+        "num amt del"
+        ". date date" !important;
+      gap: 8px !important;
+    }
+    .pm-num  { grid-area: num; }
+    .pm-amt  { grid-area: amt; }
+    .pm-date { grid-area: date; }
+    .pm-del  { grid-area: del; }
+
+    .rl-del, .pm-del {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      align-self: start;
+    }
+
+    .el-small-error { margin-left: 0 !important; }
+
+    .el-submit {
+      padding: 15px;
+      min-height: 50px;
+      position: sticky;
+      bottom: 10px;
+      z-index: 5;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+    }
+
+    /* Modals become bottom sheets */
+    .el-overlay { align-items: flex-end; padding: 0; }
+    .el-modal {
+      width: 100%;
+      max-width: none;
+      border-radius: 14px 14px 0 0;
+      padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+      max-height: 90vh;
+    }
+    .el-modal-actions { flex-direction: column-reverse; }
+    .el-modal-actions button { min-height: 46px; }
+
+    /* Unlock screen */
+    .el-unlock { padding: 16px; align-items: center; }
+    .el-unlock-card { padding: 22px 18px; transform: none; }
+  }
+
+  @media (max-width: 360px) {
+    .el-wrap { padding: 14px 10px 20px; }
+    .el-summary { grid-template-columns: 1fr; }
+  }
+`;
 
 export default EditLoanProduct;
