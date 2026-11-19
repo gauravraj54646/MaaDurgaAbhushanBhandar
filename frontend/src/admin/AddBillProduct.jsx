@@ -4,6 +4,9 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 const wordCount = (str = "") => str.trim().split(/\s+/).filter(Boolean).length;
 
+const isMobileScreen = () =>
+  typeof window !== "undefined" && window.innerWidth <= 640;
+
 const AddBillProduct = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -117,7 +120,33 @@ const AddBillProduct = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showConfirm, setShowConfirm] = useState(false);
-    useEffect(() => {
+
+  // =========================================================
+  // COLLAPSED CARDS (UI only - never sent to the server)
+  // keys: item_<id>, ex_<id>, pay_<id>   value: true = collapsed
+  // =========================================================
+
+  const [collapsed, setCollapsed] = useState({});
+
+  const toggleCollapse = (key) => {
+    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // =========================================================
+  // ADMIN GUARD (redirect inside an effect, not during render)
+  // =========================================================
+
+  useEffect(() => {
+    if (!user || user.role !== "admin") {
+      navigate("/");
+    }
+  }, [user, navigate]);
+
+  // =========================================================
+  // LOAD PERSON (from router state or ?personId=)
+  // =========================================================
+
+  useEffect(() => {
     let cancelled = false;
 
     const applyPerson = (person) => {
@@ -155,7 +184,8 @@ const AddBillProduct = () => {
       cancelled = true;
     };
   }, [personIdFromQuery, user?.token, selectedPersonFromState]);
-    // =========================================================
+
+  // =========================================================
   // BILL NO SEARCH (load an existing bill)
   // =========================================================
 
@@ -212,6 +242,42 @@ const AddBillProduct = () => {
 
       const str = (v) => (v === undefined || v === null ? "" : String(v));
 
+      const loadedItems = (bill.items || []).map((i, idx) => ({
+        id: makeId(idx),
+        itemName: i.itemName || "",
+        category: i.category || "gold",
+        huid: i.huid || "",
+        purity: i.purity || "",
+        hsnCode: i.hsnCode || "",
+        grossWeight: str(i.grossWeight),
+        stoneWeight: str(i.stoneWeight),
+        netWeight: str(i.netWeight),
+        ratePerGram: str(i.ratePerGram),
+        makingChargeType: i.makingChargeType || "perGram",
+        makingCharge: str(i.makingCharge),
+        wastagePercent: str(i.wastagePercent),
+        stoneCharge: str(i.stoneCharge),
+        quantity: str(i.quantity || 1),
+      }));
+
+      const loadedExchange = (bill.exchangeItems || []).map((e, idx) => ({
+        id: makeId(idx),
+        description: e.description || "",
+        category: e.category || "gold",
+        grossWeight: str(e.grossWeight),
+        purity: e.purity || "",
+        deduction: str(e.deduction),
+        netWeight: str(e.netWeight),
+        ratePerGram: str(e.ratePerGram),
+      }));
+
+      const loadedPayments = (bill.payments || []).map((p, idx) => ({
+        id: makeId(idx),
+        date: toDateInput(p.date) || getToday(),
+        amount: str(p.amount),
+        mode: p.mode || "cash",
+      }));
+
       setFormData({
         billNo: bill.billNo || billNo,
         billDate: toDateInput(bill.billDate) || getToday(),
@@ -224,49 +290,29 @@ const AddBillProduct = () => {
         address: bill.address || "",
         gstin: bill.gstin || "",
 
-        items: (bill.items || []).map((i, idx) => ({
-          id: makeId(idx),
-          itemName: i.itemName || "",
-          category: i.category || "gold",
-          huid: i.huid || "",
-          purity: i.purity || "",
-          hsnCode: i.hsnCode || "",
-          grossWeight: str(i.grossWeight),
-          stoneWeight: str(i.stoneWeight),
-          netWeight: str(i.netWeight),
-          ratePerGram: str(i.ratePerGram),
-          makingChargeType: i.makingChargeType || "perGram",
-          makingCharge: str(i.makingCharge),
-          wastagePercent: str(i.wastagePercent),
-          stoneCharge: str(i.stoneCharge),
-          quantity: str(i.quantity || 1),
-        })),
-
-        exchangeItems: (bill.exchangeItems || []).map((e, idx) => ({
-          id: makeId(idx),
-          description: e.description || "",
-          category: e.category || "gold",
-          grossWeight: str(e.grossWeight),
-          purity: e.purity || "",
-          deduction: str(e.deduction),
-          netWeight: str(e.netWeight),
-          ratePerGram: str(e.ratePerGram),
-        })),
+        items: loadedItems,
+        exchangeItems: loadedExchange,
 
         discount: bill.discount ? str(bill.discount) : "",
         cgstPercent: bill.cgstPercent ?? 1.5,
         sgstPercent: bill.sgstPercent ?? 1.5,
 
-        payments: (bill.payments || []).map((p, idx) => ({
-          id: makeId(idx),
-          date: toDateInput(p.date) || getToday(),
-          amount: str(p.amount),
-          mode: p.mode || "cash",
-        })),
+        payments: loadedPayments,
 
         soldBy: bill.soldBy || "",
         notes: bill.notes || "",
       });
+
+      // On phones, start loaded bills collapsed so the page isn't endless.
+      if (isMobileScreen()) {
+        const next = {};
+        loadedItems.forEach((x) => (next[`item_${x.id}`] = true));
+        loadedExchange.forEach((x) => (next[`ex_${x.id}`] = true));
+        loadedPayments.forEach((x) => (next[`pay_${x.id}`] = true));
+        setCollapsed(next);
+      } else {
+        setCollapsed({});
+      }
 
       setLoadedBillId(bill._id);
       setErrors({});
@@ -289,6 +335,7 @@ const AddBillProduct = () => {
     setLoadedBillId(null);
     setSearchMessage({ type: "", text: "" });
     setErrors({});
+    setCollapsed({});
 
     setFormData({
       billNo: "",
@@ -399,6 +446,15 @@ const AddBillProduct = () => {
       return;
     }
 
+    // On phones, fold the existing cards so the new one is the only open card.
+    if (isMobileScreen()) {
+      setCollapsed((prev) => {
+        const next = { ...prev };
+        formData.items.forEach((it) => (next[`item_${it.id}`] = true));
+        return next;
+      });
+    }
+
     setFormData((prev) => ({
       ...prev,
       items: [
@@ -457,6 +513,14 @@ const AddBillProduct = () => {
   // =========================================================
 
   const addExchangeItem = () => {
+    if (isMobileScreen()) {
+      setCollapsed((prev) => {
+        const next = { ...prev };
+        formData.exchangeItems.forEach((ex) => (next[`ex_${ex.id}`] = true));
+        return next;
+      });
+    }
+
     setFormData((prev) => ({
       ...prev,
       exchangeItems: [
@@ -509,6 +573,14 @@ const AddBillProduct = () => {
   // =========================================================
 
   const addPayment = () => {
+    if (isMobileScreen()) {
+      setCollapsed((prev) => {
+        const next = { ...prev };
+        formData.payments.forEach((p) => (next[`pay_${p.id}`] = true));
+        return next;
+      });
+    }
+
     setFormData((prev) => ({
       ...prev,
       payments: [
@@ -541,7 +613,34 @@ const AddBillProduct = () => {
 
   // =========================================================
   // SCROLL / FOCUS TO FIRST INVALID FIELD
+  // Cards that contain an error are expanded first, then we scroll.
   // =========================================================
+
+  const expandCardsWithErrors = (errs) => {
+    const open = {};
+
+    Object.keys(errs).forEach((key) => {
+      if (!errs[key]) return;
+
+      const idx = Number(key.split("_")[1]);
+      if (Number.isNaN(idx)) return;
+
+      if (key.startsWith("item")) {
+        const it = formData.items[idx];
+        if (it) open[`item_${it.id}`] = false;
+      } else if (key.startsWith("exchange")) {
+        const ex = formData.exchangeItems[idx];
+        if (ex) open[`ex_${ex.id}`] = false;
+      } else if (key.startsWith("payment")) {
+        const p = formData.payments[idx];
+        if (p) open[`pay_${p.id}`] = false;
+      }
+    });
+
+    if (Object.keys(open).length > 0) {
+      setCollapsed((prev) => ({ ...prev, ...open }));
+    }
+  };
 
   const scrollToFirstError = (errs) => {
     const errorKeys = Object.keys(errs).filter((k) => errs[k]);
@@ -549,17 +648,21 @@ const AddBillProduct = () => {
     if (errorKeys.length === 0) return;
 
     const firstErrorKey = errorKeys[0];
-    const node = fieldRefs.current[firstErrorKey];
 
-    if (!node) return;
-
-    node.scrollIntoView({ behavior: "smooth", block: "center" });
-
+    // Wait a moment so collapsed cards have time to open.
     window.setTimeout(() => {
-      if (typeof node.focus === "function") {
-        node.focus({ preventScroll: true });
-      }
-    }, 350);
+      const node = fieldRefs.current[firstErrorKey];
+
+      if (!node) return;
+
+      node.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      window.setTimeout(() => {
+        if (typeof node.focus === "function") {
+          node.focus({ preventScroll: true });
+        }
+      }, 350);
+    }, 120);
   };
 
   // =========================================================
@@ -654,6 +757,7 @@ const AddBillProduct = () => {
     setErrors(errs);
 
     if (Object.keys(errs).length > 0) {
+      expandCardsWithErrors(errs);
       scrollToFirstError(errs);
     }
 
@@ -775,7 +879,7 @@ const AddBillProduct = () => {
       const responseData = await res.json();
 
       if (res.ok) {
-               alert(
+        alert(
           `Bill ${responseData.billNo || ""} ${
             loadedBillId ? "updated" : "created"
           } successfully!`,
@@ -793,11 +897,10 @@ const AddBillProduct = () => {
   };
 
   // =========================================================
-  // ADMIN CHECK
+  // ADMIN CHECK (render guard - redirect happens in the effect above)
   // =========================================================
 
   if (!user || user.role !== "admin") {
-    navigate("/");
     return null;
   }
 
@@ -806,17 +909,7 @@ const AddBillProduct = () => {
   // =========================================================
 
   return (
-    <div
-      style={{
-        maxWidth: "1360px",
-        margin: "30px auto",
-        background: "#18181b",
-        padding: "36px 40px",
-        borderRadius: "14px",
-        border: "1px solid rgba(255,255,255,0.05)",
-        boxSizing: "border-box",
-      }}
-    >
+    <div className="bill-container">
       <h1
         style={{
           textAlign: "center",
@@ -831,6 +924,7 @@ const AddBillProduct = () => {
       </h1>
 
       <div
+        className="page-header"
         style={{
           display: "flex",
           justifyContent: "space-between",
@@ -866,9 +960,11 @@ const AddBillProduct = () => {
       <form
         onSubmit={handleSubmit}
         style={{ display: "flex", flexDirection: "column", gap: "18px" }}
-        
       >
-                <div style={{ display: "flex", gap: "10px" }}>
+        {/* =====================================================
+            BILL TYPE TOGGLE
+        ====================================================== */}
+        <div className="type-toggle" style={{ display: "flex", gap: "10px" }}>
           {[
             { value: "simple", label: "🧾 Simple Bill" },
             { value: "jewellery", label: "💍 Jewellery Bill" },
@@ -896,6 +992,7 @@ const AddBillProduct = () => {
             );
           })}
         </div>
+
         {/* =====================================================
             BILL NO + BILL DATE
         ====================================================== */}
@@ -938,6 +1035,7 @@ const AddBillProduct = () => {
                   type="button"
                   onClick={handleClearBill}
                   title="Clear bill and search again"
+                  className="search-icon-btn"
                   style={searchIconButtonStyle}
                 >
                   ✕
@@ -948,6 +1046,7 @@ const AddBillProduct = () => {
                   onClick={handleBillSearch}
                   disabled={searchLoading}
                   title="Search bill by Bill No."
+                  className="search-icon-btn"
                   style={{
                     ...searchIconButtonStyle,
                     color: searchLoading ? "#52525b" : "#f97316",
@@ -1019,6 +1118,7 @@ const AddBillProduct = () => {
 
             <input
               type="text"
+              inputMode="numeric"
               placeholder="10-digit mobile number"
               required
               maxLength={10}
@@ -1039,6 +1139,7 @@ const AddBillProduct = () => {
               placeholder="Address (optional)"
               value={formData.address}
               onChange={(e) => handleChange("address", e.target.value)}
+              ref={(el) => (fieldRefs.current.address = el)}
               style={inputStyle}
             />
 
@@ -1058,8 +1159,11 @@ const AddBillProduct = () => {
             />
           </div>
         </div>
-               {isSimple && (
-              
+
+        {/* =====================================================
+            SIMPLE BILL DETAILS
+        ====================================================== */}
+        {isSimple && (
           <SectionCard>
             <SectionHeader title="Bill Details" />
 
@@ -1077,12 +1181,13 @@ const AddBillProduct = () => {
                 <FieldError msg={errors.description} />
               </div>
 
-              <div style={{ maxWidth: "360px" }}>
+              <div className="amount-field" style={{ maxWidth: "360px" }}>
                 <label style={smallLabelStyle}>Amount</label>
                 <MoneyInput
                   placeholder="Amount"
                   value={formData.simpleAmount}
                   onChange={(e) => handleChange("simpleAmount", e.target.value)}
+                  inputRef={(el) => (fieldRefs.current.simpleAmount = el)}
                 />
                 {formData.simpleAmount && (
                   <div style={amountWordsStyle}>
@@ -1094,493 +1199,417 @@ const AddBillProduct = () => {
             </div>
           </SectionCard>
         )}
+
         {/* =====================================================
-            ITEMS
+            JEWELLERY BILL SECTIONS
         ====================================================== */}
-                {!isSimple && (
-        <>
-        <SectionCard>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "10px",
-              marginBottom: "16px",
-            }}
-          >
-            <div>
-              <SectionHeader title="Items" marginBottom="2px" />
-              <div style={{ color: "#71717a", fontSize: "12.5px" }}>
-                {formData.items.length}/100 added
+        {!isSimple && (
+          <>
+            {/* ---------------- ITEMS ---------------- */}
+            <SectionCard>
+              <div style={sectionTopRowStyle(16)}>
+                <div>
+                  <SectionHeader title="Items" marginBottom="2px" />
+                  <div style={{ color: "#71717a", fontSize: "12.5px" }}>
+                    {formData.items.length}/100 added
+                  </div>
+                </div>
+
+                <AddButton onClick={addItem} text="+ Add Item" />
               </div>
-            </div>
 
-            <AddButton onClick={addItem} text="+ Add Item" />
-          </div>
+              {errors.items && <SmallError msg={errors.items} />}
 
-          {errors.items && <SmallError msg={errors.items} />}
+              {formData.items.map((item, index) => {
+                const amount = itemAmounts[index];
+                const key = `item_${item.id}`;
+                const isCollapsed = Boolean(collapsed[key]);
 
-          {formData.items.map((item, index) => {
-            const amount = itemAmounts[index];
+                return (
+                  <div key={item.id} className="row-card" style={rowCardStyle}>
+                    <CardHeader
+                      title={`Item ${index + 1}`}
+                      summary={`${item.itemName || "Unnamed"} · ₹${amount.toFixed(2)}`}
+                      isCollapsed={isCollapsed}
+                      onToggle={() => toggleCollapse(key)}
+                      onDelete={() => removeItem(item.id)}
+                      deleteTitle="Remove item"
+                    />
 
-            return (
-              <div
-                key={item.id}
-                style={{
-                  marginBottom: "16px",
-                  paddingBottom: "16px",
-                  borderBottom: "1px solid #1f1f23",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <span style={{ color: "#a1a1aa", fontSize: "13px", fontWeight: "600" }}>
-                    Item {index + 1}
+                    <div style={{ display: isCollapsed ? "none" : "block" }}>
+                      <div className="item-grid" style={itemGridStyle}>
+                        <div className="full-mobile">
+                          <label style={smallLabelStyle}>Item Name</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Gold Necklace"
+                            value={item.itemName}
+                            onChange={(e) => updateItem(item.id, "itemName", e.target.value)}
+                            ref={(el) => (fieldRefs.current[`itemName_${index}`] = el)}
+                            style={inputStyle}
+                          />
+                          <SmallError msg={errors[`itemName_${index}`]} />
+                        </div>
+
+                        <div>
+                          <label style={smallLabelStyle}>Category</label>
+                          <select
+                            value={item.category}
+                            onChange={(e) => updateItem(item.id, "category", e.target.value)}
+                            style={{ ...inputStyle, cursor: "pointer" }}
+                          >
+                            <option value="gold">Gold</option>
+                            <option value="silver">Silver</option>
+                            <option value="diamond">Diamond</option>
+                            <option value="platinum">Platinum</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={smallLabelStyle}>Purity</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 22K / 916"
+                            value={item.purity}
+                            onChange={(e) => updateItem(item.id, "purity", e.target.value)}
+                            style={inputStyle}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={smallLabelStyle}>HUID</label>
+                          <input
+                            type="text"
+                            placeholder="Hallmark ID"
+                            maxLength={6}
+                            value={item.huid}
+                            onChange={(e) => updateItem(item.id, "huid", e.target.value.toUpperCase())}
+                            style={inputStyle}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={smallLabelStyle}>Gross Wt. (g)</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={item.grossWeight}
+                            onChange={(e) => updateItem(item.id, "grossWeight", e.target.value)}
+                            ref={(el) => (fieldRefs.current[`itemGrossWeight_${index}`] = el)}
+                            style={inputStyle}
+                          />
+                          <SmallError msg={errors[`itemGrossWeight_${index}`]} />
+                        </div>
+
+                        <div>
+                          <label style={smallLabelStyle}>Stone Wt. (g)</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={item.stoneWeight}
+                            onChange={(e) => updateItem(item.id, "stoneWeight", e.target.value)}
+                            style={inputStyle}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={smallLabelStyle}>Net Wt. (g)</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={item.netWeight}
+                            onChange={(e) => updateItem(item.id, "netWeight", e.target.value)}
+                            style={inputStyle}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={smallLabelStyle}>Rate / gram</label>
+                          <MoneyInput
+                            placeholder="Rate"
+                            value={item.ratePerGram}
+                            onChange={(e) => updateItem(item.id, "ratePerGram", e.target.value)}
+                            inputRef={(el) => (fieldRefs.current[`itemRate_${index}`] = el)}
+                            compact
+                          />
+                          <SmallError msg={errors[`itemRate_${index}`]} />
+                        </div>
+
+                        <div>
+                          <label style={smallLabelStyle}>Making Charge Type</label>
+                          <select
+                            value={item.makingChargeType}
+                            onChange={(e) => updateItem(item.id, "makingChargeType", e.target.value)}
+                            style={{ ...inputStyle, cursor: "pointer" }}
+                          >
+                            <option value="perGram">Per Gram</option>
+                            <option value="flat">Flat</option>
+                            <option value="percentage">Percentage</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={smallLabelStyle}>Making Charge</label>
+                          <MoneyInput
+                            placeholder="Making charge"
+                            value={item.makingCharge}
+                            onChange={(e) => updateItem(item.id, "makingCharge", e.target.value)}
+                            compact
+                          />
+                        </div>
+
+                        <div>
+                          <label style={smallLabelStyle}>Wastage (%)</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={item.wastagePercent}
+                            onChange={(e) => updateItem(item.id, "wastagePercent", e.target.value)}
+                            style={inputStyle}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={smallLabelStyle}>Stone Charge</label>
+                          <MoneyInput
+                            placeholder="Stone charge"
+                            value={item.stoneCharge}
+                            onChange={(e) => updateItem(item.id, "stoneCharge", e.target.value)}
+                            compact
+                          />
+                        </div>
+
+                        <div>
+                          <label style={smallLabelStyle}>Qty</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={item.quantity}
+                            onChange={(e) => updateItem(item.id, "quantity", e.target.value)}
+                            style={inputStyle}
+                          />
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "10px",
+                          textAlign: "right",
+                          color: "#22c55e",
+                          fontSize: "14px",
+                          fontWeight: "700",
+                        }}
+                      >
+                        Line Amount: ₹{amount.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {formData.items.length === 0 && (
+                <div style={emptyStyle}>No items added</div>
+              )}
+
+              {formData.items.length > 0 && (
+                <div style={subTotalStyle}>
+                  <span>
+                    Items Subtotal: <b style={{ color: "#22c55e" }}>₹{itemsSubtotal.toFixed(2)}</b>
                   </span>
-
-                  <button
-                    type="button"
-                    onClick={() => removeItem(item.id)}
-                    title="Remove item"
-                    style={deleteButtonStyle}
-                  >
-                    🗑
-                  </button>
                 </div>
+              )}
+            </SectionCard>
 
-                <div className="item-grid" style={itemGridStyle}>
-                  <div>
-                    <label style={smallLabelStyle}>Item Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Gold Necklace"
-                      value={item.itemName}
-                      onChange={(e) => updateItem(item.id, "itemName", e.target.value)}
-                      ref={(el) => (fieldRefs.current[`itemName_${index}`] = el)}
-                      style={inputStyle}
-                    />
-                    <SmallError msg={errors[`itemName_${index}`]} />
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Category</label>
-                    <select
-                      value={item.category}
-                      onChange={(e) => updateItem(item.id, "category", e.target.value)}
-                      style={{ ...inputStyle, cursor: "pointer" }}
-                    >
-                      <option value="gold">Gold</option>
-                      <option value="silver">Silver</option>
-                      <option value="diamond">Diamond</option>
-                      <option value="platinum">Platinum</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Purity</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 22K / 916"
-                      value={item.purity}
-                      onChange={(e) => updateItem(item.id, "purity", e.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>HUID</label>
-                    <input
-                      type="text"
-                      placeholder="Hallmark ID"
-                      maxLength={6}
-                      value={item.huid}
-                      onChange={(e) => updateItem(item.id, "huid", e.target.value.toUpperCase())}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Gross Wt. (g)</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={item.grossWeight}
-                      onChange={(e) => updateItem(item.id, "grossWeight", e.target.value)}
-                      ref={(el) => (fieldRefs.current[`itemGrossWeight_${index}`] = el)}
-                      style={inputStyle}
-                    />
-                    <SmallError msg={errors[`itemGrossWeight_${index}`]} />
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Stone Wt. (g)</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={item.stoneWeight}
-                      onChange={(e) => updateItem(item.id, "stoneWeight", e.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Net Wt. (g)</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={item.netWeight}
-                      onChange={(e) => updateItem(item.id, "netWeight", e.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Rate / gram</label>
-                    <MoneyInput
-                      placeholder="Rate"
-                      value={item.ratePerGram}
-                      onChange={(e) => updateItem(item.id, "ratePerGram", e.target.value)}
-                      compact
-                    />
-                    <SmallError msg={errors[`itemRate_${index}`]} />
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Making Charge Type</label>
-                    <select
-                      value={item.makingChargeType}
-                      onChange={(e) => updateItem(item.id, "makingChargeType", e.target.value)}
-                      style={{ ...inputStyle, cursor: "pointer" }}
-                    >
-                      <option value="perGram">Per Gram</option>
-                      <option value="flat">Flat</option>
-                      <option value="percentage">Percentage</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Making Charge</label>
-                    <MoneyInput
-                      placeholder="Making charge"
-                      value={item.makingCharge}
-                      onChange={(e) => updateItem(item.id, "makingCharge", e.target.value)}
-                      compact
-                    />
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Wastage (%)</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={item.wastagePercent}
-                      onChange={(e) => updateItem(item.id, "wastagePercent", e.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Stone Charge</label>
-                    <MoneyInput
-                      placeholder="Stone charge"
-                      value={item.stoneCharge}
-                      onChange={(e) => updateItem(item.id, "stoneCharge", e.target.value)}
-                      compact
-                    />
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Qty</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={item.quantity}
-                      onChange={(e) => updateItem(item.id, "quantity", e.target.value)}
-                      style={inputStyle}
-                    />
+            {/* ---------------- EXCHANGE ---------------- */}
+            <SectionCard>
+              <div style={sectionTopRowStyle(formData.exchangeItems.length ? 16 : 0)}>
+                <div>
+                  <SectionHeader title="Old Gold / Silver Exchange (optional)" marginBottom="2px" />
+                  <div style={{ color: "#71717a", fontSize: "12.5px" }}>
+                    {formData.exchangeItems.length} added
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    marginTop: "10px",
-                    textAlign: "right",
-                    color: "#22c55e",
-                    fontSize: "14px",
-                    fontWeight: "700",
-                  }}
-                >
-                  Line Amount: ₹{amount.toFixed(2)}
-                </div>
+                <AddButton onClick={addExchangeItem} text="+ Add Exchange Item" />
               </div>
-            );
-          })}
 
-          {formData.items.length === 0 && (
-            <div
-              style={{
-                color: "#52525b",
-                fontSize: "13px",
-                textAlign: "center",
-                padding: "14px",
-              }}
-            >
-              No items added
-            </div>
-          )}
+              {formData.exchangeItems.map((ex, index) => {
+                const amount = exchangeAmounts[index];
+                const key = `ex_${ex.id}`;
+                const isCollapsed = Boolean(collapsed[key]);
 
-          {formData.items.length > 0 && (
-            <div style={subTotalStyle}>
-              <span>
-                Items Subtotal: <b style={{ color: "#22c55e" }}>₹{itemsSubtotal.toFixed(2)}</b>
-              </span>
-            </div>
-          )}
-        </SectionCard>
+                return (
+                  <div key={ex.id} className="row-card" style={rowCardStyle}>
+                    <CardHeader
+                      title={`Exchange ${index + 1}`}
+                      summary={`${ex.description || "Unnamed"} · -₹${amount.toFixed(2)}`}
+                      isCollapsed={isCollapsed}
+                      onToggle={() => toggleCollapse(key)}
+                      onDelete={() => removeExchangeItem(ex.id)}
+                      deleteTitle="Remove exchange item"
+                    />
 
-        {/* =====================================================
-            EXCHANGE ITEMS (OLD GOLD / SILVER TRADE-IN)
-        ====================================================== */}
-        <SectionCard>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "10px",
-              marginBottom: formData.exchangeItems.length ? "16px" : "0",
-            }}
-          >
-            <div>
-              <SectionHeader title="Old Gold / Silver Exchange (optional)" marginBottom="2px" />
-              <div style={{ color: "#71717a", fontSize: "12.5px" }}>
-                {formData.exchangeItems.length} added
-              </div>
-            </div>
+                    <div style={{ display: isCollapsed ? "none" : "block" }}>
+                      <div className="exchange-grid" style={exchangeGridStyle}>
+                        <div className="full-mobile">
+                          <label style={smallLabelStyle}>Description</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Old gold chain"
+                            value={ex.description}
+                            onChange={(e) => updateExchangeItem(ex.id, "description", e.target.value)}
+                            style={inputStyle}
+                          />
+                        </div>
 
-            <AddButton onClick={addExchangeItem} text="+ Add Exchange Item" />
-          </div>
+                        <div>
+                          <label style={smallLabelStyle}>Category</label>
+                          <select
+                            value={ex.category}
+                            onChange={(e) => updateExchangeItem(ex.id, "category", e.target.value)}
+                            style={{ ...inputStyle, cursor: "pointer" }}
+                          >
+                            <option value="gold">Gold</option>
+                            <option value="silver">Silver</option>
+                          </select>
+                        </div>
 
-          {formData.exchangeItems.map((ex, index) => {
-            const amount = exchangeAmounts[index];
+                        <div>
+                          <label style={smallLabelStyle}>Purity</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 22K"
+                            value={ex.purity}
+                            onChange={(e) => updateExchangeItem(ex.id, "purity", e.target.value)}
+                            style={inputStyle}
+                          />
+                        </div>
 
-            return (
-              <div
-                key={ex.id}
-                style={{
-                  marginBottom: "14px",
-                  paddingBottom: "14px",
-                  borderBottom: "1px solid #1f1f23",
-                }}
-              >
-                
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <span style={{ color: "#a1a1aa", fontSize: "13px", fontWeight: "600" }}>
-                    Exchange {index + 1}
+                        <div>
+                          <label style={smallLabelStyle}>Gross Wt. (g)</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={ex.grossWeight}
+                            onChange={(e) => updateExchangeItem(ex.id, "grossWeight", e.target.value)}
+                            ref={(el) => (fieldRefs.current[`exchangeWeight_${index}`] = el)}
+                            style={inputStyle}
+                          />
+                          <SmallError msg={errors[`exchangeWeight_${index}`]} />
+                        </div>
+
+                        <div>
+                          <label style={smallLabelStyle}>Deduction (g)</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={ex.deduction}
+                            onChange={(e) => updateExchangeItem(ex.id, "deduction", e.target.value)}
+                            style={inputStyle}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={smallLabelStyle}>Net Wt. (g)</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={ex.netWeight}
+                            onChange={(e) => updateExchangeItem(ex.id, "netWeight", e.target.value)}
+                            style={inputStyle}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={smallLabelStyle}>Rate / gram</label>
+                          <MoneyInput
+                            placeholder="Rate"
+                            value={ex.ratePerGram}
+                            onChange={(e) => updateExchangeItem(ex.id, "ratePerGram", e.target.value)}
+                            inputRef={(el) => (fieldRefs.current[`exchangeRate_${index}`] = el)}
+                            compact
+                          />
+                          <SmallError msg={errors[`exchangeRate_${index}`]} />
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "8px",
+                          textAlign: "right",
+                          color: "#ef4444",
+                          fontSize: "14px",
+                          fontWeight: "700",
+                        }}
+                      >
+                        Exchange Value: -₹{amount.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {formData.exchangeItems.length === 0 && (
+                <div style={emptyStyle}>No exchange items added</div>
+              )}
+
+              {formData.exchangeItems.length > 0 && (
+                <div style={subTotalStyle}>
+                  <span>
+                    Exchange Total: <b style={{ color: "#ef4444" }}>-₹{exchangeTotal.toFixed(2)}</b>
                   </span>
+                </div>
+              )}
+            </SectionCard>
 
-                  <button
-                    type="button"
-                    onClick={() => removeExchangeItem(ex.id)}
-                    title="Remove exchange item"
-                    style={deleteButtonStyle}
-                  >
-                    🗑
-                  </button>
+            {/* ---------------- DISCOUNT / TAX ---------------- */}
+            <SectionCard>
+              <SectionHeader title="Discount & Tax" />
+
+              <div className="three-col" style={threeColGridStyle}>
+                <div>
+                  <label style={smallLabelStyle}>Discount</label>
+                  <MoneyInput
+                    placeholder="Discount"
+                    value={formData.discount}
+                    onChange={(e) => handleChange("discount", e.target.value)}
+                    inputRef={(el) => (fieldRefs.current.discount = el)}
+                  />
+                  <FieldError msg={errors.discount} />
                 </div>
 
-                <div className="exchange-grid" style={exchangeGridStyle}>
-                  <div>
-                    <label style={smallLabelStyle}>Description</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Old gold chain"
-                      value={ex.description}
-                      onChange={(e) => updateExchangeItem(ex.id, "description", e.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Category</label>
-                    <select
-                      value={ex.category}
-                      onChange={(e) => updateExchangeItem(ex.id, "category", e.target.value)}
-                      style={{ ...inputStyle, cursor: "pointer" }}
-                    >
-                      <option value="gold">Gold</option>
-                      <option value="silver">Silver</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Purity</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 22K"
-                      value={ex.purity}
-                      onChange={(e) => updateExchangeItem(ex.id, "purity", e.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Gross Wt. (g)</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={ex.grossWeight}
-                      onChange={(e) => updateExchangeItem(ex.id, "grossWeight", e.target.value)}
-                      ref={(el) => (fieldRefs.current[`exchangeWeight_${index}`] = el)}
-                      style={inputStyle}
-                    />
-                    <SmallError msg={errors[`exchangeWeight_${index}`]} />
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Deduction (g)</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={ex.deduction}
-                      onChange={(e) => updateExchangeItem(ex.id, "deduction", e.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Net Wt. (g)</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={ex.netWeight}
-                      onChange={(e) => updateExchangeItem(ex.id, "netWeight", e.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={smallLabelStyle}>Rate / gram</label>
-                    <MoneyInput
-                      placeholder="Rate"
-                      value={ex.ratePerGram}
-                      onChange={(e) => updateExchangeItem(ex.id, "ratePerGram", e.target.value)}
-                      compact
-                    />
-                    <SmallError msg={errors[`exchangeRate_${index}`]} />
-                  </div>
+                <div>
+                  <label style={smallLabelStyle}>CGST (%)</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.cgstPercent}
+                    onChange={(e) => handleChange("cgstPercent", e.target.value)}
+                    style={inputStyle}
+                  />
                 </div>
 
-                <div
-                  style={{
-                    marginTop: "8px",
-                    textAlign: "right",
-                    color: "#ef4444",
-                    fontSize: "14px",
-                    fontWeight: "700",
-                  }}
-                >
-                  Exchange Value: -₹{amount.toFixed(2)}
+                <div>
+                  <label style={smallLabelStyle}>SGST (%)</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.sgstPercent}
+                    onChange={(e) => handleChange("sgstPercent", e.target.value)}
+                    style={inputStyle}
+                  />
                 </div>
               </div>
-            );
-          })}
+            </SectionCard>
+          </>
+        )}
 
-          {formData.exchangeItems.length === 0 && (
-            <div
-              style={{
-                color: "#52525b",
-                fontSize: "13px",
-                textAlign: "center",
-                padding: "14px",
-              }}
-            >
-              No exchange items added
-            </div>
-          )}
-
-          {formData.exchangeItems.length > 0 && (
-            <div style={subTotalStyle}>
-              <span>
-                Exchange Total: <b style={{ color: "#ef4444" }}>-₹{exchangeTotal.toFixed(2)}</b>
-              </span>
-            </div>
-          )}
-        </SectionCard>
-
-        {/* =====================================================
-            DISCOUNT / TAX
-        ====================================================== */}
-        <SectionCard>
-          <SectionHeader title="Discount & Tax" />
-
-          <div className="three-col" style={threeColGridStyle}>
-            <div>
-              <label style={smallLabelStyle}>Discount</label>
-              <MoneyInput
-                placeholder="Discount"
-                value={formData.discount}
-                onChange={(e) => handleChange("discount", e.target.value)}
-              />
-              <FieldError msg={errors.discount} />
-            </div>
-
-            <div>
-              <label style={smallLabelStyle}>CGST (%)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={formData.cgstPercent}
-                onChange={(e) => handleChange("cgstPercent", e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={smallLabelStyle}>SGST (%)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={formData.sgstPercent}
-                onChange={(e) => handleChange("sgstPercent", e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-        </SectionCard>
-</>
-                )}
         {/* =====================================================
             PAYMENTS (full history: each payment has its own date)
         ====================================================== */}
         <SectionCard>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "10px",
-              marginBottom: "16px",
-            }}
-          >
+          <div style={sectionTopRowStyle(16)}>
             <div>
               <SectionHeader title="Payments" marginBottom="2px" />
               <div style={{ color: "#71717a", fontSize: "12.5px" }}>
@@ -1593,83 +1622,84 @@ const AddBillProduct = () => {
 
           {errors.payments && <SmallError msg={errors.payments} />}
 
-          {formData.payments.map((payment, index) => (
-            <div
-              key={payment.id}
-              style={{
-                marginBottom: "14px",
-                paddingBottom: "14px",
-                borderBottom:
-                  index === formData.payments.length - 1
-                    ? "none"
-                    : "1px solid #1f1f23",
-              }}
-            >
-              <div className="payment-grid" style={paymentGridStyle}>
-                <div ref={(el) => (fieldRefs.current[`paymentDate_${index}`] = el)}>
-                  <label style={smallLabelStyle}>Date</label>
-                  <input
-                    type="date"
-                    value={payment.date}
-                    onChange={(e) => updatePayment(payment.id, "date", e.target.value)}
-                    style={{ ...inputStyle, cursor: "pointer" }}
-                  />
-                  <SmallError msg={errors[`paymentDate_${index}`]} />
-                </div>
+          {formData.payments.map((payment, index) => {
+            const key = `pay_${payment.id}`;
+            const isCollapsed = Boolean(collapsed[key]);
+            const modeLabel = String(payment.mode || "").replace("_", " ");
 
-                <div ref={(el) => (fieldRefs.current[`paymentAmount_${index}`] = el)}>
-                  <label style={smallLabelStyle}>Amount</label>
-                  <MoneyInput
-                    placeholder="Amount"
-                    value={payment.amount}
-                    onChange={(e) => updatePayment(payment.id, "amount", e.target.value)}
-                    compact
-                  />
-                  <SmallError msg={errors[`paymentAmount_${index}`]} />
-                </div>
+            return (
+              <div
+                key={payment.id}
+                className="row-card"
+                style={{
+                  ...rowCardStyle,
+                  borderBottom:
+                    index === formData.payments.length - 1
+                      ? "none"
+                      : "1px solid #1f1f23",
+                }}
+              >
+                <CardHeader
+                  title={`Payment ${index + 1}`}
+                  summary={`${formatDisplayDate(payment.date)} · ₹${Number(payment.amount || 0).toFixed(2)} · ${modeLabel}`}
+                  isCollapsed={isCollapsed}
+                  onToggle={() => toggleCollapse(key)}
+                  onDelete={() => removePayment(payment.id)}
+                  deleteTitle="Remove payment"
+                />
 
-                <div>
-                  <label style={smallLabelStyle}>Mode</label>
-                  <select
-                    value={payment.mode}
-                    onChange={(e) => updatePayment(payment.id, "mode", e.target.value)}
-                    style={{ ...inputStyle, cursor: "pointer" }}
-                  >
-                    <option value="cash">Cash</option>
-                    <option value="card">Card</option>
-                    <option value="upi">UPI</option>
-                    <option value="cheque">Cheque</option>
-                    <option value="bank_transfer">Bank Transfer</option>
-                  </select>
-                </div>
+                <div style={{ display: isCollapsed ? "none" : "block" }}>
+                  <div className="payment-grid" style={paymentGridStyle}>
+                    <div>
+                      <label style={smallLabelStyle}>Date</label>
+                      <input
+                        type="date"
+                        value={payment.date}
+                        onChange={(e) => updatePayment(payment.id, "date", e.target.value)}
+                        ref={(el) => (fieldRefs.current[`paymentDate_${index}`] = el)}
+                        style={{ ...inputStyle, cursor: "pointer" }}
+                      />
+                      <SmallError msg={errors[`paymentDate_${index}`]} />
+                    </div>
 
-                <button
-                  type="button"
-                  onClick={() => removePayment(payment.id)}
-                  title="Remove payment"
-                  style={{ ...deleteButtonStyle, alignSelf: "center" }}
-                >
-                  🗑
-                </button>
+                    <div>
+                      <label style={smallLabelStyle}>Amount</label>
+                      <MoneyInput
+                        placeholder="Amount"
+                        value={payment.amount}
+                        onChange={(e) => updatePayment(payment.id, "amount", e.target.value)}
+                        inputRef={(el) => (fieldRefs.current[`paymentAmount_${index}`] = el)}
+                        compact
+                      />
+                      <SmallError msg={errors[`paymentAmount_${index}`]} />
+                    </div>
+
+                    <div>
+                      <label style={smallLabelStyle}>Mode</label>
+                      <select
+                        value={payment.mode}
+                        onChange={(e) => updatePayment(payment.id, "mode", e.target.value)}
+                        style={{ ...inputStyle, cursor: "pointer" }}
+                      >
+                        <option value="cash">Cash</option>
+                        <option value="card">Card</option>
+                        <option value="upi">UPI</option>
+                        <option value="cheque">Cheque</option>
+                        <option value="bank_transfer">Bank Transfer</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {payment.amount && (
+                    <div style={amountWordsStyle}>{numberToWords(payment.amount)}</div>
+                  )}
+                </div>
               </div>
-
-              {payment.amount && (
-                <div style={amountWordsStyle}>{numberToWords(payment.amount)}</div>
-              )}
-            </div>
-          ))}
+            );
+          })}
 
           {formData.payments.length === 0 && (
-            <div
-              style={{
-                color: "#52525b",
-                fontSize: "13px",
-                textAlign: "center",
-                padding: "14px",
-              }}
-            >
-              No payments recorded
-            </div>
+            <div style={emptyStyle}>No payments recorded</div>
           )}
 
           {formData.payments.length > 0 && (
@@ -1685,6 +1715,7 @@ const AddBillProduct = () => {
             FINAL SUMMARY
         ====================================================== */}
         <div
+          className="section-card"
           style={{
             padding: "20px",
             background: "#111113",
@@ -1714,13 +1745,19 @@ const AddBillProduct = () => {
             <SummaryBox label="Items Subtotal" value={itemsSubtotal} />
             {!isSimple && (
               <>
-            <SummaryBox label="Exchange Total" value={exchangeTotal} color="#ef4444" />
-            <SummaryBox label="Taxable Amount" value={taxableAmount} />
-            <SummaryBox label="CGST + SGST" value={cgstAmount + sgstAmount} color="#f59e0b" />
-            <SummaryBox label="Round Off" value={roundOff} color="#71717a" />
-            </>
+                <SummaryBox label="Exchange Total" value={exchangeTotal} color="#ef4444" />
+                <SummaryBox label="Taxable Amount" value={taxableAmount} />
+                <SummaryBox label="CGST + SGST" value={cgstAmount + sgstAmount} color="#f59e0b" />
+                <SummaryBox label="Round Off" value={roundOff} color="#71717a" />
+              </>
             )}
-            <SummaryBox label="GRAND TOTAL" value={grandTotal} color="#22c55e" large />
+            <SummaryBox
+              className="grand"
+              label="GRAND TOTAL"
+              value={grandTotal}
+              color="#22c55e"
+              large
+            />
           </div>
 
           {grandTotal > 0 && (
@@ -1784,6 +1821,7 @@ const AddBillProduct = () => {
         ====================================================== */}
         <button
           type="submit"
+          className="submit-btn"
           disabled={loading}
           style={{
             marginTop: "8px",
@@ -1835,40 +1873,6 @@ const AddBillProduct = () => {
           -moz-appearance: textfield;
         }
 
-        @media (max-width: 1100px) {
-          .summary-grid {
-            grid-template-columns: repeat(3, minmax(120px, 1fr)) !important;
-          }
-        }
-
-        @media (max-width: 900px) {
-          .two-col {
-            grid-template-columns: 1fr !important;
-          }
-
-          .three-col {
-            grid-template-columns: 1fr !important;
-          }
-
-          .item-grid,
-          .exchange-grid,
-          .payment-grid {
-            grid-template-columns: 1fr 1fr !important;
-          }
-        }
-
-        @media (max-width: 640px) {
-          .summary-grid {
-            grid-template-columns: repeat(2, minmax(120px, 1fr)) !important;
-          }
-
-          .item-grid,
-          .exchange-grid,
-          .payment-grid {
-            grid-template-columns: 1fr !important;
-          }
-        }
-
         input[type="date"]::-webkit-calendar-picker-indicator {
           filter: invert(1);
           opacity: 0.7;
@@ -1878,6 +1882,142 @@ const AddBillProduct = () => {
         textarea:focus,
         select:focus {
           border-color: #f97316 !important;
+        }
+
+        .bill-container {
+          max-width: 1360px;
+          margin: 30px auto;
+          padding: 36px 40px;
+          background: #18181b;
+          border-radius: 14px;
+          border: 1px solid rgba(255,255,255,0.05);
+          box-sizing: border-box;
+        }
+
+        .card-toggle:focus-visible,
+        .bill-container button:focus-visible {
+          outline: 2px solid #f97316;
+          outline-offset: 2px;
+        }
+
+        /* ---------- Tablet ---------- */
+        @media (max-width: 1100px) {
+          .bill-container { padding: 28px 24px; }
+
+          .summary-grid {
+            grid-template-columns: repeat(3, minmax(120px, 1fr)) !important;
+          }
+        }
+
+        @media (max-width: 900px) {
+          .two-col,
+          .three-col {
+            grid-template-columns: 1fr !important;
+            gap: 14px !important;
+          }
+
+          .item-grid,
+          .exchange-grid {
+            grid-template-columns: 1fr 1fr 1fr !important;
+          }
+
+          .payment-grid {
+            grid-template-columns: 1fr 1fr !important;
+          }
+        }
+
+        /* ---------- Mobile ---------- */
+        @media (max-width: 640px) {
+          .bill-container {
+            margin: 0;
+            padding: 16px 12px 100px; /* bottom space for the sticky submit button */
+            border-radius: 0;
+            border: none;
+            min-height: 100vh;
+          }
+
+          .bill-container h1 {
+            font-size: 22px !important;
+            margin-bottom: 14px !important;
+          }
+
+          .bill-container h2 { font-size: 18px !important; }
+
+          .page-header { margin-bottom: 18px !important; }
+          .page-header button { width: 100%; }
+
+          .type-toggle button {
+            flex: 1;
+            padding: 12px 8px !important;
+          }
+
+          /* 16px stops iOS Safari zooming on focus; 44px is a comfortable tap target */
+          .bill-container input,
+          .bill-container select,
+          .bill-container textarea {
+            font-size: 16px !important;
+            min-height: 44px;
+          }
+
+          .bill-container button { min-height: 44px; }
+
+          .bill-container .search-icon-btn {
+            min-height: 36px;
+          }
+
+          .section-card { padding: 14px 12px !important; }
+
+          .amount-field { max-width: 100% !important; }
+
+          .item-grid,
+          .exchange-grid {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 10px !important;
+          }
+
+          .full-mobile { grid-column: 1 / -1; }
+
+          .payment-grid {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 10px !important;
+          }
+
+          .payment-grid > div:first-child { grid-column: 1 / -1; }
+
+          .summary-grid {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 10px !important;
+          }
+
+          .summary-grid .grand { grid-column: 1 / -1; }
+
+          .submit-btn {
+            position: fixed !important;
+            left: 12px;
+            right: 12px;
+            bottom: 12px;
+            z-index: 50;
+            margin: 0 !important;
+            min-height: 50px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+          }
+
+          .modal-card {
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 18px !important;
+          }
+
+          .modal-actions { flex-direction: column-reverse; }
+        }
+
+        /* ---------- Very small phones ---------- */
+        @media (max-width: 360px) {
+          .item-grid,
+          .exchange-grid,
+          .payment-grid {
+            grid-template-columns: 1fr !important;
+          }
         }
       `}</style>
     </div>
@@ -1930,6 +2070,7 @@ const ConfirmPublishModal = ({
     onClick={onCancel}
   >
     <div
+      className="modal-card"
       onClick={(e) => e.stopPropagation()}
       style={{
         width: "100%",
@@ -1959,7 +2100,7 @@ const ConfirmPublishModal = ({
         <ConfirmRow label="Amount Paid" value={`₹${amountPaid.toFixed(2)}`} />
       </div>
 
-      <div style={{ display: "flex", gap: "10px" }}>
+      <div className="modal-actions" style={{ display: "flex", gap: "10px" }}>
         <button
           type="button"
           onClick={onCancel}
@@ -2008,6 +2149,7 @@ const ConfirmRow = ({ label, value }) => (
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
+      gap: "12px",
       padding: "10px 12px",
       background: "#09090b",
       border: "1px solid #27272a",
@@ -2015,12 +2157,90 @@ const ConfirmRow = ({ label, value }) => (
     }}
   >
     <span style={{ color: "#a1a1aa", fontSize: "13px" }}>{label}</span>
-    <span style={{ color: "#fff", fontSize: "14px", fontWeight: "600" }}>{value}</span>
+    <span style={{ color: "#fff", fontSize: "14px", fontWeight: "600", textAlign: "right" }}>
+      {value}
+    </span>
+  </div>
+);
+
+// Header row for each collapsible item / exchange / payment card.
+// Tap the title area to fold or unfold; the bin button removes the row.
+const CardHeader = ({ title, summary, isCollapsed, onToggle, onDelete, deleteTitle }) => (
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: "8px",
+      marginBottom: isCollapsed ? "0" : "10px",
+    }}
+  >
+    <button
+      type="button"
+      className="card-toggle"
+      onClick={onToggle}
+      aria-expanded={!isCollapsed}
+      style={{
+        flex: 1,
+        minWidth: 0,
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "0",
+        border: "none",
+        background: "transparent",
+        textAlign: "left",
+        cursor: "pointer",
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          color: "#f97316",
+          fontSize: "12px",
+          display: "inline-block",
+          transition: "transform 0.15s ease",
+          transform: isCollapsed ? "rotate(0deg)" : "rotate(90deg)",
+        }}
+      >
+        ▶
+      </span>
+
+      <span style={{ color: "#a1a1aa", fontSize: "13px", fontWeight: "600", whiteSpace: "nowrap" }}>
+        {title}
+      </span>
+
+      {isCollapsed && summary && (
+        <span
+          style={{
+            color: "#71717a",
+            fontSize: "12.5px",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            minWidth: 0,
+          }}
+        >
+          {summary}
+        </span>
+      )}
+    </button>
+
+    <button
+      type="button"
+      onClick={onDelete}
+      title={deleteTitle}
+      aria-label={deleteTitle}
+      style={{ ...deleteButtonStyle, minWidth: "44px" }}
+    >
+      🗑
+    </button>
   </div>
 );
 
 const SectionCard = ({ children }) => (
   <div
+    className="section-card"
     style={{
       padding: "20px",
       border: "1px solid #27272a",
@@ -2032,21 +2252,13 @@ const SectionCard = ({ children }) => (
   </div>
 );
 
-const amountWordsStyle = {
-  color: "#a1a1aa",
-  fontSize: "12px",
-  marginTop: "5px",
-  lineHeight: "1.4",
-  fontStyle: "italic",
-};
-
 const SectionHeader = ({ title, marginBottom = "12px" }) => (
   <div style={{ color: "#f97316", fontSize: "15px", fontWeight: "600", marginBottom }}>
     {title}
   </div>
 );
 
-const MoneyInput = ({ placeholder, value, onChange, compact = false }) => (
+const MoneyInput = ({ placeholder, value, onChange, compact = false, inputRef }) => (
   <div style={{ position: "relative" }}>
     <span
       style={{
@@ -2064,12 +2276,13 @@ const MoneyInput = ({ placeholder, value, onChange, compact = false }) => (
 
     <input
       type="text"
-      inputMode="numeric"
+      inputMode="decimal"
       placeholder={placeholder}
       value={value}
+      ref={inputRef}
       onChange={(e) => {
-        const value = e.target.value.replace(/[^0-9.]/g, "");
-        onChange({ target: { value } });
+        const cleaned = e.target.value.replace(/[^0-9.]/g, "");
+        onChange({ target: { value: cleaned } });
       }}
       style={{
         ...inputStyle,
@@ -2102,8 +2315,9 @@ const AddButton = ({ onClick, disabled = false, text }) => (
   </button>
 );
 
-const SummaryBox = ({ label, value, color = "#fff", large = false }) => (
+const SummaryBox = ({ label, value, color = "#fff", large = false, className = "" }) => (
   <div
+    className={className}
     style={{
       padding: "14px 12px",
       background: "#09090b",
@@ -2185,6 +2399,14 @@ const smallLabelStyle = {
   textTransform: "uppercase",
 };
 
+const amountWordsStyle = {
+  color: "#a1a1aa",
+  fontSize: "12px",
+  marginTop: "5px",
+  lineHeight: "1.4",
+  fontStyle: "italic",
+};
+
 const twoColGridStyle = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
@@ -2211,9 +2433,31 @@ const exchangeGridStyle = {
 
 const paymentGridStyle = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr 1fr auto",
+  gridTemplateColumns: "1fr 1fr 1fr",
   gap: "12px",
   alignItems: "start",
+};
+
+const rowCardStyle = {
+  marginBottom: "14px",
+  paddingBottom: "14px",
+  borderBottom: "1px solid #1f1f23",
+};
+
+const sectionTopRowStyle = (marginBottom) => ({
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "10px",
+  marginBottom: `${marginBottom}px`,
+});
+
+const emptyStyle = {
+  color: "#52525b",
+  fontSize: "13px",
+  textAlign: "center",
+  padding: "14px",
 };
 
 const subTotalStyle = {
@@ -2235,6 +2479,7 @@ const deleteButtonStyle = {
   padding: "0",
   lineHeight: 1,
 };
+
 const searchIconButtonStyle = {
   position: "absolute",
   right: "6px",
@@ -2252,6 +2497,5 @@ const searchIconButtonStyle = {
   alignItems: "center",
   justifyContent: "center",
 };
-
 
 export default AddBillProduct;
