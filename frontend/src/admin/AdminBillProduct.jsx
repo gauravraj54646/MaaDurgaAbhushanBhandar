@@ -15,7 +15,7 @@ const statusColors = {
 };
 
 // =========================================================
-// useIsMobile — true when viewport is <= breakpoint
+// useIsMobile: true when viewport is <= breakpoint
 // =========================================================
 const useIsMobile = (breakpoint = 768) => {
   const query = `(max-width: ${breakpoint}px)`;
@@ -72,6 +72,28 @@ const AdminBillProduct = () => {
   const [paymentStatus, setPaymentStatus] = useState("");
   const [sortBy, setSortBy] = useState("billDate");
   const [sortOrder, setSortOrder] = useState("desc");
+
+  // Mobile search: one box, with a chip to pick what it searches
+  const [searchMode, setSearchMode] = useState("name"); // "name" | "billNo"
+  const mobileSearchValue = searchMode === "name" ? nameSearch : billNoSearch;
+
+  const handleMobileSearch = (value) => {
+    if (searchMode === "name") {
+      setNameSearch(value);
+      setBillNoSearch("");
+    } else {
+      setBillNoSearch(value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15));
+      setNameSearch("");
+    }
+    setPage(1);
+  };
+
+  const switchSearchMode = (mode) => {
+    setSearchMode(mode);
+    setNameSearch("");
+    setBillNoSearch("");
+    setPage(1);
+  };
 
   // Password-gated deletion
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, billNo }
@@ -294,7 +316,7 @@ const AdminBillProduct = () => {
           alignItems: "center",
           flexWrap: "wrap",
           gap: "12px",
-          marginBottom: isMobile ? "16px" : "22px",
+          marginBottom: isMobile ? "14px" : "22px",
         }}
       >
         <h2
@@ -388,13 +410,58 @@ const AdminBillProduct = () => {
         </div>
       )}
 
-      {/* FILTERS */}
-      {!isMultipleBillView && (
+      {/* FILTERS: MOBILE (single search box + chips) */}
+      {!isMultipleBillView && isMobile && (
+        <div style={{ marginBottom: "12px" }}>
+          <input
+            type="text"
+            placeholder={searchMode === "name" ? "Search customer name" : "Search bill no."}
+            value={mobileSearchValue}
+            onChange={(e) => handleMobileSearch(e.target.value)}
+            style={{ ...inputStyle, width: "100%" }}
+          />
+
+          {/* Search by: Name / Bill No */}
+          <div style={chipRowStyle}>
+            <Chip active={searchMode === "name"} onClick={() => switchSearchMode("name")}>
+              By Name
+            </Chip>
+            <Chip active={searchMode === "billNo"} onClick={() => switchSearchMode("billNo")}>
+              By Bill No.
+            </Chip>
+          </div>
+
+          {/* Status chips */}
+          <div style={chipRowStyle}>
+            {[
+              { value: "", label: "All" },
+              { value: "paid", label: "Paid" },
+              { value: "partial", label: "Partial" },
+              { value: "pending", label: "Pending" },
+            ].map((s) => (
+              <Chip
+                key={s.value || "all"}
+                active={paymentStatus === s.value}
+                color={statusColors[s.value]}
+                onClick={() => {
+                  setPaymentStatus(s.value);
+                  setPage(1);
+                }}
+              >
+                {s.label}
+              </Chip>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* FILTERS: DESKTOP (unchanged) */}
+      {!isMultipleBillView && !isMobile && (
         <form
           onSubmit={handleSearchSubmit}
           style={{
             display: "flex",
-            flexDirection: isMobile ? "column" : "row",
+            flexDirection: "row",
             gap: "10px",
             flexWrap: "wrap",
             marginBottom: "14px",
@@ -408,10 +475,7 @@ const AdminBillProduct = () => {
               setNameSearch(e.target.value);
               setPage(1);
             }}
-            style={{
-              ...inputStyle,
-              ...(isMobile ? { width: "100%" } : { flex: "2 1 220px" }),
-            }}
+            style={{ ...inputStyle, flex: "2 1 220px" }}
           />
 
           <input
@@ -424,10 +488,7 @@ const AdminBillProduct = () => {
               );
               setPage(1);
             }}
-            style={{
-              ...inputStyle,
-              ...(isMobile ? { width: "100%" } : { flex: "1 1 160px" }),
-            }}
+            style={{ ...inputStyle, flex: "1 1 160px" }}
           />
 
           <select
@@ -436,11 +497,7 @@ const AdminBillProduct = () => {
               setPaymentStatus(e.target.value);
               setPage(1);
             }}
-            style={{
-              ...inputStyle,
-              cursor: "pointer",
-              ...(isMobile ? { width: "100%" } : { flex: "1 1 160px" }),
-            }}
+            style={{ ...inputStyle, cursor: "pointer", flex: "1 1 160px" }}
           >
             <option value="">All Payment Statuses</option>
             <option value="paid">Paid</option>
@@ -448,44 +505,10 @@ const AdminBillProduct = () => {
             <option value="pending">Pending</option>
           </select>
 
-          <button
-            type="submit"
-            style={{ ...secondaryButtonStyle, width: isMobile ? "100%" : "auto" }}
-          >
+          <button type="submit" style={secondaryButtonStyle}>
             Search
           </button>
         </form>
-      )}
-
-      {/* MOBILE SORT CONTROLS (table headers are hidden on mobile) */}
-      {isMobile && (
-        <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
-          <select
-            value={sortBy}
-            onChange={(e) => {
-              setSortBy(e.target.value);
-              setPage(1);
-            }}
-            style={{ ...inputStyle, flex: 1, cursor: "pointer", minWidth: 0 }}
-            aria-label="Sort by"
-          >
-            <option value="billDate">Sort: Date</option>
-            <option value="customerName">Sort: Customer</option>
-            <option value="grandTotal">Sort: Grand Total</option>
-          </select>
-
-          <button
-            type="button"
-            onClick={() => {
-              setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
-              setPage(1);
-            }}
-            style={{ ...secondaryButtonStyle, padding: "10px 14px" }}
-            aria-label="Toggle sort order"
-          >
-            {sortOrder === "asc" ? "▲ Asc" : "▼ Desc"}
-          </button>
-        </div>
       )}
 
       {error && (
@@ -516,125 +539,136 @@ const AdminBillProduct = () => {
           )}
 
           {!loading &&
-            bills.map((bill) => (
-              <div key={bill._id} style={cardStyle}>
-                {/* Top row: bill no + status */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: "10px",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <CopyableText text={bill.billNo || ""} label="Bill No.">
-                    <span style={{ color: "#f97316", fontWeight: "700", fontSize: "14px" }}>
-                      {bill.billNo}
-                    </span>
-                  </CopyableText>
+            bills.map((bill) => {
+              const due = Number(bill.balanceDue || 0);
 
-                  <span
+              return (
+                <div key={bill._id} style={cardStyle}>
+                  {/* Top: bill no + date, status on the right */}
+                  <div
                     style={{
-                      color: statusColors[bill.paymentStatus] || "#a1a1aa",
-                      fontWeight: "700",
-                      fontSize: "11.5px",
-                      textTransform: "uppercase",
-                      border: `1px solid ${statusColors[bill.paymentStatus] || "#3f3f46"}`,
-                      borderRadius: "999px",
-                      padding: "3px 10px",
-                      whiteSpace: "nowrap",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: "10px",
                     }}
                   >
-                    {bill.paymentStatus}
-                  </span>
-                </div>
-
-                {/* Customer details */}
-                <div style={cardRowStyle}>
-                  <span style={cardLabelStyle}>Customer</span>
-                  <CopyableText text={bill.customerName || ""} label="customer name">
-                    <span style={cardValueStyle}>{bill.customerName || "-"}</span>
-                  </CopyableText>
-                </div>
-
-                <div style={cardRowStyle}>
-                  <span style={cardLabelStyle}>Mobile</span>
-                  <CopyableText text={bill.mobileNo || ""} label="mobile number">
-                    <span style={cardValueStyle}>{bill.mobileNo || "-"}</span>
-                  </CopyableText>
-                </div>
-
-                <div style={cardRowStyle}>
-                  <span style={cardLabelStyle}>Date</span>
-                  <CopyableText text={formatDate(bill.billDate)} label="date">
-                    <span style={cardValueStyle}>{formatDate(bill.billDate)}</span>
-                  </CopyableText>
-                </div>
-
-                {/* Amounts */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "10px",
-                    marginTop: "12px",
-                    paddingTop: "12px",
-                    borderTop: "1px solid #27272a",
-                  }}
-                >
-                  <div>
-                    <div style={cardLabelStyle}>Grand Total</div>
-                    <div style={{ color: "#fff", fontWeight: "700", fontSize: "15px", marginTop: "2px" }}>
-                      {formatMoney(bill.grandTotal)}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ color: "#f97316", fontWeight: "700", fontSize: "14px" }}>
+                        {bill.billNo}
+                      </div>
+                      <div style={{ color: "#71717a", fontSize: "11.5px", marginTop: "2px" }}>
+                        {formatDate(bill.billDate)}
+                      </div>
                     </div>
+
+                    <span
+                      style={{
+                        color: statusColors[bill.paymentStatus] || "#a1a1aa",
+                        fontWeight: "700",
+                        fontSize: "11.5px",
+                        textTransform: "uppercase",
+                        border: `1px solid ${statusColors[bill.paymentStatus] || "#3f3f46"}`,
+                        borderRadius: "999px",
+                        padding: "3px 10px",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {bill.paymentStatus}
+                    </span>
                   </div>
 
-                  <div style={{ textAlign: "right" }}>
-                    <div style={cardLabelStyle}>Balance Due</div>
-                    <div
+                  {/* Customer (mobile number only when money is due) */}
+                  <div
+                    style={{
+                      marginTop: "10px",
+                      color: "#e4e4e7",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {bill.customerName || "-"}
+                  </div>
+                  {due > 0 && bill.mobileNo && (
+                    <a
+                      href={`tel:${bill.mobileNo}`}
                       style={{
-                        color: Number(bill.balanceDue || 0) > 0 ? "#f59e0b" : "#22c55e",
-                        fontWeight: "700",
-                        fontSize: "15px",
+                        color: "#a1a1aa",
+                        fontSize: "12.5px",
+                        textDecoration: "none",
+                        display: "inline-block",
                         marginTop: "2px",
                       }}
                     >
-                      {formatMoney(bill.balanceDue)}
+                      📞 {bill.mobileNo}
+                    </a>
+                  )}
+
+                  {/* Amounts */}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: "10px",
+                      marginTop: "12px",
+                      paddingTop: "12px",
+                      borderTop: "1px solid #27272a",
+                    }}
+                  >
+                    <div>
+                      <div style={cardLabelStyle}>Grand Total</div>
+                      <div style={{ color: "#fff", fontWeight: "700", fontSize: "15px", marginTop: "2px" }}>
+                        {formatMoney(bill.grandTotal)}
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: "right" }}>
+                      <div style={cardLabelStyle}>Balance Due</div>
+                      <div
+                        style={{
+                          color: due > 0 ? "#f59e0b" : "#22c55e",
+                          fontWeight: "700",
+                          fontSize: "15px",
+                          marginTop: "2px",
+                        }}
+                      >
+                        {formatMoney(due)}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Actions */}
-                <div style={{ display: "flex", gap: "10px", marginTop: "14px" }}>
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/admin/bill/edit-bill/${bill._id}`)}
-                    style={{
-                      ...secondaryButtonStyle,
-                      flex: 1,
-                      color: "#f97316",
-                      borderColor: "rgba(249,115,22,0.4)",
-                    }}
-                  >
-                    Edit
-                  </button>
+                  {/* Actions */}
+                  <div style={{ display: "flex", gap: "10px", marginTop: "14px" }}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/admin/bill/edit-bill/${bill._id}`)}
+                      style={{
+                        ...secondaryButtonStyle,
+                        flex: 1,
+                        color: "#f97316",
+                        borderColor: "rgba(249,115,22,0.4)",
+                      }}
+                    >
+                      Edit
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => requestDelete(bill._id, bill.billNo)}
-                    style={{
-                      ...secondaryButtonStyle,
-                      flex: 1,
-                      color: "#ef4444",
-                      borderColor: "rgba(239,68,68,0.4)",
-                    }}
-                  >
-                    Delete
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => requestDelete(bill._id, bill.billNo)}
+                      style={{
+                        ...secondaryButtonStyle,
+                        flex: 1,
+                        color: "#ef4444",
+                        borderColor: "rgba(239,68,68,0.4)",
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
         </div>
       ) : (
         /* =====================================================
@@ -790,7 +824,7 @@ const AdminBillProduct = () => {
         </div>
       )}
 
-      {/* DELETE CONFIRMATION MODAL — password-gated */}
+      {/* DELETE CONFIRMATION MODAL (password-gated) */}
       {deleteTarget && (
         <div style={overlayStyle} onClick={() => !deleting && setDeleteTarget(null)}>
           <div
@@ -900,7 +934,7 @@ const AdminBillProduct = () => {
 };
 
 // =========================================================
-// COPYABLE TEXT (shows a copy button on hover)
+// COPYABLE TEXT (desktop table only)
 // =========================================================
 
 const CopyableText = ({ text, label, children }) => {
@@ -950,6 +984,31 @@ const CopyableText = ({ text, label, children }) => {
 // =========================================================
 // SMALL COMPONENTS
 // =========================================================
+
+const Chip = ({ active, onClick, color, children }) => {
+  const c = color || "#f97316";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        flex: "0 0 auto",
+        padding: "7px 14px",
+        borderRadius: "999px",
+        border: `1px solid ${active ? c : "#3f3f46"}`,
+        background: active ? "rgba(249,115,22,0.12)" : "#18181b",
+        color: active ? c : "#a1a1aa",
+        fontSize: "12.5px",
+        fontWeight: "600",
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {children}
+    </button>
+  );
+};
 
 const Th = ({ children, align = "left" }) => (
   <th
@@ -1027,14 +1086,6 @@ const cardStyle = {
   width: "100%",
 };
 
-const cardRowStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "12px",
-  padding: "4px 0",
-};
-
 const cardLabelStyle = {
   color: "#a1a1aa",
   fontSize: "11.5px",
@@ -1042,11 +1093,12 @@ const cardLabelStyle = {
   letterSpacing: "0.03em",
 };
 
-const cardValueStyle = {
-  color: "#e4e4e7",
-  fontSize: "13.5px",
-  wordBreak: "break-word",
-  textAlign: "right",
+const chipRowStyle = {
+  display: "flex",
+  gap: "8px",
+  marginTop: "10px",
+  overflowX: "auto",
+  paddingBottom: "2px",
 };
 
 const overlayStyle = {
