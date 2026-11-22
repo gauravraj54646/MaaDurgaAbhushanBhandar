@@ -67,6 +67,9 @@ app.use("/api/vyapar", require("./routes/vyaparRoutes"));
 // Relationships between people
 app.use("/api/relationships", require("./routes/relationshipRoutes"));
 
+//bill photo upload
+app.use('/api/uploads', require('./routes/uploadRoutes'));
+
 // ============================================================
 // PRODUCTION FRONTEND
 // ============================================================

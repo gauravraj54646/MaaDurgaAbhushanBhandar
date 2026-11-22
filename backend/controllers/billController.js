@@ -2,6 +2,38 @@ const Bill = require('../models/Bill');
 const mongoose = require('mongoose');
 const Person = require('../models/Person');
 
+const cloudinary = require('cloudinary').v2;
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Accepts only a well-formed photo that lives in our "bills" folder.
+const cleanPhoto = (photo) => {
+  if (
+    !photo ||
+    typeof photo.url !== 'string' ||
+    typeof photo.publicId !== 'string' ||
+    !photo.publicId.startsWith('bills/') ||
+    !photo.url.startsWith(`https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/`)
+  ) {
+    return null;
+  }
+  return { url: photo.url, publicId: photo.publicId };
+};
+
+// Best-effort delete. A failure here should never break the bill request.
+const deletePhotoFromCloudinary = async (publicId) => {
+  if (!publicId) return;
+  try {
+    await cloudinary.uploader.destroy(publicId);
+  } catch (err) {
+    console.error('Cloudinary delete failed:', err.message);
+  }
+};
+
 // Escapes user input so it is safe inside a $regex (prevents crashes / ReDoS).
 const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -293,6 +325,7 @@ const createBill = async (req, res) => {
       payments, paymentMode, amountPaid,
       soldBy, notes, personId,
       billType, description, simpleAmount,
+       photo,
     } = req.body;
 
     const bill = new Bill({
@@ -342,6 +375,7 @@ const createBill = async (req, res) => {
       amountPaid,
       soldBy,
       notes,
+      ...(cleanPhoto(photo) && { photo: cleanPhoto(photo) }),
       isDeleted: false,
     });
 
@@ -361,6 +395,7 @@ const createBill = async (req, res) => {
       try {
         const bill = new Bill({
           ...req.body,
+          photo: cleanPhoto(req.body.photo) || undefined,
           payments: cleanPayments(req.body.payments),
           billNo: await generateBillNo(),
           isDeleted: false,
@@ -391,6 +426,7 @@ const updateBill = async (req, res) => {
       payments, paymentMode, amountPaid,
       soldBy, notes, isCancelled,
       billType, description, simpleAmount,
+      photo,
     } = req.body;
 
     const bill = await Bill.findOne({
@@ -400,7 +436,7 @@ const updateBill = async (req, res) => {
 
     if (bill) {
       const oldBillNo = bill.billNo;
-
+      const oldPhotoId = bill.photo?.publicId;
       bill.billNo = billNo ? billNo.trim().toUpperCase() : bill.billNo;
       bill.billDate = billDate ?? bill.billDate;
       bill.billType = billType ?? bill.billType;
@@ -457,11 +493,21 @@ const updateBill = async (req, res) => {
       if (payments) {
         bill.payments = cleanPayments(payments);
       }
-
+      // photo === undefined -> not sent, leave as is
+      // photo === null      -> user removed it
+      // photo = {url, ...}  -> new or unchanged photo
+      if (photo !== undefined) {
+        bill.photo = cleanPhoto(photo) || undefined;
+      }
       // .save() re-runs the pre-validate hook, so totals/tax/balanceDue
       // (and, when payments[] is non-empty, amountPaid/paymentMode too)
       // are recalculated from the updated data.
       const updatedBill = await bill.save();
+
+     // Delete the old image from Cloudinary only after the bill saved successfully
+      if (oldPhotoId && oldPhotoId !== updatedBill.photo?.publicId) {
+        await deletePhotoFromCloudinary(oldPhotoId);
+      }
 
       // Keep Person.billNumbers in sync if the bill number was edited.
       await renameBillOnPeople(oldBillNo, updatedBill.billNo);
@@ -482,17 +528,18 @@ const deleteBill = async (req, res) => {
       isDeleted: false,
     });
 
-    if (bill) {
-      bill.isDeleted = true;
+  if (bill) {
+  const photoId = bill.photo?.publicId;
 
-      await bill.save();
+  bill.isDeleted = true;
+  bill.photo = undefined;
+  await bill.save();
 
-      // Remove the deleted bill from Person records so "view all bills"
-      // links don't point at it and hasBill stays accurate.
-      await unlinkBillFromPeople(bill.billNo);
+  await deletePhotoFromCloudinary(photoId);
+  await unlinkBillFromPeople(bill.billNo);
 
-      res.json({ message: 'Bill deleted successfully' });
-    } else {
+  res.json({ message: 'Bill deleted successfully' });
+}else {
       res.status(404).json({ message: 'Bill not found' });
     }
   } catch (error) {

@@ -223,6 +223,10 @@ const billSchema = new mongoose.Schema(
       trim: true,
       uppercase: true,
     },
+    photo: {
+  url: { type: String },
+  publicId: { type: String },
+},
 
     // ----- Items purchased -----  //
       items: {
