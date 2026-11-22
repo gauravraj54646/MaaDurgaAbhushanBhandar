@@ -173,29 +173,23 @@ const AdminBillDashboard = () => {
         .abd-action-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
         .abd-action-desc { color: #71717a; font-size: 13px; }
 
+        /* ---------- Mobile: show only Create New Bill + Manage Bills ---------- */
         @media (max-width: 700px) {
           .abd-wrap { margin: 12px auto; padding: 0 10px; }
-          .abd-head { margin-bottom: 12px; gap: 8px; flex-wrap: nowrap; }
-          .abd-title { font-size: 17px; }
-          .abd-primary-btn { padding: 8px 12px; font-size: 12.5px; }
+          .abd-head { margin-bottom: 14px; gap: 8px; flex-wrap: nowrap; }
+          .abd-title { font-size: 18px; }
           .abd-error { margin-bottom: 10px; padding: 9px 11px; font-size: 12px; }
 
-          /* 3 stats stay in one compact row */
-          .abd-stats { gap: 8px; margin-bottom: 12px; }
-          .abd-stat { padding: 10px 8px; text-align: center; }
-          .abd-stat-label {
-            font-size: 10.5px;
-            margin-bottom: 4px;
-            line-height: 1.25;
-          }
-          .abd-stat-value { font-size: 20px; }
+          /* Hide stats row and header button on mobile */
+          .abd-stats { display: none; }
+          .abd-primary-btn { display: none; }
 
-          /* action cards: slim full-width rows */
-          .abd-actions { grid-template-columns: 1fr; gap: 8px; }
-          .abd-action { padding: 12px 14px; }
+          /* Two action cards stacked top to bottom */
+          .abd-actions { grid-template-columns: 1fr; gap: 12px; }
+          .abd-action { padding: 18px 16px; }
           .abd-action:active { background: #202024; }
-          .abd-action-title { font-size: 14.5px; margin-bottom: 2px; }
-          .abd-action-desc { font-size: 12px; }
+          .abd-action-title { font-size: 16px; margin-bottom: 4px; }
+          .abd-action-desc { font-size: 12.5px; }
         }
       `}</style>
     </div>

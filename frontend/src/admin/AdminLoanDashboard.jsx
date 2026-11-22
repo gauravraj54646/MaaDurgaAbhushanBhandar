@@ -142,30 +142,28 @@ const AdminLoanDashboard = () => {
         .ald-controls h3 { margin: 0 0 25px; color: #f97316; }
         .ald-buttons { display: flex; gap: 20px; flex-wrap: wrap; }
 
+        /* ---------- Mobile: show only Add Loan, Manage Loans, Add People ---------- */
         @media (max-width: 640px) {
           .ald-wrap { padding: 12px 10px; }
-          .ald-head { gap: 10px; }
+          .ald-head { gap: 10px; margin-bottom: 14px; }
           .ald-logo { height: 30px; width: 30px; border-radius: 6px; }
           .ald-title { font-size: 18px; }
-          .ald-welcome { font-size: 13px; margin-bottom: 14px; }
 
-          /* 2 x 2 grid of compact tiles */
-          .ald-stats { grid-template-columns: 1fr 1fr; gap: 8px; }
-          .ald-card { padding: 12px 8px; gap: 4px; border-radius: 10px; }
-          .ald-card h4 { font-size: 12px; }
-          .ald-number { font-size: 1.7rem; }
+          /* Hide welcome text, stats cards and loading text */
+          .ald-welcome { display: none; }
+          .ald-stats { display: none; }
+          .ald-loading { display: none; }
 
-          .ald-loading { margin: 30px 0; font-size: 14px; }
+          /* Controls card takes the top spot */
+          .ald-controls { margin-top: 0; padding: 14px; border-radius: 10px; }
+          .ald-controls h3 { font-size: 15px; margin-bottom: 12px; }
 
-          .ald-controls { margin-top: 16px; padding: 12px; border-radius: 10px; }
-          .ald-controls h3 { font-size: 15px; margin-bottom: 10px; }
-
-          /* full-width stacked buttons, easy to tap */
-          .ald-buttons { flex-direction: column; gap: 8px; }
+          /* Full-width stacked buttons, easy to tap */
+          .ald-buttons { flex-direction: column; gap: 10px; }
           .ald-buttons .btn {
             width: 100%;
-            padding: 11px 14px;
-            font-size: 14px;
+            padding: 14px 14px;
+            font-size: 15px;
             margin: 0;
           }
         }
