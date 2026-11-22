@@ -2,6 +2,9 @@ const Bill = require('../models/Bill');
 const mongoose = require('mongoose');
 const Person = require('../models/Person');
 
+// Escapes user input so it is safe inside a $regex (prevents crashes / ReDoS).
+const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // Adds the bill number to the matching person (by personId, else by phone).
 // $addToSet makes it safe to run more than once.
 const linkBillToPerson = async ({ personId, mobileNo, billNo }) => {
@@ -26,6 +29,49 @@ const linkBillToPerson = async ({ personId, mobileNo, billNo }) => {
     console.error('linkBillToPerson failed:', err.message);
   }
 };
+
+// Removes a bill number from every Person that holds it and
+// resets hasBill to false for people left with no bills.
+const unlinkBillFromPeople = async (billNo) => {
+  try {
+    const people = await Person.find({ billNumbers: billNo }).select('_id');
+    if (people.length === 0) return;
+
+    const ids = people.map((p) => p._id);
+
+    await Person.updateMany(
+      { _id: { $in: ids } },
+      { $pull: { billNumbers: billNo } }
+    );
+
+    await Person.updateMany(
+      { _id: { $in: ids }, billNumbers: { $size: 0 } },
+      { $set: { hasBill: false } }
+    );
+  } catch (err) {
+    console.error('unlinkBillFromPeople failed:', err.message);
+  }
+};
+
+// When a bill's number is edited, move it over on the Person records.
+const renameBillOnPeople = async (oldBillNo, newBillNo) => {
+  try {
+    if (!oldBillNo || !newBillNo || oldBillNo === newBillNo) return;
+
+    // $addToSet and $pull on the same field can't share one update.
+    await Person.updateMany(
+      { billNumbers: oldBillNo },
+      { $addToSet: { billNumbers: newBillNo } }
+    );
+    await Person.updateMany(
+      { billNumbers: oldBillNo },
+      { $pull: { billNumbers: oldBillNo } }
+    );
+  } catch (err) {
+    console.error('renameBillOnPeople failed:', err.message);
+  }
+};
+
 // Generates the next sequential bill number, e.g. INV0001 -> INV0002.
 // Falls back to INV0001 when no bills exist yet.
 const generateBillNo = async () => {
@@ -53,6 +99,7 @@ const cleanPayments = (payments) =>
     mode: p.mode,
   }));
 
+const VALID_PAYMENT_STATUSES = ['paid', 'partial', 'pending'];
 
 const getBills = async (req, res) => {
   try {
@@ -79,7 +126,7 @@ const getBills = async (req, res) => {
     if (billNos) {
       const billNumberList = [
         ...new Set(
-          (Array.isArray(billNos) ? billNos : billNos.split(','))
+          (Array.isArray(billNos) ? billNos : String(billNos).split(','))
             .map((num) => String(num).trim().toUpperCase())
             .filter(Boolean)
         ),
@@ -90,40 +137,47 @@ const getBills = async (req, res) => {
         billNumberList.length > 100 ||
         billNumberList.some((num) => !/^[A-Z0-9]{1,15}$/.test(num))
       ) {
-        return res.status(400).json({
-          message: 'Invalid bill numbers.',
-        });
+        return res.status(400).json({ message: 'Invalid bill numbers.' });
       }
 
       filter.billNo = { $in: billNumberList };
     }
-    // EXISTING SINGLE BILL NUMBER SEARCH
+    // SINGLE / PARTIAL BILL NUMBER SEARCH
     else if (billNo) {
-      filter.billNo = {
-        $regex: billNo.trim(),
-        $options: 'i',
-      };
-    }
-
-    if (customerName) {
-      filter.customerName = {
-        $regex: customerName.trim(),
-        $options: 'i',
-      };
-    }
-
-    if (mobileNo) {
-      const digitsOnly = mobileNo.trim().replace(/\D/g, '').slice(0, 10);
-
-      if (digitsOnly) {
-        filter.mobileNo = {
-          $regex: digitsOnly,
+      const cleanBillNo = String(billNo).trim();
+      if (cleanBillNo) {
+        filter.billNo = {
+          $regex: escapeRegex(cleanBillNo),
           $options: 'i',
         };
       }
     }
 
+    // CUSTOMER NAME SEARCH
+    if (customerName) {
+      const cleanName = String(customerName).trim();
+      if (cleanName) {
+        filter.customerName = {
+          $regex: escapeRegex(cleanName),
+          $options: 'i',
+        };
+      }
+    }
+
+    // MOBILE NUMBER SEARCH (partial, digits only, e.g. last 4 digits)
+    if (mobileNo) {
+      const digitsOnly = String(mobileNo).replace(/\D/g, '').slice(0, 10);
+
+      if (digitsOnly) {
+        filter.mobileNo = { $regex: digitsOnly };
+      }
+    }
+
+    // PAYMENT STATUS (whitelisted)
     if (paymentStatus) {
+      if (!VALID_PAYMENT_STATUSES.includes(paymentStatus)) {
+        return res.status(400).json({ message: 'Invalid payment status.' });
+      }
       filter.paymentStatus = paymentStatus;
     }
 
@@ -154,16 +208,9 @@ const getBills = async (req, res) => {
     }
 
     // Allowed sorting fields
-    const allowedSortFields = [
-      'billDate',
-      'grandTotal',
-      'customerName',
-    ];
+    const allowedSortFields = ['billDate', 'grandTotal', 'customerName'];
 
-    const sortField = allowedSortFields.includes(sortBy)
-      ? sortBy
-      : 'billDate';
-
+    const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'billDate';
     const sortDirection = sortOrder === 'asc' ? 1 : -1;
 
     // Pagination
@@ -191,9 +238,7 @@ const getBills = async (req, res) => {
       totalPages: Math.ceil(total / limitNum) || 1,
     });
   } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -246,12 +291,12 @@ const createBill = async (req, res) => {
       items, exchangeItems,
       discount, cgstPercent, sgstPercent,
       payments, paymentMode, amountPaid,
-      soldBy, notes,personId,
+      soldBy, notes, personId,
       billType, description, simpleAmount,
     } = req.body;
 
     const bill = new Bill({
-          billNo: billNo ? billNo.trim().toUpperCase() : await generateBillNo(),
+      billNo: billNo ? billNo.trim().toUpperCase() : await generateBillNo(),
       billDate,
       billType: billType === 'simple' ? 'simple' : 'jewellery',
       description,
@@ -302,7 +347,7 @@ const createBill = async (req, res) => {
 
     const createdBill = await bill.save();
 
-     await linkBillToPerson({
+    await linkBillToPerson({
       personId,
       mobileNo: createdBill.mobileNo,
       billNo: createdBill.billNo,
@@ -354,6 +399,8 @@ const updateBill = async (req, res) => {
     });
 
     if (bill) {
+      const oldBillNo = bill.billNo;
+
       bill.billNo = billNo ? billNo.trim().toUpperCase() : bill.billNo;
       bill.billDate = billDate ?? bill.billDate;
       bill.billType = billType ?? bill.billType;
@@ -403,7 +450,7 @@ const updateBill = async (req, res) => {
         }));
       }
 
-      // Like items/exchangeItems, this replaces the whole array — the
+      // Like items/exchangeItems, this replaces the whole array. The
       // caller (Edit Bill page) is expected to send back the full set
       // of payments (existing ones plus any newly added), not just
       // the new one, since there's no separate "append" endpoint.
@@ -415,6 +462,9 @@ const updateBill = async (req, res) => {
       // (and, when payments[] is non-empty, amountPaid/paymentMode too)
       // are recalculated from the updated data.
       const updatedBill = await bill.save();
+
+      // Keep Person.billNumbers in sync if the bill number was edited.
+      await renameBillOnPeople(oldBillNo, updatedBill.billNo);
 
       res.json(updatedBill);
     } else {
@@ -437,18 +487,16 @@ const deleteBill = async (req, res) => {
 
       await bill.save();
 
-      res.json({
-        message: 'Bill deleted successfully',
-      });
+      // Remove the deleted bill from Person records so "view all bills"
+      // links don't point at it and hasBill stays accurate.
+      await unlinkBillFromPeople(bill.billNo);
+
+      res.json({ message: 'Bill deleted successfully' });
     } else {
-      res.status(404).json({
-        message: 'Bill not found',
-      });
+      res.status(404).json({ message: 'Bill not found' });
     }
   } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
+    res.status(500).json({ message: error.message });
   }
 };
 

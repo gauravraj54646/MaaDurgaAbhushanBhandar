@@ -69,21 +69,32 @@ const AdminBillProduct = () => {
 
   const [nameSearch, setNameSearch] = useState("");
   const [billNoSearch, setBillNoSearch] = useState("");
+  const [mobileSearch, setMobileSearch] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("");
   const [sortBy, setSortBy] = useState("billDate");
   const [sortOrder, setSortOrder] = useState("desc");
 
-  // Mobile search: one box, with a chip to pick what it searches
-  const [searchMode, setSearchMode] = useState("name"); // "name" | "billNo"
-  const mobileSearchValue = searchMode === "name" ? nameSearch : billNoSearch;
+  // Mobile search: one box, with chips to pick what it searches
+  const [searchMode, setSearchMode] = useState("name"); // "name" | "billNo" | "mobile"
+
+  const mobileSearchValue =
+    searchMode === "name"
+      ? nameSearch
+      : searchMode === "billNo"
+      ? billNoSearch
+      : mobileSearch;
 
   const handleMobileSearch = (value) => {
+    setNameSearch("");
+    setBillNoSearch("");
+    setMobileSearch("");
+
     if (searchMode === "name") {
       setNameSearch(value);
-      setBillNoSearch("");
-    } else {
+    } else if (searchMode === "billNo") {
       setBillNoSearch(value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15));
-      setNameSearch("");
+    } else {
+      setMobileSearch(value.replace(/\D/g, "").slice(0, 10));
     }
     setPage(1);
   };
@@ -92,6 +103,7 @@ const AdminBillProduct = () => {
     setSearchMode(mode);
     setNameSearch("");
     setBillNoSearch("");
+    setMobileSearch("");
     setPage(1);
   };
 
@@ -154,6 +166,7 @@ const AdminBillProduct = () => {
 
       if (nameSearch.trim()) params.set("customerName", nameSearch.trim());
       if (billNoSearch.trim()) params.set("billNo", billNoSearch.trim());
+      if (mobileSearch.trim()) params.set("mobileNo", mobileSearch.trim());
       if (paymentStatus) params.set("paymentStatus", paymentStatus);
 
       const res = await fetch(`/api/bills?${params.toString()}`, {
@@ -180,6 +193,7 @@ const AdminBillProduct = () => {
     sortOrder,
     nameSearch,
     billNoSearch,
+    mobileSearch,
     paymentStatus,
     isMultipleBillView,
     billNumbersFromUrl,
@@ -415,19 +429,29 @@ const AdminBillProduct = () => {
         <div style={{ marginBottom: "12px" }}>
           <input
             type="text"
-            placeholder={searchMode === "name" ? "Search customer name" : "Search bill no."}
+            inputMode={searchMode === "mobile" ? "numeric" : "text"}
+            placeholder={
+              searchMode === "name"
+                ? "Search customer name"
+                : searchMode === "billNo"
+                ? "Search bill no."
+                : "Search mobile number"
+            }
             value={mobileSearchValue}
             onChange={(e) => handleMobileSearch(e.target.value)}
             style={{ ...inputStyle, width: "100%" }}
           />
 
-          {/* Search by: Name / Bill No */}
+          {/* Search by: Name / Bill No / Mobile */}
           <div style={chipRowStyle}>
             <Chip active={searchMode === "name"} onClick={() => switchSearchMode("name")}>
               By Name
             </Chip>
             <Chip active={searchMode === "billNo"} onClick={() => switchSearchMode("billNo")}>
               By Bill No.
+            </Chip>
+            <Chip active={searchMode === "mobile"} onClick={() => switchSearchMode("mobile")}>
+              By Mobile
             </Chip>
           </div>
 
@@ -455,7 +479,7 @@ const AdminBillProduct = () => {
         </div>
       )}
 
-      {/* FILTERS: DESKTOP (unchanged) */}
+      {/* FILTERS: DESKTOP */}
       {!isMultipleBillView && !isMobile && (
         <form
           onSubmit={handleSearchSubmit}
@@ -486,6 +510,18 @@ const AdminBillProduct = () => {
               setBillNoSearch(
                 e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15)
               );
+              setPage(1);
+            }}
+            style={{ ...inputStyle, flex: "1 1 160px" }}
+          />
+
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="Search by mobile no."
+            value={mobileSearch}
+            onChange={(e) => {
+              setMobileSearch(e.target.value.replace(/\D/g, "").slice(0, 10));
               setPage(1);
             }}
             style={{ ...inputStyle, flex: "1 1 160px" }}
@@ -578,7 +614,7 @@ const AdminBillProduct = () => {
                     </span>
                   </div>
 
-                  {/* Customer (mobile number only when money is due) */}
+                  {/* Customer (mobile number shown when due, or when searching by mobile) */}
                   <div
                     style={{
                       marginTop: "10px",
@@ -590,7 +626,7 @@ const AdminBillProduct = () => {
                   >
                     {bill.customerName || "-"}
                   </div>
-                  {due > 0 && bill.mobileNo && (
+                  {bill.mobileNo && (due > 0 || searchMode === "mobile") && (
                     <a
                       href={`tel:${bill.mobileNo}`}
                       style={{
