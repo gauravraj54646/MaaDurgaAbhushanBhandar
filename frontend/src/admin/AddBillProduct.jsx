@@ -3,28 +3,24 @@ import { AuthContext } from "../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import BillPhotoUpload from "../components/BillPhotoUpload";
 
+// =========================================================
+// MODULE-LEVEL HELPERS (defined before the component)
+// =========================================================
+
 const wordCount = (str = "") => str.trim().split(/\s+/).filter(Boolean).length;
 
 const isMobileScreen = () =>
   typeof window !== "undefined" && window.innerWidth <= 780;
 
-const AddBillProduct = () => {
-  const { user } = useContext(AuthContext);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const selectedPersonFromState = location.state?.person || null;
-  const personIdFromQuery = new URLSearchParams(location.search).get("personId");
-  const [selectedPerson, setSelectedPerson] = useState(selectedPersonFromState);
-  const [photoBusy, setPhotoBusy] = useState(false);
-  // =========================================================
-  // REFS (for scroll-to-error on invalid submit)
-  // =========================================================
-
-  const fieldRefs = useRef({});
-
-  // =========================================================
-  // DATE HELPERS
-  // =========================================================
+// Collision-proof ids for rows (items / exchange / payments)
+let idCounter = 0;
+const makeId = () => {
+  idCounter += 1;
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${idCounter}-${Math.random().toString(36).slice(2)}`;
+};
 
 const getToday = () => {
   const now = new Date();
@@ -32,93 +28,134 @@ const getToday = () => {
   return local.toISOString().split("T")[0];
 };
 
-  const numberToWords = (num) => {
-    num = Number(num);
+const toDateInput = (value) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().split("T")[0];
+};
 
-    if (!Number.isFinite(num) || num === 0) {
-      return "";
-    }
+const formatDisplayDate = (isoDate) => {
+  if (!isoDate) return "-";
 
-    const ones = [
-      "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",
-      "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen",
-      "Sixteen", "Seventeen", "Eighteen", "Nineteen",
-    ];
+  const d = new Date(isoDate);
 
-    const tens = [
-      "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy",
-      "Eighty", "Ninety",
-    ];
+  if (Number.isNaN(d.getTime())) return isoDate;
 
-    const convertTwoDigits = (n) => {
-      if (n < 20) return ones[n];
-      return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
-    };
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
 
-    const convertThreeDigits = (n) => {
-      if (n < 100) return convertTwoDigits(n);
-      return (
-        ones[Math.floor(n / 100)] +
-        " Hundred" +
-        (n % 100 ? " " + convertTwoDigits(n % 100) : "")
-      );
-    };
+const numberToWords = (num) => {
+  num = Number(num);
 
-    const integerPart = Math.floor(num);
+  if (!Number.isFinite(num) || num === 0) {
+    return "";
+  }
 
-    if (integerPart >= 1000000000) {
-      return "Amount Too Large";
-    }
+  const ones = [
+    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",
+    "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen",
+    "Sixteen", "Seventeen", "Eighteen", "Nineteen",
+  ];
 
-    let result = "";
+  const tens = [
+    "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy",
+    "Eighty", "Ninety",
+  ];
 
-    const crore = Math.floor(integerPart / 10000000);
-    const lakh = Math.floor((integerPart % 10000000) / 100000);
-    const thousand = Math.floor((integerPart % 100000) / 1000);
-    const remainder = integerPart % 1000;
-
-    if (crore) result += convertThreeDigits(crore) + " Crore ";
-    if (lakh) result += convertTwoDigits(lakh) + " Lakh ";
-    if (thousand) result += convertTwoDigits(thousand) + " Thousand ";
-    if (remainder) result += convertThreeDigits(remainder);
-
-    return result.trim() + " Rupees Only";
+  const convertTwoDigits = (n) => {
+    if (n < 20) return ones[n];
+    return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
   };
+
+  const convertThreeDigits = (n) => {
+    if (n < 100) return convertTwoDigits(n);
+    return (
+      ones[Math.floor(n / 100)] +
+      " Hundred" +
+      (n % 100 ? " " + convertTwoDigits(n % 100) : "")
+    );
+  };
+
+  const integerPart = Math.floor(num);
+
+  if (integerPart >= 1000000000) {
+    return "Amount Too Large";
+  }
+
+  let result = "";
+
+  const crore = Math.floor(integerPart / 10000000);
+  const lakh = Math.floor((integerPart % 10000000) / 100000);
+  const thousand = Math.floor((integerPart % 100000) / 1000);
+  const remainder = integerPart % 1000;
+
+  if (crore) result += convertThreeDigits(crore) + " Crore ";
+  if (lakh) result += convertTwoDigits(lakh) + " Lakh ";
+  if (thousand) result += convertTwoDigits(thousand) + " Thousand ";
+  if (remainder) result += convertThreeDigits(remainder);
+
+  return result.trim() + " Rupees Only";
+};
+
+const emptyForm = () => ({
+  billNo: "", // left blank -> backend auto-generates (INV0001, ...)
+  billDate: getToday(),
+  billType: "simple",
+  description: "",
+  simpleAmount: "",
+
+  customerName: "",
+  mobileNo: "",
+  address: "",
+  gstin: "",
+
+  items: [],
+  exchangeItems: [],
+
+  discount: "",
+  cgstPercent: 1.5,
+  sgstPercent: 1.5,
+
+  payments: [{ id: makeId(), date: getToday(), amount: "", mode: "cash" }],
+
+  soldBy: "",
+  notes: "",
+  photo: null,
+});
+
+const AddBillProduct = () => {
+  const { user } = useContext(AuthContext) || {};
+  const navigate = useNavigate();
+  const location = useLocation();
+  const selectedPersonFromState = location.state?.person || null;
+  const statePersonId = selectedPersonFromState?._id || null;
+  const personIdFromQuery = new URLSearchParams(location.search).get("personId");
+  const [selectedPerson, setSelectedPerson] = useState(selectedPersonFromState);
+  const [photoBusy, setPhotoBusy] = useState(false);
+
+  // Keep the latest router-state person in a ref so the effect below can
+  // depend on the person's id only (avoids re-running and overwriting
+  // fields the user already typed).
+  const statePersonRef = useRef(selectedPersonFromState);
+  statePersonRef.current = selectedPersonFromState;
+
+  // =========================================================
+  // REFS (for scroll-to-error on invalid submit)
+  // =========================================================
+
+  const fieldRefs = useRef({});
 
   // =========================================================
   // FORM DATA
   // =========================================================
 
-  const [formData, setFormData] = useState({
-    billNo: "", // left blank -> backend auto-generates (INV0001, ...)
-    billDate: getToday(),
-    billType: "simple",
-    description: "",
-    simpleAmount: "",
-
-    customerName: "",
-    mobileNo: "",
-    address: "",
-    gstin: "",
-
-    items: [],
-    exchangeItems: [],
-
-    discount: "",
-    cgstPercent: 1.5,
-    sgstPercent: 1.5,
-
-    // Full payment history: each payment is its own record with a
-    // date, amount, and mode - supports partial / installment payments
-    // made across multiple visits (e.g. Edit Bill later adds more).
-    payments: [
-      { id: Date.now(), date: getToday(), amount: "", mode: "cash" },
-    ],
-
-    soldBy: "",
-    notes: "",
-    photo: null,
-  });
+  const [formData, setFormData] = useState(emptyForm);
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -159,14 +196,14 @@ const getToday = () => {
 
       setFormData((prev) => ({
         ...prev,
-        customerName: person.name || "",
+        customerName: (person.name || "").toUpperCase(),
         mobileNo: person.phone || "",
         address: person.address || "",
       }));
     };
 
-    if (selectedPersonFromState) {
-      applyPerson(selectedPersonFromState);
+    if (statePersonRef.current) {
+      applyPerson(statePersonRef.current);
     }
 
     if (personIdFromQuery && user?.token) {
@@ -186,7 +223,7 @@ const getToday = () => {
     return () => {
       cancelled = true;
     };
-  }, [personIdFromQuery, user?.token, selectedPersonFromState]);
+  }, [personIdFromQuery, user?.token, statePersonId]);
 
   // =========================================================
   // BILL NO SEARCH (load an existing bill)
@@ -196,21 +233,19 @@ const getToday = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchMessage, setSearchMessage] = useState({ type: "", text: "" });
 
-const toDateInput = (value) => {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-  return local.toISOString().split("T")[0];
-};
-
-  const makeId = (i) => Date.now() + i + Math.random();
-
   const handleBillSearch = async () => {
     const billNo = formData.billNo.trim().toUpperCase();
 
     if (!billNo) {
       setSearchMessage({ type: "error", text: "Enter a Bill No. to search." });
+      return;
+    }
+
+    if (!user?.token) {
+      setSearchMessage({
+        type: "error",
+        text: "Session expired. Please log in again.",
+      });
       return;
     }
 
@@ -247,8 +282,8 @@ const toDateInput = (value) => {
 
       const str = (v) => (v === undefined || v === null ? "" : String(v));
 
-      const loadedItems = (bill.items || []).map((i, idx) => ({
-        id: makeId(idx),
+      const loadedItems = (bill.items || []).map((i) => ({
+        id: makeId(),
         itemName: i.itemName || "",
         category: i.category || "gold",
         huid: i.huid || "",
@@ -265,8 +300,8 @@ const toDateInput = (value) => {
         quantity: str(i.quantity || 1),
       }));
 
-      const loadedExchange = (bill.exchangeItems || []).map((e, idx) => ({
-        id: makeId(idx),
+      const loadedExchange = (bill.exchangeItems || []).map((e) => ({
+        id: makeId(),
         description: e.description || "",
         category: e.category || "gold",
         grossWeight: str(e.grossWeight),
@@ -276,17 +311,22 @@ const toDateInput = (value) => {
         ratePerGram: str(e.ratePerGram),
       }));
 
-      const loadedPayments = (bill.payments || []).map((p, idx) => ({
-        id: makeId(idx),
+      const loadedPayments = (bill.payments || []).map((p) => ({
+        id: makeId(),
         date: toDateInput(p.date) || getToday(),
         amount: str(p.amount),
         mode: p.mode || "cash",
       }));
 
+      // If an old bill has no billType, infer it from its content.
+      const inferredType =
+        bill.billType ||
+        ((bill.items || []).length > 0 ? "jewellery" : "simple");
+
       setFormData({
         billNo: bill.billNo || billNo,
         billDate: toDateInput(bill.billDate) || getToday(),
-        billType: bill.billType || "jewellery",
+        billType: inferredType,
         description: bill.description || "",
         simpleAmount: bill.simpleAmount ? String(bill.simpleAmount) : "",
 
@@ -344,27 +384,7 @@ const toDateInput = (value) => {
     setSearchMessage({ type: "", text: "" });
     setErrors({});
     setCollapsed({});
-
-    setFormData({
-      billNo: "",
-      billDate: getToday(),
-      billType: "simple",
-      description: "",
-      simpleAmount: "",
-      customerName: "",
-      mobileNo: "",
-      address: "",
-      gstin: "",
-      items: [],
-      exchangeItems: [],
-      discount: "",
-      cgstPercent: 1.5,
-      sgstPercent: 1.5,
-      payments: [{ id: Date.now(), date: getToday(), amount: "", mode: "cash" }],
-      soldBy: "",
-      notes: "",
-      photo: null,
-    });
+    setFormData(emptyForm());
   };
 
   // =========================================================
@@ -437,6 +457,7 @@ const toDateInput = (value) => {
   const preRound = taxableAmount + cgstAmount + sgstAmount - exchangeTotal;
   const grandTotal = Math.max(Math.round(preRound), 0);
   const roundOff = grandTotal - preRound;
+  const exchangeExceedsBill = !isSimple && preRound < -0.5;
 
   // Total paid = sum of every recorded payment (each with its own date)
   const amountPaidValue = formData.payments.reduce(
@@ -469,7 +490,7 @@ const toDateInput = (value) => {
       items: [
         ...prev.items,
         {
-          id: Date.now(),
+          id: makeId(),
           itemName: "",
           category: "gold",
           huid: "",
@@ -535,7 +556,7 @@ const toDateInput = (value) => {
       exchangeItems: [
         ...prev.exchangeItems,
         {
-          id: Date.now(),
+          id: makeId(),
           description: "",
           category: "gold",
           grossWeight: "",
@@ -576,9 +597,7 @@ const toDateInput = (value) => {
 
   // =========================================================
   // ADD / REMOVE / UPDATE PAYMENT
-  // Each payment is its own record: date + amount + mode. This is
-  // what lets partial/installment payments (paid across separate
-  // visits) each be dated individually instead of one lump sum.
+  // Each payment is its own record: date + amount + mode.
   // =========================================================
 
   const addPayment = () => {
@@ -595,7 +614,7 @@ const toDateInput = (value) => {
       payments: [
         ...prev.payments,
         {
-          id: Date.now(),
+          id: makeId(),
           date: getToday(),
           amount: "",
           mode: "cash",
@@ -755,7 +774,8 @@ const toDateInput = (value) => {
       }
     });
 
-    if (amountPaidValue > grandTotal) {
+    // Compare in paise so tiny float differences don't cause false errors
+    if (Math.round(amountPaidValue * 100) > Math.round(grandTotal * 100)) {
       errs.payments = `Total amount paid cannot exceed the grand total of ₹${grandTotal.toFixed(2)}.`;
     }
 
@@ -777,23 +797,29 @@ const toDateInput = (value) => {
   // SUBMIT
   // =========================================================
 
-const handleSubmit = (e) => {
-  e.preventDefault();
+  const handleSubmit = (e) => {
+    e.preventDefault();
 
-  if (photoBusy) {
-    alert("Photo is still uploading. Please wait a moment.");
-    return;
-  }
+    if (photoBusy) {
+      alert("Photo is still uploading. Please wait a moment.");
+      return;
+    }
 
-  if (!validate()) {
-    return;
-  }
+    if (!validate()) {
+      return;
+    }
 
-  setShowConfirm(true);
-};
+    setShowConfirm(true);
+  };
 
   const confirmSubmit = async () => {
     setShowConfirm(false);
+
+    if (!user?.token) {
+      alert("Session expired. Please log in again.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -1113,13 +1139,9 @@ const handleSubmit = (e) => {
             placeholder="Full name"
             required
             value={formData.customerName}
-            onChange={(e) => {
-              const value = e.target.value
-                .toUpperCase()
-                
-
-              handleChange("customerName", value);
-            }}
+            onChange={(e) =>
+              handleChange("customerName", e.target.value.toUpperCase())
+            }
             ref={(el) => (fieldRefs.current.customerName = el)}
             style={inputStyle}
           />
@@ -1127,50 +1149,50 @@ const handleSubmit = (e) => {
           <FieldError msg={errors.customerName} />
         </div>
 
-<div className="three-col" style={isSimple ? twoColGridStyle : threeColGridStyle}>
-  <div>
-    <label style={smallLabelStyle}>Mobile No.</label>
-    <input
-      type="text"
-      inputMode="numeric"
-      placeholder="10-digit mobile number"
-      required
-      maxLength={10}
-      value={formData.mobileNo}
-      onChange={(e) => handleChange("mobileNo", e.target.value.replace(/[^0-9]/g, ""))}
-      ref={(el) => (fieldRefs.current.mobileNo = el)}
-      style={inputStyle}
-    />
-    <FieldError msg={errors.mobileNo} />
-  </div>
+        <div className="three-col" style={isSimple ? twoColGridStyle : threeColGridStyle}>
+          <div>
+            <label style={smallLabelStyle}>Mobile No.</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="10-digit mobile number"
+              required
+              maxLength={10}
+              value={formData.mobileNo}
+              onChange={(e) => handleChange("mobileNo", e.target.value.replace(/[^0-9]/g, ""))}
+              ref={(el) => (fieldRefs.current.mobileNo = el)}
+              style={inputStyle}
+            />
+            <FieldError msg={errors.mobileNo} />
+          </div>
 
-  <div>
-    <label style={smallLabelStyle}>Address</label>
-    <input
-      type="text"
-      placeholder="Address (optional)"
-      value={formData.address}
-      onChange={(e) => handleChange("address", e.target.value.toLowerCase())}
-      ref={(el) => (fieldRefs.current.address = el)}
-      style={inputStyle}
-    />
-    <FieldError msg={errors.address} />
-  </div>
+          <div>
+            <label style={smallLabelStyle}>Address</label>
+            <input
+              type="text"
+              placeholder="Address (optional)"
+              value={formData.address}
+              onChange={(e) => handleChange("address", e.target.value)}
+              ref={(el) => (fieldRefs.current.address = el)}
+              style={inputStyle}
+            />
+            <FieldError msg={errors.address} />
+          </div>
 
-  {!isSimple && (
-    <div>
-      <label style={smallLabelStyle}>GSTIN (optional, for B2B)</label>
-      <input
-        type="text"
-        placeholder="Customer GSTIN"
-        maxLength={15}
-        value={formData.gstin}
-        onChange={(e) => handleChange("gstin", e.target.value.toUpperCase())}
-        style={inputStyle}
-      />
-    </div>
-  )}
-</div>
+          {!isSimple && (
+            <div>
+              <label style={smallLabelStyle}>GSTIN (optional, for B2B)</label>
+              <input
+                type="text"
+                placeholder="Customer GSTIN"
+                maxLength={15}
+                value={formData.gstin}
+                onChange={(e) => handleChange("gstin", e.target.value.toUpperCase())}
+                style={inputStyle}
+              />
+            </div>
+          )}
+        </div>
 
         {/* =====================================================
             SIMPLE BILL DETAILS
@@ -1642,7 +1664,7 @@ const handleSubmit = (e) => {
             return (
               <div
                 key={payment.id}
-                className="row-card"
+                className="row-card pay-row"
                 style={{
                   ...rowCardStyle,
                   borderBottom:
@@ -1663,9 +1685,10 @@ const handleSubmit = (e) => {
                 <div style={{ display: isCollapsed ? "none" : "block" }}>
                   <div className="payment-grid" style={paymentGridStyle}>
                     <div>
-                      <label style={smallLabelStyle}>Date</label>
+                      <label className="pay-label" style={smallLabelStyle}>Date</label>
                       <input
                         type="date"
+                        aria-label="Payment date"
                         value={payment.date}
                         onChange={(e) => updatePayment(payment.id, "date", e.target.value)}
                         ref={(el) => (fieldRefs.current[`paymentDate_${index}`] = el)}
@@ -1675,7 +1698,7 @@ const handleSubmit = (e) => {
                     </div>
 
                     <div>
-                      <label style={smallLabelStyle}>Amount</label>
+                      <label className="pay-label" style={smallLabelStyle}>Amount</label>
                       <MoneyInput
                         placeholder="Amount"
                         value={payment.amount}
@@ -1687,8 +1710,9 @@ const handleSubmit = (e) => {
                     </div>
 
                     <div>
-                      <label style={smallLabelStyle}>Mode</label>
+                      <label className="pay-label" style={smallLabelStyle}>Mode</label>
                       <select
+                        aria-label="Payment mode"
                         value={payment.mode}
                         onChange={(e) => updatePayment(payment.id, "mode", e.target.value)}
                         style={{ ...inputStyle, cursor: "pointer" }}
@@ -1697,13 +1721,15 @@ const handleSubmit = (e) => {
                         <option value="card">Card</option>
                         <option value="upi">UPI</option>
                         <option value="cheque">Cheque</option>
-                        <option value="bank_transfer">Bank Transfer</option>
+                        <option value="bank_transfer">Bank</option>
                       </select>
                     </div>
                   </div>
 
                   {payment.amount && (
-                    <div style={amountWordsStyle}>{numberToWords(payment.amount)}</div>
+                    <div className="pay-words" style={amountWordsStyle}>
+                      {numberToWords(payment.amount)}
+                    </div>
                   )}
                 </div>
               </div>
@@ -1750,19 +1776,23 @@ const handleSubmit = (e) => {
             className="summary-grid"
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(6, minmax(130px, 1fr))",
+              gridTemplateColumns: isSimple
+                ? "repeat(2, minmax(130px, 1fr))"
+                : "repeat(6, minmax(130px, 1fr))",
               gap: "12px",
             }}
           >
             <SummaryBox label="Items Subtotal" value={itemsSubtotal} />
+
             {!isSimple && (
               <>
-                <SummaryBox label="Exchange Total" value={exchangeTotal} color="#ef4444" />
-                <SummaryBox label="Taxable Amount" value={taxableAmount} />
-                <SummaryBox label="CGST + SGST" value={cgstAmount + sgstAmount} color="#f59e0b" />
-                <SummaryBox label="Round Off" value={roundOff} color="#71717a" />
+                <SummaryBox className="hide-mobile" label="Exchange Total" value={exchangeTotal} color="#ef4444" />
+                <SummaryBox className="hide-mobile" label="Taxable Amount" value={taxableAmount} />
+                <SummaryBox className="hide-mobile" label="CGST + SGST" value={cgstAmount + sgstAmount} color="#f59e0b" />
+                <SummaryBox className="hide-mobile" label="Round Off" value={roundOff} color="#71717a" />
               </>
             )}
+
             <SummaryBox
               className="grand"
               label="GRAND TOTAL"
@@ -1770,11 +1800,15 @@ const handleSubmit = (e) => {
               color="#22c55e"
               large
             />
-            <SummaryBox className="hide-mobile" label="Exchange Total" value={exchangeTotal} color="#ef4444" />
-<SummaryBox className="hide-mobile" label="Taxable Amount" value={taxableAmount} />
-<SummaryBox className="hide-mobile" label="CGST + SGST" value={cgstAmount + sgstAmount} color="#f59e0b" />
-<SummaryBox className="hide-mobile" label="Round Off" value={roundOff} color="#71717a" />
           </div>
+
+          {exchangeExceedsBill && (
+            <div style={{ marginTop: "10px", color: "#f59e0b", fontSize: "12.5px" }}>
+              ⚠ Exchange value is higher than the bill total by ₹
+              {Math.abs(preRound).toFixed(2)}. The grand total is shown as ₹0 —
+              the customer would be owed this difference.
+            </div>
+          )}
 
           {grandTotal > 0 && (
             <div style={{ marginTop: "10px", color: "#71717a", fontSize: "12.5px" }}>
@@ -1831,17 +1865,19 @@ const handleSubmit = (e) => {
           />
           <FieldError msg={errors.notes} />
         </div>
+
         {/* =====================================================
             BILL PHOTO
         ====================================================== */}
         <SectionCard>
           <SectionHeader title="Bill Photo (optional)" />
-<BillPhotoUpload
-  value={formData.photo}
-  onChange={(photo) => handleChange("photo", photo)}
-  onBusyChange={setPhotoBusy}
-/>
+          <BillPhotoUpload
+            value={formData.photo}
+            onChange={(photo) => handleChange("photo", photo)}
+            onBusyChange={setPhotoBusy}
+          />
         </SectionCard>
+
         {/* =====================================================
             SUBMIT
         ====================================================== */}
@@ -1861,13 +1897,13 @@ const handleSubmit = (e) => {
             fontSize: "15px",
           }}
         >
-           {loading
-    ? "Saving..."
-    : photoBusy
-    ? "Uploading photo..."
-    : loadedBillId
-    ? "Update Bill"
-    : "Publish Bill"}
+          {loading
+            ? "Saving..."
+            : photoBusy
+            ? "Uploading photo..."
+            : loadedBillId
+            ? "Update Bill"
+            : "Publish Bill"}
         </button>
       </form>
 
@@ -1958,124 +1994,142 @@ const handleSubmit = (e) => {
           }
         }
 
-/* ---------- Mobile ---------- */
-@media (max-width: 640px) {
-  .bill-container {
-    margin: 0;
-    padding: 12px 10px 110px; /* bottom space for the sticky submit button */
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    min-height: 100vh;
-  }
+        /* ---------- Mobile ---------- */
+        @media (max-width: 640px) {
+          .bill-container {
+            margin: 0;
+            padding: 12px 10px 110px; /* bottom space for the sticky submit button */
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            min-height: 100vh;
+          }
 
-  /* the big "BILL" title repeats the page title below it */
-  .bill-container h1 { display: none; }
-  .bill-container h2 { font-size: 18px !important; }
+          /* the big "BILL" title repeats the page title below it */
+          .bill-container h1 { display: none; }
+          .bill-container h2 { font-size: 18px !important; }
 
-  .page-header {
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    margin-bottom: 14px !important;
-  }
-  .page-header button {
-    width: auto;
-    padding: 0 12px !important;
-    min-height: 38px !important;
-    font-size: 12.5px !important;
-  }
+          .page-header {
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            margin-bottom: 14px !important;
+          }
+          .page-header button {
+            width: auto;
+            padding: 0 12px !important;
+            min-height: 38px !important;
+            font-size: 12.5px !important;
+          }
 
-  .type-toggle button {
-    flex: 1;
-    padding: 12px 8px !important;
-  }
+          .type-toggle button {
+            flex: 1;
+            padding: 12px 8px !important;
+          }
 
-  /* 16px stops iOS Safari zooming on focus; 44px is a comfortable tap target */
-  .bill-container input,
-  .bill-container select,
-  .bill-container textarea {
-    font-size: 16px !important;
-    min-height: 44px;
-  }
-  .bill-container textarea { min-height: 0; }
+          /* 16px stops iOS Safari zooming on focus; 44px is a comfortable tap target */
+          .bill-container input,
+          .bill-container select,
+          .bill-container textarea {
+            font-size: 16px !important;
+            min-height: 44px;
+          }
+          .bill-container textarea { min-height: 0; }
 
-  /* iOS date fields can render wider/taller than other inputs */
-  .bill-container input[type="date"] {
-    min-width: 0;
-    max-width: 100%;
-    text-align: left;
-  }
+          /* iOS date fields can render wider/taller than other inputs */
+          .bill-container input[type="date"] {
+            min-width: 0;
+            max-width: 100%;
+            text-align: left;
+          }
 
-  .bill-container button { min-height: 44px; }
-  .bill-container .search-icon-btn { min-height: 36px; }
+          .bill-container button { min-height: 44px; }
+          .bill-container .search-icon-btn { min-height: 36px; }
 
-  /* cards stand out from the page */
-  .section-card {
-    padding: 12px !important;
-    background: #18181b !important;
-    border: 1px solid #2f2f35 !important;
-    border-radius: 12px !important;
-  }
+          /* cards stand out from the page */
+          .section-card {
+            padding: 12px !important;
+            background: #18181b !important;
+            border: 1px solid #2f2f35 !important;
+            border-radius: 12px !important;
+          }
 
-  /* each item / exchange / payment is its own boxed card */
-  .row-card {
-    background: #111113;
-    border: 1px solid #2f2f35 !important;
-    border-radius: 10px;
-    padding: 10px !important;
-    margin-bottom: 10px !important;
-  }
+          /* each item / exchange / payment is its own boxed card */
+          .row-card {
+            background: #111113;
+            border: 1px solid #2f2f35 !important;
+            border-radius: 10px;
+            padding: 10px !important;
+            margin-bottom: 10px !important;
+          }
 
-  .amount-field { max-width: 100% !important; }
+          .amount-field { max-width: 100% !important; }
 
-  .item-grid,
-  .exchange-grid {
-    grid-template-columns: 1fr 1fr !important;
-    gap: 10px !important;
-  }
+          .item-grid,
+          .exchange-grid {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 10px !important;
+          }
 
-  .full-mobile { grid-column: 1 / -1; }
+          .full-mobile { grid-column: 1 / -1; }
 
-  .payment-grid {
-    grid-template-columns: 1fr 1fr !important;
-    gap: 10px !important;
-  }
-  .payment-grid > div:first-child { grid-column: 1 / -1; }
+          /* Payment: date | amount | mode on ONE row */
+          .payment-grid {
+            grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.9fr) !important;
+            gap: 6px !important;
+          }
+          .payment-grid .pay-label { display: none; }
+          .payment-grid input[type="date"],
+          .payment-grid select {
+            padding-left: 6px !important;
+            padding-right: 6px !important;
+          }
+          .payment-grid input[type="date"]::-webkit-calendar-picker-indicator {
+            display: none;
+          }
+          .pay-words { display: none; }
+          .pay-row {
+            padding: 8px !important;
+            margin-bottom: 8px !important;
+          }
 
-  .summary-grid {
-    grid-template-columns: 1fr 1fr !important;
-    gap: 10px !important;
-  }
-  .summary-grid .grand { grid-column: 1 / -1; }
+          .summary-grid {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 10px !important;
+          }
+          .summary-grid .grand { grid-column: 1 / -1; }
 
-  .hide-mobile { display: none !important; }
+          .hide-mobile { display: none !important; }
 
-  .submit-btn {
-    position: fixed !important;
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    z-index: 50;
-    margin: 0 !important;
-    min-height: 50px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
-  }
+          .submit-btn {
+            position: fixed !important;
+            left: 12px;
+            right: 12px;
+            bottom: 12px;
+            z-index: 50;
+            margin: 0 !important;
+            min-height: 50px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+          }
 
-  .modal-card {
-    max-height: 90vh;
-    overflow-y: auto;
-    padding: 18px !important;
-  }
+          .modal-card {
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 18px !important;
+          }
 
-  .modal-actions { flex-direction: column-reverse; }
-}
+          .modal-actions { flex-direction: column-reverse; }
+        }
+
         /* ---------- Very small phones ---------- */
         @media (max-width: 360px) {
           .item-grid,
-          .exchange-grid,
-          .payment-grid {
+          .exchange-grid {
             grid-template-columns: 1fr !important;
           }
+          .payment-grid {
+            grid-template-columns: 1fr 1fr !important;
+          }
+          .payment-grid > div:first-child { grid-column: 1 / -1; }
         }
       `}</style>
     </div>
@@ -2085,20 +2139,6 @@ const handleSubmit = (e) => {
 // =========================================================
 // COMPONENTS
 // =========================================================
-
-const formatDisplayDate = (isoDate) => {
-  if (!isoDate) return "-";
-
-  const d = new Date(isoDate);
-
-  if (Number.isNaN(d.getTime())) return isoDate;
-
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-};
 
 const ConfirmPublishModal = ({
   customerName,
