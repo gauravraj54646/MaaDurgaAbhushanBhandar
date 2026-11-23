@@ -1,10 +1,11 @@
-import React, { useContext, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { compressImage } from "../utils/compressImage";
 
 // value: { url, publicId } or null
 // onChange: called with { url, publicId } after upload, or null after remove
-const BillPhotoUpload = ({ value, onChange }) => {
+// onBusyChange: optional, called with true/false while a photo is uploading
+const BillPhotoUpload = ({ value, onChange, onBusyChange }) => {
   const { user } = useContext(AuthContext);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -12,6 +13,16 @@ const BillPhotoUpload = ({ value, onChange }) => {
 
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
+
+  // Tell the parent page when an upload is in progress
+  useEffect(() => {
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
+
+  // Make sure the parent is never left stuck on "busy" if this unmounts
+  useEffect(() => {
+    return () => onBusyChange?.(false);
+  }, [onBusyChange]);
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
@@ -33,7 +44,19 @@ const BillPhotoUpload = ({ value, onChange }) => {
         body: formData,
       });
 
-      const data = await res.json();
+      // Read as text first so an HTML error page doesn't crash JSON parsing
+      const raw = await res.text();
+      let data = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch (_) {
+        throw new Error(
+          res.status === 413
+            ? "Photo is too large."
+            : `Upload failed (server error ${res.status}). Please try again.`
+        );
+      }
+
       if (!res.ok) throw new Error(data.message || "Upload failed");
 
       // The backend deletes the old image when the bill is saved.

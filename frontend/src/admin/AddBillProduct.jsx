@@ -1,6 +1,7 @@
 import React, { useState, useContext, useRef, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
+import BillPhotoUpload from "../components/BillPhotoUpload";
 
 const wordCount = (str = "") => str.trim().split(/\s+/).filter(Boolean).length;
 
@@ -14,7 +15,7 @@ const AddBillProduct = () => {
   const selectedPersonFromState = location.state?.person || null;
   const personIdFromQuery = new URLSearchParams(location.search).get("personId");
   const [selectedPerson, setSelectedPerson] = useState(selectedPersonFromState);
-
+  const [photoBusy, setPhotoBusy] = useState(false);
   // =========================================================
   // REFS (for scroll-to-error on invalid submit)
   // =========================================================
@@ -25,10 +26,11 @@ const AddBillProduct = () => {
   // DATE HELPERS
   // =========================================================
 
-  const getToday = () => {
-    const today = new Date();
-    return today.toISOString().split("T")[0];
-  };
+const getToday = () => {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().split("T")[0];
+};
 
   const numberToWords = (num) => {
     num = Number(num);
@@ -115,6 +117,7 @@ const AddBillProduct = () => {
 
     soldBy: "",
     notes: "",
+    photo: null,
   });
 
   const [loading, setLoading] = useState(false);
@@ -193,11 +196,13 @@ const AddBillProduct = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchMessage, setSearchMessage] = useState({ type: "", text: "" });
 
-  const toDateInput = (value) => {
-    if (!value) return "";
-    const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0];
-  };
+const toDateInput = (value) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().split("T")[0];
+};
 
   const makeId = (i) => Date.now() + i + Math.random();
 
@@ -301,6 +306,9 @@ const AddBillProduct = () => {
 
         soldBy: bill.soldBy || "",
         notes: bill.notes || "",
+        photo: bill.photo?.url
+          ? { url: bill.photo.url, publicId: bill.photo.publicId }
+          : null,
       });
 
       // On phones, start loaded bills collapsed so the page isn't endless.
@@ -355,6 +363,7 @@ const AddBillProduct = () => {
       payments: [{ id: Date.now(), date: getToday(), amount: "", mode: "cash" }],
       soldBy: "",
       notes: "",
+      photo: null,
     });
   };
 
@@ -768,15 +777,20 @@ const AddBillProduct = () => {
   // SUBMIT
   // =========================================================
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+const handleSubmit = (e) => {
+  e.preventDefault();
 
-    if (!validate()) {
-      return;
-    }
+  if (photoBusy) {
+    alert("Photo is still uploading. Please wait a moment.");
+    return;
+  }
 
-    setShowConfirm(true);
-  };
+  if (!validate()) {
+    return;
+  }
+
+  setShowConfirm(true);
+};
 
   const confirmSubmit = async () => {
     setShowConfirm(false);
@@ -854,6 +868,7 @@ const AddBillProduct = () => {
         paymentMode: primaryPaymentMode,
         soldBy: formData.soldBy,
         notes: formData.notes,
+        photo: formData.photo || null,
       };
 
       const res = await fetch(
@@ -1815,7 +1830,17 @@ const AddBillProduct = () => {
           />
           <FieldError msg={errors.notes} />
         </div>
-
+        {/* =====================================================
+            BILL PHOTO
+        ====================================================== */}
+        <SectionCard>
+          <SectionHeader title="Bill Photo (optional)" />
+<BillPhotoUpload
+  value={formData.photo}
+  onChange={(photo) => handleChange("photo", photo)}
+  onBusyChange={setPhotoBusy}
+/>
+        </SectionCard>
         {/* =====================================================
             SUBMIT
         ====================================================== */}
