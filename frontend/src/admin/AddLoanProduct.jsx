@@ -1240,7 +1240,12 @@ const AddLoanProduct = () => {
         <SectionCard>
           <SectionHeader title="Original Loan" />
 
-          <div className="alp-original">
+          <div
+            className="alp-original"
+            style={
+              isJewellery ? undefined : { gridTemplateColumns: "minmax(0, 360px)" }
+            }
+          >
             {/* Loan Amount */}
             <div ref={(el) => (fieldRefs.current.loanAmount = el)}>
               <label style={smallLabelStyle}>Loan Amount</label>
@@ -1258,33 +1263,37 @@ const AddLoanProduct = () => {
               )}
             </div>
 
-            {/* Interest */}
-            <div>
-              <label style={smallLabelStyle}>Interest</label>
+            {/* Interest (jewellery only) */}
+            {isJewellery && (
+              <div>
+                <label style={smallLabelStyle}>Interest</label>
 
-              <ReadOnlyMoneyInput
-                placeholder="Interest"
-                value={
-                  formData.loanAmount !== ""
-                    ? originalLoan.interest.toFixed(2)
-                    : ""
-                }
-              />
-            </div>
+                <ReadOnlyMoneyInput
+                  placeholder="Interest"
+                  value={
+                    formData.loanAmount !== ""
+                      ? originalLoan.interest.toFixed(2)
+                      : ""
+                  }
+                />
+              </div>
+            )}
 
-            {/* Total */}
-            <div>
-              <label style={smallLabelStyle}>Total Amount</label>
+            {/* Total (jewellery only) */}
+            {isJewellery && (
+              <div>
+                <label style={smallLabelStyle}>Total Amount</label>
 
-              <ReadOnlyMoneyInput
-                placeholder="Total Amount"
-                value={
-                  formData.loanAmount !== ""
-                    ? originalLoan.total.toFixed(2)
-                    : ""
-                }
-              />
-            </div>
+                <ReadOnlyMoneyInput
+                  placeholder="Total Amount"
+                  value={
+                    formData.loanAmount !== ""
+                      ? originalLoan.total.toFixed(2)
+                      : ""
+                  }
+                />
+              </div>
+            )}
           </div>
 
           <FieldError msg={errors.loanAmount} />
@@ -1322,12 +1331,14 @@ const AddLoanProduct = () => {
               : "Jewellery Loan Summary"}
           </div>
 
-          <div className="alp-summary">
+          <div className={isJewellery ? "alp-summary" : "alp-summary alp-summary-simple"}>
             <SummaryBox label="Loan Amount" value={grandLoanAmount} />
 
-            <SummaryBox label="Interest" value={grandInterest} color="#f59e0b" />
+            {isJewellery && (
+              <SummaryBox label="Interest" value={grandInterest} color="#f59e0b" />
+            )}
 
-            <SummaryBox label="Total Amount" value={grandTotal} />
+            {isJewellery && <SummaryBox label="Total Amount" value={grandTotal} />}
 
             <SummaryBox label="Total Paid" value={totalPaid} color="#ef4444" />
 
@@ -1918,6 +1929,12 @@ const responsiveCss = `
     display: grid;
     grid-template-columns: repeat(5, minmax(140px, 1fr));
     gap: 12px;
+  }
+
+  /* Simple loan: only 3 boxes. Must stay above the media queries below
+     so tablet/mobile rules can still override it. */
+  .alp-summary-simple {
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
   }
 
   .alp-submit {
