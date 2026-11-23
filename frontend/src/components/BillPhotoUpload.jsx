@@ -62,7 +62,11 @@ const BillPhotoUpload = ({ value, onChange, onBusyChange }) => {
       // The backend deletes the old image when the bill is saved.
       onChange({ url: data.url, publicId: data.publicId });
     } catch (err) {
-      setError(err.message || "Something went wrong");
+      console.error("Bill photo upload failed:", err);
+      setError(
+        (err && err.message) ||
+          "Could not process this photo. Try a smaller JPG/PNG."
+      );
     } finally {
       setBusy(false);
     }

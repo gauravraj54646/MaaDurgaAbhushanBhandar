@@ -1847,20 +1847,26 @@ const handleSubmit = (e) => {
         <button
           type="submit"
           className="submit-btn"
-          disabled={loading}
+          disabled={loading || photoBusy}
           style={{
             marginTop: "8px",
             padding: "14px",
             borderRadius: "8px",
             border: "none",
-            background: loading ? "#52525b" : "#f97316",
+            background: loading || photoBusy ? "#52525b" : "#f97316",
             color: "#fff",
-            cursor: loading ? "not-allowed" : "pointer",
+            cursor: loading || photoBusy ? "not-allowed" : "pointer",
             fontWeight: "600",
             fontSize: "15px",
           }}
         >
-          {loading ? "Saving..." : loadedBillId ? "Update Bill" : "Publish Bill"}
+           {loading
+    ? "Saving..."
+    : photoBusy
+    ? "Uploading photo..."
+    : loadedBillId
+    ? "Update Bill"
+    : "Publish Bill"}
         </button>
       </form>
 
