@@ -529,7 +529,7 @@ const EditBillProduct = () => {
         customerName: formData.customerName,
         mobileNo: formData.mobileNo.trim(),
         address: formData.address,
-        gstin: formData.gstin,
+        gstin: isSimple ? "" : formData.gstin,
         items: isSimple ? [] : cleanedItems,
         exchangeItems: isSimple ? [] : cleanedExchangeItems,
         discount: isSimple ? 0 : Number(formData.discount || 0),
@@ -717,7 +717,10 @@ const EditBillProduct = () => {
           <FieldError msg={errors.customerName} />
         </div>
 
-        <div className="three-col" style={threeColGridStyle}>
+        <div
+          className="three-col"
+          style={isSimple ? { ...threeColGridStyle, gridTemplateColumns: "1fr 2fr" } : threeColGridStyle}
+        >
           <div className="m-full">
             <label style={labelStyle}>Mobile No.</label>
             <input
@@ -744,16 +747,19 @@ const EditBillProduct = () => {
             <FieldError msg={errors.address} />
           </div>
 
-          <div className="m-hide">
-            <label style={labelStyle}>GSTIN</label>
-            <input
-              type="text"
-              maxLength={15}
-              value={formData.gstin}
-              onChange={(e) => handleChange("gstin", e.target.value.toUpperCase())}
-              style={inputStyle}
-            />
-          </div>
+          {/* GSTIN is not applicable to simple bills */}
+          {!isSimple && (
+            <div className="m-hide">
+              <label style={labelStyle}>GSTIN</label>
+              <input
+                type="text"
+                maxLength={15}
+                value={formData.gstin}
+                onChange={(e) => handleChange("gstin", e.target.value.toUpperCase())}
+                style={inputStyle}
+              />
+            </div>
+          )}
         </div>
 
         {/* SIMPLE BILL DETAILS */}
@@ -1468,26 +1474,45 @@ const EditBillProduct = () => {
           .head-btn { padding: 7px 10px !important; font-size: 12px !important; }
           .bill-form { gap: 10px !important; }
 
-          .section-card { padding: 10px !important; border-radius: 8px !important; }
+          /* Clear 3-step depth: card (lightest) > line-card > input (darkest),
+             with visible borders, so sections stop blending together. */
+          .section-card {
+            padding: 10px !important;
+            border-radius: 8px !important;
+            background: #1c1c20 !important;
+            border: 1px solid #3f3f46 !important;
+          }
 
-          .bill-wrap label { font-size: 10.5px !important; margin-bottom: 3px !important; letter-spacing: 0.02em; }
+          /* Brighter labels; single line so inputs in a row always align */
+          .bill-wrap label {
+            font-size: 11px !important;
+            margin-bottom: 4px !important;
+            letter-spacing: 0.02em;
+            color: #d4d4d8 !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
           /* 16px font keeps iOS Safari from zooming on focus */
           .bill-wrap input, .bill-wrap select, .bill-wrap textarea {
             padding: 8px 10px !important;
             font-size: 16px !important;
             min-height: 40px;
             border-radius: 6px !important;
+            border: 1px solid #52525b !important;
+            background: #09090b !important;
           }
+          .bill-wrap input[type="date"] { -webkit-appearance: none; appearance: none; }
           .bill-wrap textarea { min-height: 0; }
           .bill-wrap .money input { padding: 8px 8px 8px 24px !important; }
           .bill-wrap .money span { font-size: 13px !important; left: 9px !important; }
 
           .line-card {
-            background: #0d0d0f;
-            border: 1px solid #27272a !important;
+            background: #131316;
+            border: 1px solid #3f3f46 !important;
             border-radius: 8px;
-            padding: 8px !important;
-            margin-bottom: 8px !important;
+            padding: 10px !important;
+            margin-bottom: 10px !important;
           }
 
           .del-btn {
