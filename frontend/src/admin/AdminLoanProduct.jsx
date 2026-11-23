@@ -537,14 +537,14 @@ const AdminLoanProduct = () => {
             <Chip active={searchMode === "name"} onClick={() => switchSearchMode("name")}>
               By Name
             </Chip>
+            <Chip active={searchMode === "phone"} onClick={() => switchSearchMode("phone")}>
+              By Phone
+            </Chip>
             <Chip active={searchMode === "customerId"} onClick={() => switchSearchMode("customerId")}>
               By Customer ID
             </Chip>
             <Chip active={searchMode === "loanId"} onClick={() => switchSearchMode("loanId")}>
               By Loan ID
-            </Chip>
-            <Chip active={searchMode === "phone"} onClick={() => switchSearchMode("phone")}>
-              By Phone
             </Chip>
           </div>
 

@@ -6,9 +6,39 @@ import React, {
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
+// ============================================================
+// useIsMobile: true when viewport is <= breakpoint
+// ============================================================
+const useIsMobile = (breakpoint = 820) => {
+  const query = `(max-width: ${breakpoint}px)`;
+  const getMatch = () =>
+    typeof window !== "undefined" && window.matchMedia
+      ? window.matchMedia(query).matches
+      : false;
+
+  const [isMobile, setIsMobile] = useState(getMatch);
+
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const mql = window.matchMedia(query);
+    const handler = (e) => setIsMobile(e.matches);
+    setIsMobile(mql.matches);
+
+    if (mql.addEventListener) {
+      mql.addEventListener("change", handler);
+      return () => mql.removeEventListener("change", handler);
+    }
+    mql.addListener(handler);
+    return () => mql.removeListener(handler);
+  }, [query]);
+
+  return isMobile;
+};
+
 const People = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const isMobile = useIsMobile(820);
 
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +52,9 @@ const People = () => {
   const [limit] = useState(50);
   const [totalPeople, setTotalPeople] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Mobile search: one box, with chips to pick what it searches
+  const [searchMode, setSearchMode] = useState("all"); // "all" | "name" | "customerId" | "phone"
 
   const [showForm, setShowForm] = useState(false);
   const [editingPerson, setEditingPerson] = useState(null);
@@ -87,6 +120,8 @@ const People = () => {
         limit: String(limit),
       });
 
+      // One "search" param: the backend should match it against
+      // name, customer ID, email AND phone number.
       if (requestedSearch.trim()) {
         params.set("search", requestedSearch.trim());
       }
@@ -151,6 +186,38 @@ const People = () => {
   };
 
   // ============================================================
+  // SEARCH HELPERS
+  // ============================================================
+
+  const handleMobileSearch = (value) => {
+    let next = value;
+
+    if (searchMode === "phone") {
+      next = value.replace(/\D/g, "").slice(0, 10);
+    } else if (searchMode === "customerId") {
+      next = value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 8);
+    }
+
+    setSearch(next);
+    setPage(1);
+  };
+
+  const switchSearchMode = (mode) => {
+    setSearchMode(mode);
+    setSearch("");
+    setPage(1);
+  };
+
+  const mobilePlaceholder =
+    searchMode === "name"
+      ? "Search by name"
+      : searchMode === "customerId"
+      ? "Search by customer ID"
+      : searchMode === "phone"
+      ? "Search by phone number"
+      : "Search name, ID or phone";
+
+  // ============================================================
   // FORM HELPERS
   // ============================================================
 
@@ -183,6 +250,10 @@ const People = () => {
     setForm(emptyForm);
 
     setShowForm(true);
+
+    if (isMobile) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   // ============================================================
@@ -225,6 +296,10 @@ const People = () => {
     });
 
     setShowForm(true);
+
+    if (isMobile) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   // ============================================================
@@ -489,6 +564,39 @@ const People = () => {
   };
 
   // ============================================================
+  // NAVIGATION HELPERS (shared by table + cards)
+  // ============================================================
+
+  const goToLoans = (person) =>
+    navigate(
+      `/admin/loan/products?customerId=${encodeURIComponent(person.customerId)}`
+    );
+
+  const goToBills = (person) => {
+    const billNumbers = person.billNumbers
+      .filter(Boolean)
+      .map((num) => String(num).trim().toUpperCase());
+
+    navigate(
+      `/admin/bill/products?billNos=${encodeURIComponent(
+        billNumbers.join(",")
+      )}`
+    );
+  };
+
+  const goToAddLoan = (person) =>
+    navigate(
+      `/admin/loan/add-loan?personId=${encodeURIComponent(person._id)}`,
+      { state: { person } }
+    );
+
+  const goToAddBill = (person) =>
+    navigate(
+      `/admin/bill/add-bill?personId=${encodeURIComponent(person._id)}`,
+      { state: { person } }
+    );
+
+  // ============================================================
   // PROTECTION
   // ============================================================
 
@@ -497,41 +605,11 @@ const People = () => {
   }
 
   // ============================================================
-  // RENDER
+  // SHARED PIECES
   // ============================================================
 
-  return (
+  const messages = (
     <>
-    <div style={containerStyle}>
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
-
-      <div style={headerStyle}>
-        <div>
-          <h2 style={titleStyle}>
-            People Directory
-          </h2>
-
-          <p style={subtitleStyle}>
-            Manage people and their family
-            relationships.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={openAddForm}
-          style={primaryButtonStyle}
-        >
-          + Add Person
-        </button>
-      </div>
-
-      {/* ======================================================
-          MESSAGES
-      ====================================================== */}
-
       {error && (
         <div style={errorStyle}>
           <strong>Error:</strong> {error}
@@ -543,972 +621,608 @@ const People = () => {
           {success}
         </div>
       )}
+    </>
+  );
 
-      {/* ======================================================
-          FORM
-      ====================================================== */}
-
-      {showForm && (
-        <div style={formCardStyle}>
-          <div style={formHeaderStyle}>
-            <div>
-              <h3 style={formTitleStyle}>
-                {editingPerson
-                  ? "Edit Person"
-                  : "Add Person"}
-              </h3>
-
-              <p style={subtitleStyle}>
-                Enter the person's details below.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={resetForm}
-              style={closeButtonStyle}
-            >
-              ✕
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit}>
-            <div style={formGridStyle}>
-       <FormField
-  label="Customer ID"
-  name="customerId"
-  value={form.customerId}
-  onChange={(e) =>
-    handleChange({
-      target: {
-        name: "customerId",
-        value: e.target.value
-          .toUpperCase()
-          .replace(/[^A-Z0-9]/g, "")
-          .slice(0, 8),
-      },
-    })
-  }
-  placeholder="e.g. CUST001"
-  maxLength={8}
-/>
-             {/* NAME */}
-
-<FormField
-  label="Name *"
-  name="name"
-  value={form.name}
-  onChange={(e) =>
-    handleChange({
-      target: {
-        name: "name", 
-        value: e.target.value
-          .toLowerCase()
-          .replace(/\b\w/g, (char) => char.toUpperCase()),
-      },
-    })
-  }
-  placeholder="Full name"
-  required
-/>
-{/* EMAIL */}
-
-<div>
-  <label style={labelStyle}>Email</label>
-
-  <div
-    style={{
-      display: "flex",
-      width: "100%",
-      height: "44px",
-      background: "#09090b",
-      border: "1px solid #27272a",
-      borderRadius: "7px",
-      overflow: "hidden",
-      boxSizing: "border-box",
-    }}
-  >
-
-    
-    <input
-      type="text"
-      name="email"
-      value={form.email}
-      onChange={(e) => {
-        const value = e.target.value
-          .toLowerCase()
-          .replace(/\s/g, "")
-          .replace(/[^a-z0-9._%+-]/g, "");
-
-        handleChange({
-          target: {
-            name: "email",
-            value,
-          },
-        });
-      }}
-      placeholder="username"
-      maxLength={64}
-      style={{
-        flex: 1,
-        minWidth: 0,
-        padding: "0 12px",
-        background: "transparent",
-        border: "none",
-        outline: "none",
-        color: "#fff",
-        fontSize: "14px",
-      }}
-    />
-
+  const formCard = showForm && (
     <div
       style={{
-        display: "flex",
-        alignItems: "center",
-        padding: "0 12px",
-        background: "#18181b",
-        borderLeft: "1px solid #27272a",
-        color: "#71717a",
-        fontSize: "13px",
-        whiteSpace: "nowrap",
+        ...formCardStyle,
+        ...(isMobile ? { padding: "16px", marginBottom: "16px" } : {}),
       }}
     >
-      @gmail.com
-    </div>
-  </div>
-</div>
-
-              {/* PHONE */}
-
-<FormField
-  label="Phone"
-  name="phone"
-  value={form.phone}
-  onChange={(e) =>
-    handleChange({
-      target: {
-        name: "phone",
-        value: e.target.value.replace(/\D/g, "").slice(0, 10),
-      },
-    })
-  }
-  placeholder="10-digit phone number"
-/>
-
-              {/* DATE OF BIRTH */}
-
-              <FormField
-                label="Date of Birth"
-                name="dateOfBirth"
-                value={form.dateOfBirth}
-                onChange={handleChange}
-                type="date"
-              />
-
-              {/* GENDER */}
-
-              <div>
-                <label style={labelStyle}>
-                  Gender
-                </label>
-
-                <select
-                  name="gender"
-                  value={form.gender}
-                  onChange={handleChange}
-                  style={inputStyle}
-                >
-
-                  <option value="male">
-                    Male
-                  </option>
-
-                  <option value="female">
-                    Female
-                  </option>
-
-                  <option value="other">
-                    Other
-                  </option>
-
-                  <option value="prefer_not_to_say">
-                    Prefer not to say
-                  </option>
-                </select>
-              </div>
-
-              {/* STATUS */}
-
-              <div>
-                <label style={labelStyle}>
-                  Status
-                </label>
-
-                <select
-                  name="status"
-                  value={form.status}
-                  onChange={handleChange}
-                  style={inputStyle}
-                >
-                  <option value="active">
-                    Active
-                  </option>
-
-                  <option value="inactive">
-                    Inactive
-                  </option>
-
-                  <option value="archived">
-                    Archived
-                  </option>
-                </select>
-              </div>
-
-              {/* SOURCE */}
-
-              <FormField
-                label="Source"
-                name="source"
-                value={form.source}
-                onChange={handleChange}
-                placeholder="Where did this person come from?"
-              />
-
-              {/* ADDRESS */}
-
-              <div style={fullWidthStyle}>
-                <label style={labelStyle}>
-                  Address
-                </label>
-
-                <textarea
-                  name="address"
-                  value={form.address}
-                  onChange={handleChange}
-                  placeholder="Full address"
-                  rows={3}
-                  style={textareaStyle}
-                />
-              </div>
-
-              {/* PREFERENCES */}
-
-              <div style={fullWidthStyle}>
-                <label style={labelStyle}>
-                  Preferences
-                </label>
-
-                <textarea
-                  name="extraInfo"
-                  value={form.extraInfo}
-                  onChange={handleChange}
-                  placeholder="Additional information"
-                  rows={3}
-                  style={textareaStyle}
-                />
-              </div>
-
-              {/* LOAN & BILL */}
-
-              <div style={fullWidthStyle}>
-                <label style={labelStyle}>
-                  Loan &amp; Bill Information
-                </label>
-
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "20px",
-                    padding: "12px",
-                    background: "#18181b",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: "7px",
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: "220px" }}>
-                    <label
-                      style={{
-                        display: "block",
-                        color: "#d4d4d8",
-                        fontSize: "0.85rem",
-                        marginBottom: "10px",
-                      }}
-                    >
-                      Loan IDs
-                    </label>
-
-                    <MultiEntryField
-                      value={form.loanIds}
-                      onChange={(value) =>
-                        handleChange({
-                          target: {
-                            name: "loanIds",
-                            value,
-                          },
-                        })
-                      }
-                      placeholder="Loan ID (max 8 chars)"
-                    />
-                  </div>
-
-                  <div style={{ flex: 1, minWidth: "220px" }}>
-                    <label
-                      style={{
-                        display: "block",
-                        color: "#d4d4d8",
-                        fontSize: "0.85rem",
-                        marginBottom: "10px",
-                      }}
-                    >
-                      Bill Numbers
-                    </label>
-
-                    <MultiEntryField
-                      value={form.billNumbers}
-                      onChange={(value) =>
-                        handleChange({
-                          target: {
-                            name: "billNumbers",
-                            value,
-                          },
-                        })
-                      }
-                      placeholder="Bill number (max 12 chars)"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* TAGS */}
-
-<div style={fullWidthStyle}>
-  <label style={labelStyle}>Tags</label>
-
-  <div
-    style={{
-      display: "flex",
-      flexWrap: "wrap",
-      gap: "8px",
-      padding: "10px",
-      background: "#18181b",
-      border: "1px solid rgba(255,255,255,0.1)",
-      borderRadius: "7px",
-    }}
-  >
-    {[
-      "VIP",
-      "Regular",
-      "Customer",
-      "Family",
-      "Business",
-      "New",
-      "Old Customer",
-      "Priority",
-    ].map((tag) => {
-      const selectedTags = form.tags
-        ? form.tags.split(",").map((t) => t.trim())
-        : [];
-
-      const isSelected = selectedTags.includes(tag);
-
-      return (
-        <button
-          key={tag}
-          type="button"
-          onClick={() => {
-            let updatedTags;
-
-            if (isSelected) {
-              // Remove tag
-              updatedTags = selectedTags.filter(
-                (t) => t !== tag
-              );
-            } else {
-              // Add tag
-              updatedTags = [...selectedTags, tag];
-            }
-
-            handleChange({
-              target: {
-                name: "tags",
-                value: updatedTags.join(", "),
-              },
-            });
-          }}
-          style={{
-            padding: "7px 12px",
-            borderRadius: "6px",
-            border: isSelected
-              ? "1px solid #f97316"
-              : "1px solid #3f3f46",
-            background: isSelected
-              ? "rgba(249,115,22,0.15)"
-              : "#09090b",
-            color: isSelected
-              ? "#f97316"
-              : "#a1a1aa",
-            cursor: "pointer",
-            fontSize: "12px",
-            fontWeight: isSelected ? "600" : "400",
-            transition: "all 0.15s ease",
-          }}
-        >
-          {isSelected ? "✓ " : ""}
-          {tag}
-        </button>
-      );
-    })}
-  </div>
-</div>
-            </div>
-
-            {/* FORM BUTTONS */}
-
-            <div style={formActionsStyle}>
-              <button
-                type="button"
-                onClick={resetForm}
-                style={secondaryButtonStyle}
-                disabled={saving}
-              >
-                Cancel
-              </button>
-
-              <button
-                type="submit"
-                style={primaryButtonStyle}
-                disabled={saving}
-              >
-                {saving
-                  ? "Saving..."
-                  : editingPerson
-                  ? "Update Person"
-                  : "Add Person"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* ======================================================
-          SEARCH / SUMMARY
-      ====================================================== */}
-
-      <div style={toolbarStyle}>
-        <div style={searchWrapperStyle}>
-          <span style={searchIconStyle}>
-            🔎
-          </span>
-
-          <input
-            type="text"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
-            placeholder="Search people..."
-            style={searchInputStyle}
-          />
-        </div>
-
-        <div style={countStyle}>
-          Showing{" "}
-          <strong>{people.length}</strong>{" "}
-          of{" "}
-          <strong>{totalPeople}</strong>{" "}
-          people
-        </div>
-      </div>
-
-      {/* ======================================================
-          LOADING
-      ====================================================== */}
-
-      {loading && (
-        <div style={loadingStyle}>
-          Loading people...
-        </div>
-      )}
-
-      {/* ======================================================
-          EMPTY
-      ====================================================== */}
-
-      {!loading &&
-        people.length === 0 && (
-          <div style={emptyStyle}>
-            <div style={emptyIconStyle}>
-              👥
-            </div>
-
-            <h3 style={{ margin: "0 0 8px" }}>
-              {totalPeople === 0
-                ? "No people yet"
-                : "No matching people"}
-            </h3>
-
-            <p style={subtitleStyle}>
-              {totalPeople === 0
-                ? "Add your first person to start building the family directory."
-                : "No people found for this search."}
-            </p>
-
-            {totalPeople === 0 && (
-              <button
-                type="button"
-                onClick={openAddForm}
-                style={primaryButtonStyle}
-              >
-                + Add First Person
-              </button>
-            )}
-          </div>
-        )}
-
-      {/* ======================================================
-          PEOPLE TABLE
-      ====================================================== */}
-
-      {!loading &&
-        people.length > 0 && (
-          <div style={tableContainerStyle}>
-            <table style={tableStyle}>
-              <thead>
-                <tr style={tableRowStyle}>
-                  <th style={thStyle}>
-                    PERSON
-                  </th>
-
-                  <th style={thStyle}>
-                    CUSTOMER ID
-                  </th>
-
-                  <th style={thStyle}>
-                    CONTACT
-                  </th>
-
-                  <th style={thStyle}>
-                    STATUS
-                  </th>
-
-                  <th style={thStyle}>
-                    SOURCE
-                  </th>
-
-                  <th style={thStyle}>
-                    LOAN
-                  </th>
-
-                  <th style={thStyle}>
-                    BILL
-                  </th>
-
-                  <th
-                    style={{
-                      ...thStyle,
-                      textAlign: "right",
-                    }}
-                  >
-                    ACTIONS
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {people.map(
-                  (person) => (
-                    <tr
-                      key={person._id}
-                      style={tableRowStyle}
-                    >
-                      {/* PERSON */}
-
-                      <td style={tdStyle}>
-                        <div
-                          style={personCellStyle}
-                        >
-                          <div
-                            style={
-                              personAvatarStyle
-                            }
-                          >
-                            {getInitial(
-                              person.name
-                            )}
-                          </div>
-
-                          <div>
-                            <CopyableText text={person.name} label="name">
-                            <span style={personNameStyle}>{person.name}</span>
-                            </CopyableText>
-
-                            {person.email && (
-                              <div
-                                style={
-                                  secondaryTextStyle
-                                }
-                              >
-                                {person.email}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* CUSTOMER ID */}
-
-                      <td style={tdStyle}>
-                        {person.customerId ? (
-                          <CopyableText text={person.customerId} label="Customer ID">
-                          <span style={customerIdBadgeStyle}>{person.customerId}</span>
-                          </CopyableText>
-                        ) : (
-                          <span
-                            style={
-                              mutedTextStyle
-                            }
-                          >
-                            —
-                          </span>
-                        )}
-                      </td>
-
-                      {/* CONTACT */}
-
-                      <td style={tdStyle}>
-                        {person.phone ? (
-                         <CopyableText text={person.phone} label="phone number">
-                          <span>📞 {person.phone}</span>
-                         </CopyableText>
-                        ) : (
-                          <span
-                            style={
-                              mutedTextStyle
-                            }
-                          >
-                            No phone
-                          </span>
-                        )}
-                      </td>
-
-                      {/* STATUS */}
-
-                      <td style={tdStyle}>
-                        <StatusBadge
-                          status={person.status}
-                        />
-                      </td>
-
-                      {/* SOURCE */}
-
-                      <td style={tdStyle}>
-                        {person.source || (
-                          <span
-                            style={
-                              mutedTextStyle
-                            }
-                          >
-                            —
-                          </span>
-                        )}
-                      </td>
-
-                      {/* LOAN */}
-
-                    {/* LOAN */}
-<td style={tdStyle}>
-  {person.hasLoan ? (
-    <button
-      type="button"
-      onClick={() =>
-        navigate(
-          `/admin/loan/products?customerId=${encodeURIComponent(person.customerId)}`
-        )
-      }
-      style={{
-        ...loanBadgeStyle,
-        border: "none",
-        cursor: "pointer",
-      }}
-      title={`View loans for ${person.customerId}`}
-    >
-      Loan
-      {Array.isArray(person.loanIds) && person.loanIds.length > 0
-        ? ` (${person.loanIds.length})`
-        : ""}
-    </button>
-  ) : (
-    <span style={mutedTextStyle}>—</span>
-  )}
-</td>
-
-                      {/* BILL */}
-
-                      
-{/* BILL */}
-<td style={tdStyle}>
-  {Array.isArray(person.billNumbers) &&
-  person.billNumbers.length > 0 ? (
-    <button
-      type="button"
-      onClick={() => {
-        const billNumbers = person.billNumbers
-          .filter(Boolean)
-          .map((num) => String(num).trim().toUpperCase());
-
-        navigate(
-          `/admin/bill/products?billNos=${encodeURIComponent(
-            billNumbers.join(",")
-          )}`
-        );
-      }}
-      style={{
-        ...billBadgeStyle,
-        border: "none",
-        cursor: "pointer",
-      }}
-      title="Click to view all bills"
-    >
-      Bill ({person.billNumbers.length})
-    </button>
-  ) : (
-    <span style={mutedTextStyle}>—</span>
-  )}
-</td>
-
-
-                      {/* ACTIONS */}
-
-                      <td
-                        style={{
-                          ...tdStyle,
-                          textAlign: "right",
-                        }}
-                      >
-                        <div
-                          style={
-                            actionsStyle
-                          }
-                        >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              navigate(
-                                `/admin/loan/add-loan?personId=${encodeURIComponent(person._id)}`,
-                                { state: { person } }
-                              )
-                            }
-                            style={addLoanButtonStyle}
-                            title={`Add loan for ${person.name}`}
-                          >
-                            + Loan
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              navigate(
-                                `/admin/bill/add-bill?personId=${encodeURIComponent(person._id)}`,
-                                { state: { person } }
-                              )
-                            }
-                            style={addBillButtonStyle}
-                            title={`Add bill for ${person.name}`}
-                          >
-                            + Bill
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openFamilyTree(
-                                person
-                              )
-                            }
-                            style={
-                              treeButtonStyle
-                            }
-                          >
-                            🌳 Tree
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openEditForm(
-                                person
-                              )
-                            }
-                            style={
-                              editButtonStyle
-                            }
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openDeleteModal(
-                                person
-                              )
-                            }
-                            style={
-                              deleteButtonStyle
-                            }
-                            title="Delete"
-                            aria-label="Delete"
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-      {/* ======================================================
-          PAGINATION
-      ====================================================== */}
-
-      {!loading && totalPages > 1 && (
-        <div style={paginationStyle}>
-          <button
-            type="button"
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
-            disabled={page <= 1}
-            style={{
-              ...paginationButtonStyle,
-              opacity: page <= 1 ? 0.45 : 1,
-              cursor: page <= 1 ? "not-allowed" : "pointer",
-            }}
-          >
-            ← Previous
-          </button>
-
-          <div style={paginationInfoStyle}>
-            Page <strong>{page}</strong> of{" "}
-            <strong>{totalPages}</strong>
-          </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              setPage((current) =>
-                Math.min(totalPages, current + 1)
-              )
-            }
-            disabled={page >= totalPages}
-            style={{
-              ...paginationButtonStyle,
-              opacity: page >= totalPages ? 0.45 : 1,
-              cursor:
-                page >= totalPages ? "not-allowed" : "pointer",
-            }}
-          >
-            Next →
-          </button>
-        </div>
-      )}
-    </div>
-
-    {/* ======================================================
-        DELETE PERSON MODAL
-    ====================================================== */}
-
-    {deleteTarget && (
-      <div style={deleteOverlayStyle} onClick={closeDeleteModal}>
-        <div
-          style={deleteModalStyle}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <h3 style={deleteModalTitleStyle}>
-            Delete This Person?
+      <div style={formHeaderStyle}>
+        <div>
+          <h3 style={formTitleStyle}>
+            {editingPerson
+              ? "Edit Person"
+              : "Add Person"}
           </h3>
 
-          <div style={deleteWarningBoxStyle}>
-            <p style={{ margin: "0 0 10px" }}>
-              Are you sure you want to permanently delete this
-              person? This action cannot be undone.
-            </p>
+          <p style={subtitleStyle}>
+            Enter the person's details below.
+          </p>
+        </div>
 
-            <div>
-              Name: <strong>{deleteTarget.name}</strong>
-            </div>
+        <button
+          type="button"
+          onClick={resetForm}
+          style={closeButtonStyle}
+        >
+          ✕
+        </button>
+      </div>
 
-            {deleteTarget.customerId && (
-              <div>
-                Customer ID:{" "}
-                <strong>{deleteTarget.customerId}</strong>
-              </div>
-            )}
-
-            {deleteTarget.phone && (
-              <div>
-                Phone: <strong>{deleteTarget.phone}</strong>
-              </div>
-            )}
-
-            {(deleteTarget.hasLoan || deleteTarget.hasBill) && (
-              <div>
-                Linked records:{" "}
-                <strong>
-                  {[
-                    deleteTarget.hasLoan ? "Loan" : null,
-                    deleteTarget.hasBill ? "Bill" : null,
-                  ]
-                    .filter(Boolean)
-                    .join(", ")}
-                </strong>
-              </div>
-            )}
-          </div>
-
-          {deleteError && (
-            <div style={deleteErrorStyle}>{deleteError}</div>
-          )}
-
-          <input
-            type="password"
-            value={deletePassword}
-            onChange={(event) =>
-              setDeletePassword(event.target.value)
+      <form onSubmit={handleSubmit}>
+        <div style={formGridStyle}>
+          <FormField
+            label="Customer ID"
+            name="customerId"
+            value={form.customerId}
+            onChange={(e) =>
+              handleChange({
+                target: {
+                  name: "customerId",
+                  value: e.target.value
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9]/g, "")
+                    .slice(0, 8),
+                },
+              })
             }
-            placeholder="Admin password"
-            style={deletePasswordInputStyle}
-            disabled={deleting}
-            autoFocus
+            placeholder="e.g. CUST001"
+            maxLength={8}
           />
 
-          <div style={deleteModalActionsStyle}>
-            <button
-              type="button"
-              onClick={closeDeleteModal}
-              style={deleteCancelButtonStyle}
-              disabled={deleting}
-            >
-              Cancel
-            </button>
+          {/* NAME */}
 
-            <button
-              type="button"
-              onClick={confirmDelete}
-              style={deleteConfirmButtonStyle}
-              disabled={deleting}
+          <FormField
+            label="Name *"
+            name="name"
+            value={form.name}
+            onChange={(e) =>
+              handleChange({
+                target: {
+                  name: "name",
+                  value: e.target.value
+                    .toLowerCase()
+                    .replace(/\b\w/g, (char) => char.toUpperCase()),
+                },
+              })
+            }
+            placeholder="Full name"
+            required
+          />
+
+          {/* EMAIL */}
+
+          <div>
+            <label style={labelStyle}>Email</label>
+
+            <div
+              style={{
+                display: "flex",
+                width: "100%",
+                height: "44px",
+                background: "#09090b",
+                border: "1px solid #27272a",
+                borderRadius: "7px",
+                overflow: "hidden",
+                boxSizing: "border-box",
+              }}
             >
-              {deleting ? "Deleting..." : "Delete Person"}
-            </button>
+              <input
+                type="text"
+                name="email"
+                value={form.email}
+                onChange={(e) => {
+                  const value = e.target.value
+                    .toLowerCase()
+                    .replace(/\s/g, "")
+                    .replace(/[^a-z0-9._%+-]/g, "");
+
+                  handleChange({
+                    target: {
+                      name: "email",
+                      value,
+                    },
+                  });
+                }}
+                placeholder="username"
+                maxLength={64}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  padding: "0 12px",
+                  background: "transparent",
+                  border: "none",
+                  outline: "none",
+                  color: "#fff",
+                  fontSize: "14px",
+                }}
+              />
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "0 12px",
+                  background: "#18181b",
+                  borderLeft: "1px solid #27272a",
+                  color: "#71717a",
+                  fontSize: "13px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                @gmail.com
+              </div>
+            </div>
+          </div>
+
+          {/* PHONE */}
+
+          <FormField
+            label="Phone"
+            name="phone"
+            value={form.phone}
+            onChange={(e) =>
+              handleChange({
+                target: {
+                  name: "phone",
+                  value: e.target.value.replace(/\D/g, "").slice(0, 10),
+                },
+              })
+            }
+            placeholder="10-digit phone number"
+            inputMode="numeric"
+          />
+
+          {/* DATE OF BIRTH */}
+
+          <FormField
+            label="Date of Birth"
+            name="dateOfBirth"
+            value={form.dateOfBirth}
+            onChange={handleChange}
+            type="date"
+          />
+
+          {/* GENDER */}
+
+          <div>
+            <label style={labelStyle}>
+              Gender
+            </label>
+
+            <select
+              name="gender"
+              value={form.gender}
+              onChange={handleChange}
+              style={inputStyle}
+            >
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+              <option value="prefer_not_to_say">
+                Prefer not to say
+              </option>
+            </select>
+          </div>
+
+          {/* STATUS */}
+
+          <div>
+            <label style={labelStyle}>
+              Status
+            </label>
+
+            <select
+              name="status"
+              value={form.status}
+              onChange={handleChange}
+              style={inputStyle}
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+
+          {/* SOURCE */}
+
+          <FormField
+            label="Source"
+            name="source"
+            value={form.source}
+            onChange={handleChange}
+            placeholder="Where did this person come from?"
+          />
+
+          {/* ADDRESS */}
+
+          <div style={fullWidthStyle}>
+            <label style={labelStyle}>
+              Address
+            </label>
+
+            <textarea
+              name="address"
+              value={form.address}
+              onChange={handleChange}
+              placeholder="Full address"
+              rows={3}
+              style={textareaStyle}
+            />
+          </div>
+
+          {/* PREFERENCES */}
+
+          <div style={fullWidthStyle}>
+            <label style={labelStyle}>
+              Preferences
+            </label>
+
+            <textarea
+              name="extraInfo"
+              value={form.extraInfo}
+              onChange={handleChange}
+              placeholder="Additional information"
+              rows={3}
+              style={textareaStyle}
+            />
+          </div>
+
+          {/* LOAN & BILL */}
+
+          <div style={fullWidthStyle}>
+            <label style={labelStyle}>
+              Loan &amp; Bill Information
+            </label>
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "20px",
+                padding: "12px",
+                background: "#18181b",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: "7px",
+              }}
+            >
+              <div style={{ flex: 1, minWidth: isMobile ? "100%" : "220px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    color: "#d4d4d8",
+                    fontSize: "0.85rem",
+                    marginBottom: "10px",
+                  }}
+                >
+                  Loan IDs
+                </label>
+
+                <MultiEntryField
+                  value={form.loanIds}
+                  onChange={(value) =>
+                    handleChange({
+                      target: {
+                        name: "loanIds",
+                        value,
+                      },
+                    })
+                  }
+                  placeholder="Loan ID (max 8 chars)"
+                />
+              </div>
+
+              <div style={{ flex: 1, minWidth: isMobile ? "100%" : "220px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    color: "#d4d4d8",
+                    fontSize: "0.85rem",
+                    marginBottom: "10px",
+                  }}
+                >
+                  Bill Numbers
+                </label>
+
+                <MultiEntryField
+                  value={form.billNumbers}
+                  onChange={(value) =>
+                    handleChange({
+                      target: {
+                        name: "billNumbers",
+                        value,
+                      },
+                    })
+                  }
+                  placeholder="Bill number (max 8 chars)"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* TAGS */}
+
+          <div style={fullWidthStyle}>
+            <label style={labelStyle}>Tags</label>
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "8px",
+                padding: "10px",
+                background: "#18181b",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: "7px",
+              }}
+            >
+              {[
+                "VIP",
+                "Regular",
+                "Customer",
+                "Family",
+                "Business",
+                "New",
+                "Old Customer",
+                "Priority",
+              ].map((tag) => {
+                const selectedTags = form.tags
+                  ? form.tags.split(",").map((t) => t.trim())
+                  : [];
+
+                const isSelected = selectedTags.includes(tag);
+
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => {
+                      let updatedTags;
+
+                      if (isSelected) {
+                        updatedTags = selectedTags.filter(
+                          (t) => t !== tag
+                        );
+                      } else {
+                        updatedTags = [...selectedTags, tag];
+                      }
+
+                      handleChange({
+                        target: {
+                          name: "tags",
+                          value: updatedTags.join(", "),
+                        },
+                      });
+                    }}
+                    style={{
+                      padding: "7px 12px",
+                      borderRadius: "6px",
+                      border: isSelected
+                        ? "1px solid #f97316"
+                        : "1px solid #3f3f46",
+                      background: isSelected
+                        ? "rgba(249,115,22,0.15)"
+                        : "#09090b",
+                      color: isSelected
+                        ? "#f97316"
+                        : "#a1a1aa",
+                      cursor: "pointer",
+                      fontSize: "12px",
+                      fontWeight: isSelected ? "600" : "400",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    {isSelected ? "✓ " : ""}
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
+
+        {/* FORM BUTTONS */}
+
+        <div style={formActionsStyle}>
+          <button
+            type="button"
+            onClick={resetForm}
+            style={{ ...secondaryButtonStyle, ...(isMobile ? { flex: 1 } : {}) }}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            style={{ ...primaryButtonStyle, ...(isMobile ? { flex: 1 } : {}) }}
+            disabled={saving}
+          >
+            {saving
+              ? "Saving..."
+              : editingPerson
+              ? "Update Person"
+              : "Add Person"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+
+  const emptyState =
+    !loading && people.length === 0 ? (
+      <div style={{ ...emptyStyle, padding: isMobile ? "40px 16px" : "70px 20px" }}>
+        <div style={emptyIconStyle}>
+          👥
+        </div>
+
+        <h3 style={{ margin: "0 0 8px" }}>
+          {totalPeople === 0
+            ? "No people yet"
+            : "No matching people"}
+        </h3>
+
+        <p style={subtitleStyle}>
+          {totalPeople === 0
+            ? "Add your first person to start building the family directory."
+            : "No people found for this search."}
+        </p>
+
+        {totalPeople === 0 && (
+          <button
+            type="button"
+            onClick={openAddForm}
+            style={{ ...primaryButtonStyle, marginTop: "14px" }}
+          >
+            + Add First Person
+          </button>
+        )}
       </div>
-    )}
-        <style>{`
+    ) : null;
+
+  const pagination =
+    !loading && totalPages > 1 ? (
+      <div
+        style={{
+          ...paginationStyle,
+          justifyContent: isMobile ? "center" : "space-between",
+          gap: isMobile ? "10px" : "15px",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setPage((current) => Math.max(1, current - 1))}
+          disabled={page <= 1}
+          style={{
+            ...paginationButtonStyle,
+            opacity: page <= 1 ? 0.45 : 1,
+            cursor: page <= 1 ? "not-allowed" : "pointer",
+          }}
+        >
+          {isMobile ? "Prev" : "← Previous"}
+        </button>
+
+        <div style={paginationInfoStyle}>
+          Page <strong>{page}</strong> of{" "}
+          <strong>{totalPages}</strong>
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            setPage((current) =>
+              Math.min(totalPages, current + 1)
+            )
+          }
+          disabled={page >= totalPages}
+          style={{
+            ...paginationButtonStyle,
+            opacity: page >= totalPages ? 0.45 : 1,
+            cursor:
+              page >= totalPages ? "not-allowed" : "pointer",
+          }}
+        >
+          {isMobile ? "Next" : "Next →"}
+        </button>
+      </div>
+    ) : null;
+
+  const deleteModal = deleteTarget && (
+    <div style={deleteOverlayStyle} onClick={closeDeleteModal}>
+      <div
+        style={{
+          ...deleteModalStyle,
+          ...(isMobile ? { padding: "20px" } : {}),
+        }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h3 style={deleteModalTitleStyle}>
+          Delete This Person?
+        </h3>
+
+        <div style={deleteWarningBoxStyle}>
+          <p style={{ margin: "0 0 10px" }}>
+            Are you sure you want to permanently delete this
+            person? This action cannot be undone.
+          </p>
+
+          <div>
+            Name: <strong>{deleteTarget.name}</strong>
+          </div>
+
+          {deleteTarget.customerId && (
+            <div>
+              Customer ID:{" "}
+              <strong>{deleteTarget.customerId}</strong>
+            </div>
+          )}
+
+          {deleteTarget.phone && (
+            <div>
+              Phone: <strong>{deleteTarget.phone}</strong>
+            </div>
+          )}
+
+          {(deleteTarget.hasLoan || deleteTarget.hasBill) && (
+            <div>
+              Linked records:{" "}
+              <strong>
+                {[
+                  deleteTarget.hasLoan ? "Loan" : null,
+                  deleteTarget.hasBill ? "Bill" : null,
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+              </strong>
+            </div>
+          )}
+        </div>
+
+        {deleteError && (
+          <div style={deleteErrorStyle}>{deleteError}</div>
+        )}
+
+        <input
+          type="password"
+          value={deletePassword}
+          onChange={(event) =>
+            setDeletePassword(event.target.value)
+          }
+          placeholder="Admin password"
+          style={deletePasswordInputStyle}
+          disabled={deleting}
+          autoFocus
+        />
+
+        <div style={deleteModalActionsStyle}>
+          <button
+            type="button"
+            onClick={closeDeleteModal}
+            style={deleteCancelButtonStyle}
+            disabled={deleting}
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            onClick={confirmDelete}
+            style={deleteConfirmButtonStyle}
+            disabled={deleting}
+          >
+            {deleting ? "Deleting..." : "Delete Person"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const styleTag = (
+    <style>{`
       .copy-wrap {
         display: inline-flex;
         align-items: center;
@@ -1552,7 +1266,582 @@ const People = () => {
           opacity: 1;
         }
       }
+
+      /* Phone: 16px inputs stop iOS Safari zooming on focus */
+      .people-m input,
+      .people-m select,
+      .people-m textarea {
+        font-size: 16px !important;
+      }
+
+      .people-m input:focus,
+      .people-m select:focus,
+      .people-m textarea:focus {
+        border-color: #f97316 !important;
+      }
     `}</style>
+  );
+
+  // ============================================================
+  // MOBILE VIEW
+  // ============================================================
+
+  if (isMobile) {
+    return (
+      <>
+        <div className="people-m" style={mobileContainerStyle}>
+          {/* HEADER */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "12px",
+              marginBottom: "14px",
+            }}
+          >
+            <div>
+              <h2 style={{ margin: 0, color: "#f97316", fontSize: "19px" }}>
+                People Directory
+              </h2>
+              <div style={{ color: "#71717a", fontSize: "12px", marginTop: "3px" }}>
+                {totalPeople} {totalPeople === 1 ? "person" : "people"}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={openAddForm}
+              style={{ ...primaryButtonStyle, whiteSpace: "nowrap" }}
+            >
+              + Add Person
+            </button>
+          </div>
+
+          {messages}
+
+          {formCard}
+
+          {/* SEARCH: single box + chips */}
+          <div style={{ marginBottom: "12px" }}>
+            <input
+              type="text"
+              inputMode={searchMode === "phone" ? "numeric" : "text"}
+              placeholder={mobilePlaceholder}
+              value={search}
+              onChange={(e) => handleMobileSearch(e.target.value)}
+              style={{
+                ...searchInputStyle,
+                padding: "12px",
+              }}
+            />
+
+            <div style={chipRowStyle}>
+              <Chip active={searchMode === "all"} onClick={() => switchSearchMode("all")}>
+                All
+              </Chip>
+              <Chip active={searchMode === "name"} onClick={() => switchSearchMode("name")}>
+                By Name
+              </Chip>
+              <Chip
+                active={searchMode === "customerId"}
+                onClick={() => switchSearchMode("customerId")}
+              >
+                By Customer ID
+              </Chip>
+              <Chip active={searchMode === "phone"} onClick={() => switchSearchMode("phone")}>
+                By Phone
+              </Chip>
+            </div>
+          </div>
+
+          {loading && <div style={loadingStyle}>Loading people...</div>}
+
+          {emptyState}
+
+          {/* CARD LIST */}
+          {!loading && people.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {people.map((person) => {
+                const hasBills =
+                  Array.isArray(person.billNumbers) &&
+                  person.billNumbers.length > 0;
+
+                return (
+                  <div key={person._id} style={cardStyle}>
+                    {/* Top: avatar + name, status on the right */}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        gap: "10px",
+                      }}
+                    >
+                      <div style={{ ...personCellStyle, minWidth: 0 }}>
+                        <div style={personAvatarStyle}>
+                          {getInitial(person.name)}
+                        </div>
+
+                        <div style={{ minWidth: 0 }}>
+                          <div
+                            style={{
+                              ...personNameStyle,
+                              fontSize: "14.5px",
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {person.name}
+                          </div>
+
+                          {person.customerId && (
+                            <span
+                              style={{
+                                ...customerIdBadgeStyle,
+                                marginTop: "4px",
+                              }}
+                            >
+                              {person.customerId}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <StatusBadge status={person.status} />
+                    </div>
+
+                    {/* Contact */}
+                    <div style={{ marginTop: "10px", fontSize: "13px" }}>
+                      {person.phone ? (
+                        <a
+                          href={`tel:${person.phone}`}
+                          style={{
+                            color: "#e4e4e7",
+                            textDecoration: "none",
+                          }}
+                        >
+                          📞 {person.phone}
+                        </a>
+                      ) : (
+                        <span style={mutedTextStyle}>No phone</span>
+                      )}
+
+                      {person.email && (
+                        <div
+                          style={{
+                            ...secondaryTextStyle,
+                            wordBreak: "break-all",
+                          }}
+                        >
+                          ✉ {person.email}
+                        </div>
+                      )}
+
+                      {person.source && (
+                        <div style={secondaryTextStyle}>
+                          Source: {person.source}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Loan / Bill badges */}
+                    {(person.hasLoan || hasBills) && (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          marginTop: "12px",
+                          paddingTop: "12px",
+                          borderTop: "1px solid #27272a",
+                        }}
+                      >
+                        {person.hasLoan && (
+                          <button
+                            type="button"
+                            onClick={() => goToLoans(person)}
+                            style={{
+                              ...loanBadgeStyle,
+                              border: "none",
+                              cursor: "pointer",
+                              padding: "6px 12px",
+                            }}
+                          >
+                            Loan
+                            {Array.isArray(person.loanIds) &&
+                            person.loanIds.length > 0
+                              ? ` (${person.loanIds.length})`
+                              : ""}
+                          </button>
+                        )}
+
+                        {hasBills && (
+                          <button
+                            type="button"
+                            onClick={() => goToBills(person)}
+                            style={{
+                              ...billBadgeStyle,
+                              border: "none",
+                              cursor: "pointer",
+                              padding: "6px 12px",
+                            }}
+                          >
+                            Bill ({person.billNumbers.length})
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(3, 1fr)",
+                        gap: "8px",
+                        marginTop: "14px",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => goToAddLoan(person)}
+                        style={mobileActionStyle(addLoanButtonStyle)}
+                      >
+                        + Loan
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => goToAddBill(person)}
+                        style={mobileActionStyle(addBillButtonStyle)}
+                      >
+                        + Bill
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openFamilyTree(person)}
+                        style={mobileActionStyle(treeButtonStyle)}
+                      >
+                        🌳 Tree
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openEditForm(person)}
+                        style={{
+                          ...mobileActionStyle(editButtonStyle),
+                          gridColumn: "span 2",
+                        }}
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openDeleteModal(person)}
+                        style={mobileActionStyle(deleteActionStyle)}
+                        aria-label="Delete"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {pagination}
+        </div>
+
+        {deleteModal}
+        {styleTag}
+      </>
+    );
+  }
+
+  // ============================================================
+  // DESKTOP VIEW
+  // ============================================================
+
+  return (
+    <>
+    <div style={containerStyle}>
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
+
+      <div style={headerStyle}>
+        <div>
+          <h2 style={titleStyle}>
+            People Directory
+          </h2>
+
+          <p style={subtitleStyle}>
+            Manage people and their family
+            relationships.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={openAddForm}
+          style={primaryButtonStyle}
+        >
+          + Add Person
+        </button>
+      </div>
+
+      {messages}
+
+      {formCard}
+
+      {/* ======================================================
+          SEARCH / SUMMARY
+      ====================================================== */}
+
+      <div style={toolbarStyle}>
+        <div style={searchWrapperStyle}>
+          <span style={searchIconStyle}>
+            🔎
+          </span>
+
+          <input
+            type="text"
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
+            placeholder="Search by name, customer ID or phone number..."
+            style={searchInputStyle}
+          />
+        </div>
+
+        <div style={countStyle}>
+          Showing{" "}
+          <strong>{people.length}</strong>{" "}
+          of{" "}
+          <strong>{totalPeople}</strong>{" "}
+          people
+        </div>
+      </div>
+
+      {loading && (
+        <div style={loadingStyle}>
+          Loading people...
+        </div>
+      )}
+
+      {emptyState}
+
+      {/* ======================================================
+          PEOPLE TABLE
+      ====================================================== */}
+
+      {!loading &&
+        people.length > 0 && (
+          <div style={tableContainerStyle}>
+            <table style={tableStyle}>
+              <thead>
+                <tr style={tableRowStyle}>
+                  <th style={thStyle}>PERSON</th>
+                  <th style={thStyle}>CUSTOMER ID</th>
+                  <th style={thStyle}>CONTACT</th>
+                  <th style={thStyle}>STATUS</th>
+                  <th style={thStyle}>SOURCE</th>
+                  <th style={thStyle}>LOAN</th>
+                  <th style={thStyle}>BILL</th>
+                  <th
+                    style={{
+                      ...thStyle,
+                      textAlign: "right",
+                    }}
+                  >
+                    ACTIONS
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {people.map(
+                  (person) => (
+                    <tr
+                      key={person._id}
+                      style={tableRowStyle}
+                    >
+                      {/* PERSON */}
+
+                      <td style={tdStyle}>
+                        <div style={personCellStyle}>
+                          <div style={personAvatarStyle}>
+                            {getInitial(person.name)}
+                          </div>
+
+                          <div>
+                            <CopyableText text={person.name} label="name">
+                              <span style={personNameStyle}>{person.name}</span>
+                            </CopyableText>
+
+                            {person.email && (
+                              <div style={secondaryTextStyle}>
+                                {person.email}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* CUSTOMER ID */}
+
+                      <td style={tdStyle}>
+                        {person.customerId ? (
+                          <CopyableText text={person.customerId} label="Customer ID">
+                            <span style={customerIdBadgeStyle}>{person.customerId}</span>
+                          </CopyableText>
+                        ) : (
+                          <span style={mutedTextStyle}>—</span>
+                        )}
+                      </td>
+
+                      {/* CONTACT */}
+
+                      <td style={tdStyle}>
+                        {person.phone ? (
+                          <CopyableText text={person.phone} label="phone number">
+                            <span>📞 {person.phone}</span>
+                          </CopyableText>
+                        ) : (
+                          <span style={mutedTextStyle}>No phone</span>
+                        )}
+                      </td>
+
+                      {/* STATUS */}
+
+                      <td style={tdStyle}>
+                        <StatusBadge status={person.status} />
+                      </td>
+
+                      {/* SOURCE */}
+
+                      <td style={tdStyle}>
+                        {person.source || (
+                          <span style={mutedTextStyle}>—</span>
+                        )}
+                      </td>
+
+                      {/* LOAN */}
+
+                      <td style={tdStyle}>
+                        {person.hasLoan ? (
+                          <button
+                            type="button"
+                            onClick={() => goToLoans(person)}
+                            style={{
+                              ...loanBadgeStyle,
+                              border: "none",
+                              cursor: "pointer",
+                            }}
+                            title={`View loans for ${person.customerId}`}
+                          >
+                            Loan
+                            {Array.isArray(person.loanIds) && person.loanIds.length > 0
+                              ? ` (${person.loanIds.length})`
+                              : ""}
+                          </button>
+                        ) : (
+                          <span style={mutedTextStyle}>—</span>
+                        )}
+                      </td>
+
+                      {/* BILL */}
+
+                      <td style={tdStyle}>
+                        {Array.isArray(person.billNumbers) &&
+                        person.billNumbers.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => goToBills(person)}
+                            style={{
+                              ...billBadgeStyle,
+                              border: "none",
+                              cursor: "pointer",
+                            }}
+                            title="Click to view all bills"
+                          >
+                            Bill ({person.billNumbers.length})
+                          </button>
+                        ) : (
+                          <span style={mutedTextStyle}>—</span>
+                        )}
+                      </td>
+
+                      {/* ACTIONS */}
+
+                      <td
+                        style={{
+                          ...tdStyle,
+                          textAlign: "right",
+                        }}
+                      >
+                        <div style={actionsStyle}>
+                          <button
+                            type="button"
+                            onClick={() => goToAddLoan(person)}
+                            style={addLoanButtonStyle}
+                            title={`Add loan for ${person.name}`}
+                          >
+                            + Loan
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => goToAddBill(person)}
+                            style={addBillButtonStyle}
+                            title={`Add bill for ${person.name}`}
+                          >
+                            + Bill
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => openFamilyTree(person)}
+                            style={treeButtonStyle}
+                          >
+                            🌳 Tree
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => openEditForm(person)}
+                            style={editButtonStyle}
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => openDeleteModal(person)}
+                            style={deleteButtonStyle}
+                            title="Delete"
+                            aria-label="Delete"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+      {pagination}
+    </div>
+
+    {deleteModal}
+    {styleTag}
     </>
   );
 };
@@ -1569,6 +1858,8 @@ const FormField = ({
   placeholder,
   type = "text",
   required = false,
+  inputMode,
+  maxLength,
 }) => {
   return (
     <div>
@@ -1583,11 +1874,38 @@ const FormField = ({
         onChange={onChange}
         placeholder={placeholder}
         required={required}
+        inputMode={inputMode}
+        maxLength={maxLength}
         style={inputStyle}
       />
     </div>
   );
 };
+
+// ============================================================
+// CHIP (mobile search modes)
+// ============================================================
+
+const Chip = ({ active, onClick, children }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    style={{
+      flex: "0 0 auto",
+      padding: "7px 14px",
+      borderRadius: "999px",
+      border: `1px solid ${active ? "#f97316" : "#3f3f46"}`,
+      background: active ? "rgba(249,115,22,0.12)" : "#18181b",
+      color: active ? "#f97316" : "#a1a1aa",
+      fontSize: "12.5px",
+      fontWeight: "600",
+      cursor: "pointer",
+      whiteSpace: "nowrap",
+    }}
+  >
+    {children}
+  </button>
+);
 
 // ============================================================
 // MULTI ENTRY FIELD (used for Loan IDs / Bill Numbers)
@@ -1764,7 +2082,7 @@ const StatusBadge = ({ status }) => {
   }
 
   return (
-    <span style={style}>
+    <span style={{ ...style, whiteSpace: "nowrap" }}>
       {statusValue.toUpperCase()}
     </span>
   );
@@ -1811,6 +2129,50 @@ const containerStyle = {
     "1px solid rgba(255,255,255,0.05)",
   color: "#fafafa",
   zoom: 1.2,
+};
+
+const mobileContainerStyle = {
+  maxWidth: "1400px",
+  margin: "16px auto",
+  padding: "0 12px",
+  boxSizing: "border-box",
+  width: "100%",
+  color: "#fafafa",
+};
+
+const cardStyle = {
+  background: "#111113",
+  border: "1px solid #27272a",
+  borderRadius: "10px",
+  padding: "14px",
+  boxSizing: "border-box",
+  width: "100%",
+};
+
+const chipRowStyle = {
+  display: "flex",
+  gap: "8px",
+  marginTop: "10px",
+  overflowX: "auto",
+  paddingBottom: "2px",
+};
+
+const mobileActionStyle = (base) => ({
+  ...base,
+  padding: "10px 8px",
+  fontSize: "0.8rem",
+  textAlign: "center",
+  width: "100%",
+  boxSizing: "border-box",
+});
+
+const deleteActionStyle = {
+  border: "none",
+  borderRadius: "5px",
+  background: "rgba(239,68,68,0.12)",
+  color: "#f87171",
+  cursor: "pointer",
+  fontWeight: "600",
 };
 
 const headerStyle = {
@@ -1910,7 +2272,7 @@ const closeButtonStyle = {
 const formGridStyle = {
   display: "grid",
   gridTemplateColumns:
-    "repeat(auto-fit, minmax(250px, 1fr))",
+    "repeat(auto-fit, minmax(min(250px, 100%), 1fr))",
   gap: "18px",
 };
 
@@ -1943,12 +2305,6 @@ const textareaStyle = {
   ...inputStyle,
   resize: "vertical",
   minHeight: "80px",
-};
-
-const helpTextStyle = {
-  marginTop: "5px",
-  color: "#71717a",
-  fontSize: "0.75rem",
 };
 
 const formActionsStyle = {
@@ -2299,6 +2655,7 @@ const deleteModalStyle = {
   borderRadius: "12px",
   padding: "24px",
   boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+  boxSizing: "border-box",
 };
 
 const deleteModalTitleStyle = {
@@ -2333,6 +2690,7 @@ const deletePasswordInputStyle = {
   ...inputStyle,
   border: "1px solid #f97316",
   marginBottom: "18px",
+  fontSize: "16px",
 };
 
 const deleteModalActionsStyle = {
