@@ -857,7 +857,7 @@ const handleSubmit = (e) => {
         customerName: formData.customerName,
         mobileNo: formData.mobileNo.trim(),
         address: formData.address,
-        gstin: formData.gstin,
+        gstin: isSimple ? "" : formData.gstin,
         items: isSimple ? [] : cleanedItems,
         exchangeItems: isSimple ? [] : cleanedExchangeItems,
         discount: isSimple ? 0 : Number(formData.discount || 0),
@@ -1127,53 +1127,50 @@ const handleSubmit = (e) => {
           <FieldError msg={errors.customerName} />
         </div>
 
-        <div className="three-col" style={threeColGridStyle}>
-          <div>
-            <label style={smallLabelStyle}>Mobile No.</label>
+<div className="three-col" style={isSimple ? twoColGridStyle : threeColGridStyle}>
+  <div>
+    <label style={smallLabelStyle}>Mobile No.</label>
+    <input
+      type="text"
+      inputMode="numeric"
+      placeholder="10-digit mobile number"
+      required
+      maxLength={10}
+      value={formData.mobileNo}
+      onChange={(e) => handleChange("mobileNo", e.target.value.replace(/[^0-9]/g, ""))}
+      ref={(el) => (fieldRefs.current.mobileNo = el)}
+      style={inputStyle}
+    />
+    <FieldError msg={errors.mobileNo} />
+  </div>
 
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="10-digit mobile number"
-              required
-              maxLength={10}
-              value={formData.mobileNo}
-              onChange={(e) => handleChange("mobileNo", e.target.value.replace(/[^0-9]/g, ""))}
-              ref={(el) => (fieldRefs.current.mobileNo = el)}
-              style={inputStyle}
-            />
+  <div>
+    <label style={smallLabelStyle}>Address</label>
+    <input
+      type="text"
+      placeholder="Address (optional)"
+      value={formData.address}
+      onChange={(e) => handleChange("address", e.target.value)}
+      ref={(el) => (fieldRefs.current.address = el)}
+      style={inputStyle}
+    />
+    <FieldError msg={errors.address} />
+  </div>
 
-            <FieldError msg={errors.mobileNo} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Address</label>
-
-            <input
-              type="text"
-              placeholder="Address (optional)"
-              value={formData.address}
-              onChange={(e) => handleChange("address", e.target.value)}
-              ref={(el) => (fieldRefs.current.address = el)}
-              style={inputStyle}
-            />
-
-            <FieldError msg={errors.address} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>GSTIN (optional, for B2B)</label>
-
-            <input
-              type="text"
-              placeholder="Customer GSTIN"
-              maxLength={15}
-              value={formData.gstin}
-              onChange={(e) => handleChange("gstin", e.target.value.toUpperCase())}
-              style={inputStyle}
-            />
-          </div>
-        </div>
+  {!isSimple && (
+    <div>
+      <label style={smallLabelStyle}>GSTIN (optional, for B2B)</label>
+      <input
+        type="text"
+        placeholder="Customer GSTIN"
+        maxLength={15}
+        value={formData.gstin}
+        onChange={(e) => handleChange("gstin", e.target.value.toUpperCase())}
+        style={inputStyle}
+      />
+    </div>
+  )}
+</div>
 
         {/* =====================================================
             SIMPLE BILL DETAILS
@@ -1773,6 +1770,10 @@ const handleSubmit = (e) => {
               color="#22c55e"
               large
             />
+            <SummaryBox className="hide-mobile" label="Exchange Total" value={exchangeTotal} color="#ef4444" />
+<SummaryBox className="hide-mobile" label="Taxable Amount" value={taxableAmount} />
+<SummaryBox className="hide-mobile" label="CGST + SGST" value={cgstAmount + sgstAmount} color="#f59e0b" />
+<SummaryBox className="hide-mobile" label="Round Off" value={roundOff} color="#71717a" />
           </div>
 
           {grandTotal > 0 && (
@@ -1957,91 +1958,117 @@ const handleSubmit = (e) => {
           }
         }
 
-        /* ---------- Mobile ---------- */
-        @media (max-width: 640px) {
-          .bill-container {
-            margin: 0;
-            padding: 16px 12px 100px; /* bottom space for the sticky submit button */
-            border-radius: 0;
-            border: none;
-            min-height: 100vh;
-          }
+/* ---------- Mobile ---------- */
+@media (max-width: 640px) {
+  .bill-container {
+    margin: 0;
+    padding: 12px 10px 110px; /* bottom space for the sticky submit button */
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    min-height: 100vh;
+  }
 
-          .bill-container h1 {
-            font-size: 22px !important;
-            margin-bottom: 14px !important;
-          }
+  /* the big "BILL" title repeats the page title below it */
+  .bill-container h1 { display: none; }
+  .bill-container h2 { font-size: 18px !important; }
 
-          .bill-container h2 { font-size: 18px !important; }
+  .page-header {
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    margin-bottom: 14px !important;
+  }
+  .page-header button {
+    width: auto;
+    padding: 0 12px !important;
+    min-height: 38px !important;
+    font-size: 12.5px !important;
+  }
 
-          .page-header { margin-bottom: 18px !important; }
-          .page-header button { width: 100%; }
+  .type-toggle button {
+    flex: 1;
+    padding: 12px 8px !important;
+  }
 
-          .type-toggle button {
-            flex: 1;
-            padding: 12px 8px !important;
-          }
+  /* 16px stops iOS Safari zooming on focus; 44px is a comfortable tap target */
+  .bill-container input,
+  .bill-container select,
+  .bill-container textarea {
+    font-size: 16px !important;
+    min-height: 44px;
+  }
+  .bill-container textarea { min-height: 0; }
 
-          /* 16px stops iOS Safari zooming on focus; 44px is a comfortable tap target */
-          .bill-container input,
-          .bill-container select,
-          .bill-container textarea {
-            font-size: 16px !important;
-            min-height: 44px;
-          }
+  /* iOS date fields can render wider/taller than other inputs */
+  .bill-container input[type="date"] {
+    min-width: 0;
+    max-width: 100%;
+    text-align: left;
+  }
 
-          .bill-container button { min-height: 44px; }
+  .bill-container button { min-height: 44px; }
+  .bill-container .search-icon-btn { min-height: 36px; }
 
-          .bill-container .search-icon-btn {
-            min-height: 36px;
-          }
+  /* cards stand out from the page */
+  .section-card {
+    padding: 12px !important;
+    background: #18181b !important;
+    border: 1px solid #2f2f35 !important;
+    border-radius: 12px !important;
+  }
 
-          .section-card { padding: 14px 12px !important; }
+  /* each item / exchange / payment is its own boxed card */
+  .row-card {
+    background: #111113;
+    border: 1px solid #2f2f35 !important;
+    border-radius: 10px;
+    padding: 10px !important;
+    margin-bottom: 10px !important;
+  }
 
-          .amount-field { max-width: 100% !important; }
+  .amount-field { max-width: 100% !important; }
 
-          .item-grid,
-          .exchange-grid {
-            grid-template-columns: 1fr 1fr !important;
-            gap: 10px !important;
-          }
+  .item-grid,
+  .exchange-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
 
-          .full-mobile { grid-column: 1 / -1; }
+  .full-mobile { grid-column: 1 / -1; }
 
-          .payment-grid {
-            grid-template-columns: 1fr 1fr !important;
-            gap: 10px !important;
-          }
+  .payment-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+  .payment-grid > div:first-child { grid-column: 1 / -1; }
 
-          .payment-grid > div:first-child { grid-column: 1 / -1; }
+  .summary-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+  .summary-grid .grand { grid-column: 1 / -1; }
 
-          .summary-grid {
-            grid-template-columns: 1fr 1fr !important;
-            gap: 10px !important;
-          }
+  .hide-mobile { display: none !important; }
 
-          .summary-grid .grand { grid-column: 1 / -1; }
+  .submit-btn {
+    position: fixed !important;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 50;
+    margin: 0 !important;
+    min-height: 50px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  }
 
-          .submit-btn {
-            position: fixed !important;
-            left: 12px;
-            right: 12px;
-            bottom: 12px;
-            z-index: 50;
-            margin: 0 !important;
-            min-height: 50px;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.5);
-          }
+  .modal-card {
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 18px !important;
+  }
 
-          .modal-card {
-            max-height: 90vh;
-            overflow-y: auto;
-            padding: 18px !important;
-          }
-
-          .modal-actions { flex-direction: column-reverse; }
-        }
-
+  .modal-actions { flex-direction: column-reverse; }
+}
         /* ---------- Very small phones ---------- */
         @media (max-width: 360px) {
           .item-grid,
@@ -2404,7 +2431,7 @@ const inputStyle = {
   width: "100%",
   padding: "13px",
   background: "#09090b",
-  border: "1px solid #27272a",
+  border: "1px solid #3f3f46",
   borderRadius: "7px",
   color: "#fff",
   fontSize: "15px",
@@ -2414,20 +2441,21 @@ const inputStyle = {
 
 const labelStyle = {
   display: "block",
-  marginBottom: "7px",
+  marginBottom: "6px",
   color: "#a1a1aa",
-  fontSize: "0.9rem",
+  fontSize: "13px",
   fontWeight: "500",
 };
 
 const smallLabelStyle = {
   display: "block",
   marginBottom: "6px",
-  color: "#71717a",
-  fontSize: "11.5px",
-  fontWeight: "600",
-  letterSpacing: "0.02em",
-  textTransform: "uppercase",
+  color: "#a1a1aa",
+  fontSize: "12.5px",
+  fontWeight: "500",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
 
 const amountWordsStyle = {
