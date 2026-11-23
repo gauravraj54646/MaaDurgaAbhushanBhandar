@@ -1115,8 +1115,8 @@ const handleSubmit = (e) => {
             value={formData.customerName}
             onChange={(e) => {
               const value = e.target.value
-                .toLowerCase()
-                .replace(/\b\w/g, (char) => char.toUpperCase());
+                .toUpperCase()
+                
 
               handleChange("customerName", value);
             }}
@@ -1150,7 +1150,7 @@ const handleSubmit = (e) => {
       type="text"
       placeholder="Address (optional)"
       value={formData.address}
-      onChange={(e) => handleChange("address", e.target.value)}
+      onChange={(e) => handleChange("address", e.target.value.toLowerCase())}
       ref={(el) => (fieldRefs.current.address = el)}
       style={inputStyle}
     />

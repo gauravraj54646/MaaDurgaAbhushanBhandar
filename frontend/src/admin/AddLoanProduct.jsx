@@ -910,8 +910,8 @@ const AddLoanProduct = () => {
             value={formData.name}
             onChange={(e) => {
               const value = e.target.value
-                .toLowerCase()
-                .replace(/\b\w/g, (char) => char.toUpperCase());
+                .toUpperCase();
+                
 
               handleChange("name", value);
             }}
@@ -936,8 +936,8 @@ const AddLoanProduct = () => {
             value={formData.address}
             onChange={(e) => {
               const value = e.target.value
-                .toLowerCase()
-                .replace(/\b\w/g, (char) => char.toUpperCase());
+                .toUpperCase();
+                
               handleChange("address", value);
             }}
             ref={(el) => (fieldRefs.current.address = el)}

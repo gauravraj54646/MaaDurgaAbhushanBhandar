@@ -710,7 +710,7 @@ const EditBillProduct = () => {
             type="text"
             required
             value={formData.customerName}
-            onChange={(e) => handleChange("customerName", e.target.value)}
+            onChange={(e) => handleChange("customerName", e.target.value.toUpperCase())}
             ref={(el) => (fieldRefs.current.customerName = el)}
             style={inputStyle}
           />
@@ -741,7 +741,7 @@ const EditBillProduct = () => {
             <input
               type="text"
               value={formData.address}
-              onChange={(e) => handleChange("address", e.target.value)}
+              onChange={(e) => handleChange("address", e.target.value.toUpperCase())}
               style={inputStyle}
             />
             <FieldError msg={errors.address} />

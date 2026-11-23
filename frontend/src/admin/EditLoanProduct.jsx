@@ -860,7 +860,7 @@ const EditLoanProduct = () => {
               required
               autoComplete="off"
               value={formData.name}
-              onChange={(e) => handleChange("name", e.target.value)}
+              onChange={(e) => handleChange("name", e.target.value.toUpperCase())}
               ref={(el) => (fieldRefs.current.name = el)}
               style={inputStyle}
             />
@@ -875,7 +875,7 @@ const EditLoanProduct = () => {
               required
               rows="2"
               value={formData.address}
-              onChange={(e) => handleChange("address", e.target.value)}
+              onChange={(e) => handleChange("address", e.target.value.toUpperCase())}
               ref={(el) => (fieldRefs.current.address = el)}
               style={{ ...inputStyle, resize: "vertical" }}
             />
