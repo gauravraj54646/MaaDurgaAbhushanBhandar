@@ -577,10 +577,22 @@ const AdminBillProduct = () => {
           {!loading &&
             bills.map((bill) => {
               const due = Number(bill.balanceDue || 0);
+              const isPending = bill.paymentStatus === "pending";
+              const accent = statusColors[bill.paymentStatus] || "#f97316";
 
               return (
-                <div key={bill._id} style={cardStyle}>
-                  {/* Top: bill no + date, status on the right */}
+                <div
+                  key={bill._id}
+                  onClick={() => navigate(`/admin/bill/edit-bill/${bill._id}`)}
+                  style={{
+                    ...cardStyle,
+                    cursor: "pointer",
+                    borderLeft: `4px solid ${accent}`,
+                    background: isPending ? "#3a2126" : "#2a2a33",
+                    borderColor: isPending ? "rgba(239,68,68,0.7)" : "#52525b",
+                  }}
+                >
+                  {/* Top: customer name + IDs on the left, grand total + status on the right */}
                   <div
                     style={{
                       display: "flex",
@@ -590,72 +602,77 @@ const AdminBillProduct = () => {
                     }}
                   >
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ color: "#f97316", fontWeight: "700", fontSize: "14px" }}>
-                        {bill.billNo}
+                      <div
+                        style={{
+                          color: "#fff",
+                          fontSize: "14.5px",
+                          fontWeight: "600",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {bill.customerName || "-"}
                       </div>
-                      <div style={{ color: "#71717a", fontSize: "11.5px", marginTop: "2px" }}>
-                        {formatDate(bill.billDate)}
+
+                      <div style={{ color: "#a1a1aa", fontSize: "12px", marginTop: "4px" }}>
+                        Bill: <b style={{ color: "#f4f4f5" }}>{bill.billNo || "-"}</b>
                       </div>
+
+                      {/* Mobile number shown when due, or when searching by mobile */}
+                      {bill.mobileNo && (due > 0 || searchMode === "mobile") && (
+                        <a
+                          href={`tel:${bill.mobileNo}`}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            color: "#e4e4e7",
+                            fontSize: "13px",
+                            textDecoration: "none",
+                            display: "inline-block",
+                            marginTop: "4px",
+                          }}
+                        >
+                          📞 {bill.mobileNo}
+                        </a>
+                      )}
                     </div>
 
-                    <span
-                      style={{
-                        color: statusColors[bill.paymentStatus] || "#a1a1aa",
-                        fontWeight: "700",
-                        fontSize: "11.5px",
-                        textTransform: "uppercase",
-                        border: `1px solid ${statusColors[bill.paymentStatus] || "#3f3f46"}`,
-                        borderRadius: "999px",
-                        padding: "3px 10px",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {bill.paymentStatus}
-                    </span>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <div style={{ color: "#4ade80", fontWeight: "700", fontSize: "16.5px" }}>
+                        {formatMoney(bill.grandTotal)}
+                      </div>
+
+                      <span
+                        style={{
+                          display: "inline-block",
+                          marginTop: "6px",
+                          fontSize: "10.5px",
+                          fontWeight: "700",
+                          textTransform: "uppercase",
+                          color: accent,
+                          border: `1px solid ${accent}`,
+                          borderRadius: "999px",
+                          padding: "2px 8px",
+                        }}
+                      >
+                        {bill.paymentStatus}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Customer (mobile number shown when due, or when searching by mobile) */}
-                  <div
-                    style={{
-                      marginTop: "10px",
-                      color: "#e4e4e7",
-                      fontSize: "14px",
-                      fontWeight: "600",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {bill.customerName || "-"}
-                  </div>
-                  {bill.mobileNo && (due > 0 || searchMode === "mobile") && (
-                    <a
-                      href={`tel:${bill.mobileNo}`}
-                      style={{
-                        color: "#a1a1aa",
-                        fontSize: "12.5px",
-                        textDecoration: "none",
-                        display: "inline-block",
-                        marginTop: "2px",
-                      }}
-                    >
-                      📞 {bill.mobileNo}
-                    </a>
-                  )}
-
-                  {/* Amounts */}
+                  {/* Date + balance */}
                   <div
                     style={{
                       display: "grid",
                       gridTemplateColumns: "1fr 1fr",
-                      gap: "10px",
+                      gap: "8px",
                       marginTop: "12px",
                       paddingTop: "12px",
-                      borderTop: "1px solid #27272a",
+                      borderTop: "1px solid #52525b",
                     }}
                   >
                     <div>
-                      <div style={cardLabelStyle}>Grand Total</div>
-                      <div style={{ color: "#fff", fontWeight: "700", fontSize: "15px", marginTop: "2px" }}>
-                        {formatMoney(bill.grandTotal)}
+                      <div style={cardLabelStyle}>Bill Date</div>
+                      <div style={{ color: "#fff", fontSize: "12.5px", marginTop: "3px" }}>
+                        {formatDate(bill.billDate)}
                       </div>
                     </div>
 
@@ -663,10 +680,10 @@ const AdminBillProduct = () => {
                       <div style={cardLabelStyle}>Balance Due</div>
                       <div
                         style={{
-                          color: due > 0 ? "#f59e0b" : "#22c55e",
-                          fontWeight: "700",
-                          fontSize: "15px",
-                          marginTop: "2px",
+                          color: due > 0 ? "#fbbf24" : "#4ade80",
+                          fontSize: "12.5px",
+                          fontWeight: "600",
+                          marginTop: "3px",
                         }}
                       >
                         {formatMoney(due)}
@@ -678,7 +695,10 @@ const AdminBillProduct = () => {
                   <div style={{ display: "flex", gap: "10px", marginTop: "14px" }}>
                     <button
                       type="button"
-                      onClick={() => navigate(`/admin/bill/edit-bill/${bill._id}`)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/admin/bill/edit-bill/${bill._id}`);
+                      }}
                       style={{
                         ...secondaryButtonStyle,
                         flex: 1,
@@ -691,7 +711,10 @@ const AdminBillProduct = () => {
 
                     <button
                       type="button"
-                      onClick={() => requestDelete(bill._id, bill.billNo)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        requestDelete(bill._id, bill.billNo);
+                      }}
                       style={{
                         ...secondaryButtonStyle,
                         flex: 1,
@@ -1114,17 +1137,18 @@ const emptyCellStyle = {
 };
 
 const cardStyle = {
-  background: "#111113",
-  border: "1px solid #27272a",
-  borderRadius: "10px",
-  padding: "14px",
+  background: "#2a2a33",
+  border: "1px solid #52525b",
+  borderRadius: "12px",
+  padding: "16px",
   boxSizing: "border-box",
   width: "100%",
+  boxShadow: "0 2px 12px rgba(0,0,0,0.5)",
 };
 
 const cardLabelStyle = {
-  color: "#a1a1aa",
-  fontSize: "11.5px",
+  color: "#c4c4cc",
+  fontSize: "10.5px",
   textTransform: "uppercase",
   letterSpacing: "0.03em",
 };

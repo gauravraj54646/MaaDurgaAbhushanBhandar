@@ -1367,8 +1367,23 @@ const People = () => {
                   Array.isArray(person.billNumbers) &&
                   person.billNumbers.length > 0;
 
+                const accent =
+                  person.status === "inactive"
+                    ? "#facc15"
+                    : person.status === "archived"
+                    ? "#71717a"
+                    : "#f97316";
+
                 return (
-                  <div key={person._id} style={cardStyle}>
+                  <div
+                    key={person._id}
+                    onClick={() => openEditForm(person)}
+                    style={{
+                      ...cardStyle,
+                      cursor: "pointer",
+                      borderLeft: `4px solid ${accent}`,
+                    }}
+                  >
                     {/* Top: avatar + name, status on the right */}
                     <div
                       style={{
@@ -1415,6 +1430,7 @@ const People = () => {
                       {person.phone ? (
                         <a
                           href={`tel:${person.phone}`}
+                          onClick={(e) => e.stopPropagation()}
                           style={{
                             color: "#e4e4e7",
                             textDecoration: "none",
@@ -1430,6 +1446,7 @@ const People = () => {
                         <div
                           style={{
                             ...secondaryTextStyle,
+                            color: "#a1a1aa",
                             wordBreak: "break-all",
                           }}
                         >
@@ -1438,7 +1455,7 @@ const People = () => {
                       )}
 
                       {person.source && (
-                        <div style={secondaryTextStyle}>
+                        <div style={{ ...secondaryTextStyle, color: "#a1a1aa" }}>
                           Source: {person.source}
                         </div>
                       )}
@@ -1447,12 +1464,13 @@ const People = () => {
                     {/* Loan / Bill badges */}
                     {(person.hasLoan || hasBills) && (
                       <div
+                        onClick={(e) => e.stopPropagation()}
                         style={{
                           display: "flex",
                           gap: "8px",
                           marginTop: "12px",
                           paddingTop: "12px",
-                          borderTop: "1px solid #27272a",
+                          borderTop: "1px solid #52525b",
                         }}
                       >
                         {person.hasLoan && (
@@ -1493,6 +1511,7 @@ const People = () => {
 
                     {/* Actions */}
                     <div
+                      onClick={(e) => e.stopPropagation()}
                       style={{
                         display: "grid",
                         gridTemplateColumns: "repeat(3, 1fr)",
@@ -2141,12 +2160,13 @@ const mobileContainerStyle = {
 };
 
 const cardStyle = {
-  background: "#111113",
-  border: "1px solid #27272a",
-  borderRadius: "10px",
-  padding: "14px",
+  background: "#2a2a33",
+  border: "1px solid #52525b",
+  borderRadius: "12px",
+  padding: "16px",
   boxSizing: "border-box",
   width: "100%",
+  boxShadow: "0 2px 12px rgba(0,0,0,0.5)",
 };
 
 const chipRowStyle = {
