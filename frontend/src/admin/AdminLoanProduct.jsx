@@ -664,8 +664,9 @@ const AdminLoanProduct = () => {
                   style={{
                     ...cardStyle,
                     cursor: "pointer",
-                    borderLeft: overdue ? "3px solid #ef4444" : "3px solid transparent",
-                    background: overdue ? "rgba(239, 68, 68, 0.08)" : "#111113",
+                    borderLeft: overdue ? "4px solid #ef4444" : "4px solid #f97316",
+                    background: overdue ? "#3a2126" : "#2a2a33",
+                    borderColor: overdue ? "rgba(239,68,68,0.7)" : "#52525b",
                   }}
                 >
                   {/* Top: name (+ flags) and amount */}
@@ -705,10 +706,10 @@ const AdminLoanProduct = () => {
                         )}
                       </div>
 
-                      <div style={{ color: "#71717a", fontSize: "11.5px", marginTop: "3px" }}>
-                        ID: <b style={{ color: "#a1a1aa" }}>{loan.customerId || "-"}</b>
+                      <div style={{ color: "#a1a1aa", fontSize: "12px", marginTop: "4px" }}>
+                        ID: <b style={{ color: "#f4f4f5" }}>{loan.customerId || "-"}</b>
                         {"  |  "}
-                        Loan: <b style={{ color: "#a1a1aa" }}>{loan.loanId || "-"}</b>
+                        Loan: <b style={{ color: "#f4f4f5" }}>{loan.loanId || "-"}</b>
                       </div>
 
                       {loan.mobileNo && (
@@ -716,11 +717,11 @@ const AdminLoanProduct = () => {
                           href={`tel:${loan.mobileNo}`}
                           onClick={(e) => e.stopPropagation()}
                           style={{
-                            color: "#a1a1aa",
-                            fontSize: "12.5px",
+                            color: "#e4e4e7",
+                            fontSize: "13px",
                             textDecoration: "none",
                             display: "inline-block",
-                            marginTop: "3px",
+                            marginTop: "4px",
                           }}
                         >
                           📞 {loan.mobileNo}
@@ -729,7 +730,7 @@ const AdminLoanProduct = () => {
                     </div>
 
                     <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ color: "#22c55e", fontWeight: "700", fontSize: "15px" }}>
+                      <div style={{ color: "#4ade80", fontWeight: "700", fontSize: "16.5px" }}>
                         ₹{Number(loan.loanAmount || 0).toFixed(2)}
                       </div>
 
@@ -760,12 +761,12 @@ const AdminLoanProduct = () => {
                       gap: "8px",
                       marginTop: "12px",
                       paddingTop: "12px",
-                      borderTop: "1px solid #27272a",
+                      borderTop: "1px solid #52525b",
                     }}
                   >
                     <div>
                       <div style={cardLabelStyle}>Loan Date</div>
-                      <div style={{ color: "#e4e4e7", fontSize: "12px", marginTop: "2px" }}>
+                      <div style={{ color: "#fff", fontSize: "12.5px", marginTop: "3px" }}>
                         {formatDisplayDate(loan.date)}
                       </div>
                     </div>
@@ -774,8 +775,8 @@ const AdminLoanProduct = () => {
                       <div style={cardLabelStyle}>Due</div>
                       <div
                         style={{
-                          color: overdue ? "#ef4444" : "#e4e4e7",
-                          fontSize: "12px",
+                          color: overdue ? "#f87171" : "#fff",
+                          fontSize: "12.5px",
                           fontWeight: overdue ? "600" : "400",
                           marginTop: "2px",
                         }}
@@ -788,8 +789,8 @@ const AdminLoanProduct = () => {
                       <div style={cardLabelStyle}>Dissolve</div>
                       <div
                         style={{
-                          color: pastDissolve ? "#a855f7" : "#e4e4e7",
-                          fontSize: "12px",
+                          color: pastDissolve ? "#c084fc" : "#fff",
+                          fontSize: "12.5px",
                           fontWeight: pastDissolve ? "600" : "400",
                           marginTop: "2px",
                         }}
@@ -1968,16 +1969,17 @@ const emptyStateStyle = {
 };
 
 const cardStyle = {
-  background: "#111113",
-  border: "1px solid #27272a",
-  borderRadius: "10px",
-  padding: "14px",
+  background: "#2a2a33",
+  border: "1px solid #52525b",
+  borderRadius: "12px",
+  padding: "16px",
   boxSizing: "border-box",
   width: "100%",
+  boxShadow: "0 2px 12px rgba(0,0,0,0.5)",
 };
 
 const cardLabelStyle = {
-  color: "#a1a1aa",
+  color: "#c4c4cc",
   fontSize: "10.5px",
   textTransform: "uppercase",
   letterSpacing: "0.03em",
