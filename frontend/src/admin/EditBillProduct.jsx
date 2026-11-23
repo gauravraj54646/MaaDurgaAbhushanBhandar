@@ -652,7 +652,7 @@ const EditBillProduct = () => {
         <button
           type="button"
           onClick={() => navigate("/admin/bill/products")}
-          className="head-btn"
+          className="head-btn m-hide"
           style={{
             padding: "10px 18px",
             borderRadius: "7px",
@@ -718,7 +718,7 @@ const EditBillProduct = () => {
         </div>
 
         <div className="three-col" style={threeColGridStyle}>
-          <div>
+          <div className="m-full">
             <label style={labelStyle}>Mobile No.</label>
             <input
               type="text"
@@ -744,7 +744,7 @@ const EditBillProduct = () => {
             <FieldError msg={errors.address} />
           </div>
 
-          <div>
+          <div className="m-hide">
             <label style={labelStyle}>GSTIN</label>
             <input
               type="text"
@@ -1170,13 +1170,13 @@ const EditBillProduct = () => {
               <SectionHeader title="Discount & Tax" />
 
               <div className="three-col" style={threeColGridStyle}>
-                <div>
+                <div className="m-full">
                   <label style={smallLabelStyle}>Discount</label>
                   <MoneyInput value={formData.discount} onChange={(e) => handleChange("discount", e.target.value)} />
                   <FieldError msg={errors.discount} />
                 </div>
 
-                <div>
+                <div className="m-hide">
                   <label style={smallLabelStyle}>CGST (%)</label>
                   <input
                     type="text"
@@ -1187,7 +1187,7 @@ const EditBillProduct = () => {
                   />
                 </div>
 
-                <div>
+                <div className="m-hide">
                   <label style={smallLabelStyle}>SGST (%)</label>
                   <input
                     type="text"
@@ -1322,10 +1322,10 @@ const EditBillProduct = () => {
             <SummaryBox label="Items Subtotal" value={itemsSubtotal} />
             {!isSimple && (
               <>
-                <SummaryBox label="Exchange Total" value={exchangeTotal} color="#ef4444" />
-                <SummaryBox label="Taxable Amount" value={taxableAmount} />
-                <SummaryBox label="CGST + SGST" value={cgstAmount + sgstAmount} color="#f59e0b" />
-                <SummaryBox label="Round Off" value={roundOff} color="#71717a" />
+                <SummaryBox label="Exchange Total" value={exchangeTotal} color="#ef4444" hideOnMobile />
+                <SummaryBox label="Taxable Amount" value={taxableAmount} hideOnMobile />
+                <SummaryBox label="CGST + SGST" value={cgstAmount + sgstAmount} color="#f59e0b" hideOnMobile />
+                <SummaryBox label="Round Off" value={roundOff} color="#71717a" hideOnMobile />
               </>
             )}
             <SummaryBox label="GRAND TOTAL" value={grandTotal} color="#22c55e" large />
@@ -1452,6 +1452,10 @@ const EditBillProduct = () => {
 
         /* ---------- phone ---------- */
         @media (max-width: 640px) {
+          /* hidden on phones (still in the DOM, values are still saved) */
+          .m-hide { display: none !important; }
+          .m-full { grid-column: 1 / -1; }
+
           .bill-wrap {
             margin: 0 auto !important;
             padding: 12px 10px !important;
@@ -1692,9 +1696,9 @@ const AddButton = ({ onClick, text }) => (
   </button>
 );
 
-const SummaryBox = ({ label, value, color = "#fff", large = false }) => (
+const SummaryBox = ({ label, value, color = "#fff", large = false, hideOnMobile = false }) => (
   <div
-    className={large ? "sum-box sum-large" : "sum-box"}
+    className={`sum-box${large ? " sum-large" : ""}${hideOnMobile ? " m-hide" : ""}`}
     style={{ padding: "14px 12px", background: "#09090b", borderRadius: "8px", border: "1px solid #27272a", minWidth: 0 }}
   >
     <div
