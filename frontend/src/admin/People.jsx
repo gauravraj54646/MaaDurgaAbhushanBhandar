@@ -5,6 +5,7 @@ import React, {
 } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import BillPhotoUpload from "../components/BillPhotoUpload";
 
 // ============================================================
 // useIsMobile: true when viewport is <= breakpoint
@@ -43,6 +44,7 @@ const People = () => {
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -80,6 +82,7 @@ const People = () => {
     loanIds: "",
     hasBill: false,
     billNumbers: "",
+    photo: null, // { url, publicId } or null
   };
 
   const [form, setForm] = useState(emptyForm);
@@ -293,6 +296,9 @@ const People = () => {
       billNumbers: Array.isArray(person.billNumbers)
         ? person.billNumbers.join(", ")
         : "",
+      photo: person.photo?.url
+        ? { url: person.photo.url, publicId: person.photo.publicId }
+        : null,
     });
 
     setShowForm(true);
@@ -311,6 +317,11 @@ const People = () => {
 
     setError("");
     setSuccess("");
+
+    if (photoBusy) {
+      setError("Photo is still uploading. Please wait a moment.");
+      return;
+    }
 
     if (!form.name.trim()) {
       setError("Name is required.");
@@ -403,6 +414,9 @@ const People = () => {
         hasLoan: loanIds.length > 0,
         billNumbers,
         hasBill: billNumbers.length > 0,
+
+        // null = no photo / removed, object = keep or replace
+        photo: form.photo || null,
       };
 
       const isEditing = Boolean(editingPerson);
@@ -838,6 +852,24 @@ const People = () => {
             placeholder="Where did this person come from?"
           />
 
+          {/* PHOTO */}
+
+          <div style={fullWidthStyle}>
+            <label style={labelStyle}>
+              Photo (optional)
+            </label>
+
+            <BillPhotoUpload
+              value={form.photo}
+              onChange={(photo) =>
+                handleChange({
+                  target: { name: "photo", value: photo },
+                })
+              }
+              onBusyChange={setPhotoBusy}
+            />
+          </div>
+
           {/* ADDRESS */}
 
           <div style={fullWidthStyle}>
@@ -1039,11 +1071,19 @@ const People = () => {
 
           <button
             type="submit"
-            style={{ ...primaryButtonStyle, ...(isMobile ? { flex: 1 } : {}) }}
-            disabled={saving}
+            style={{
+              ...primaryButtonStyle,
+              ...(isMobile ? { flex: 1 } : {}),
+              ...(saving || photoBusy
+                ? { background: "#52525b", cursor: "not-allowed" }
+                : {}),
+            }}
+            disabled={saving || photoBusy}
           >
             {saving
               ? "Saving..."
+              : photoBusy
+              ? "Uploading photo..."
               : editingPerson
               ? "Update Person"
               : "Add Person"}
@@ -1394,9 +1434,7 @@ const People = () => {
                       }}
                     >
                       <div style={{ ...personCellStyle, minWidth: 0 }}>
-                        <div style={personAvatarStyle}>
-                          {getInitial(person.name)}
-                        </div>
+                        <PersonAvatar person={person} />
 
                         <div style={{ minWidth: 0 }}>
                           <div
@@ -1692,9 +1730,7 @@ const People = () => {
 
                       <td style={tdStyle}>
                         <div style={personCellStyle}>
-                          <div style={personAvatarStyle}>
-                            {getInitial(person.name)}
-                          </div>
+                          <PersonAvatar person={person} />
 
                           <div>
                             <CopyableText text={person.name} label="name">
@@ -2121,6 +2157,23 @@ const getInitial = (name) => {
     .charAt(0)
     .toUpperCase();
 };
+
+// Shows the person's photo if they have one, otherwise their initial.
+const PersonAvatar = ({ person }) =>
+  person.photo?.url ? (
+    <img
+      src={person.photo.url}
+      alt={person.name || "Person"}
+      loading="lazy"
+      style={{
+        ...personAvatarStyle,
+        objectFit: "cover",
+        background: "#09090b",
+      }}
+    />
+  ) : (
+    <div style={personAvatarStyle}>{getInitial(person.name)}</div>
+  );
 
 const formatDateForInput = (date) => {
   const parsedDate = new Date(date);

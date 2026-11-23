@@ -5,6 +5,23 @@ const EMAIL_REGEX =
 
 const PHONE_REGEX = /^\d{10}$/;
 
+// Same shape the bill form already sends: { url, publicId } or null.
+const photoSchema = new mongoose.Schema(
+  {
+    url: {
+      type: String,
+      trim: true,
+      required: true,
+    },
+    publicId: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+  },
+  { _id: false }
+);
+
 const personSchema = new mongoose.Schema(
   {
     customerId: {
@@ -52,6 +69,12 @@ const personSchema = new mongoose.Schema(
     address: {
       type: String,
       trim: true,
+      default: null,
+    },
+
+    // Optional profile photo ({ url, publicId }); null = no photo
+    photo: {
+      type: photoSchema,
       default: null,
     },
 
