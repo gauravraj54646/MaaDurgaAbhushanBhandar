@@ -1683,6 +1683,7 @@ const ReadOnlyMoneyInput = ({ placeholder, value }) => (
 
 const SummaryBox = ({ label, value, color = "#fff", large = false }) => (
   <div
+    className="alp-sum-box"
     style={{
       padding: "14px 12px",
       background: "#09090b",
@@ -2027,19 +2028,31 @@ const responsiveCss = `
 
     .alp-title { font-size: 22px; margin-bottom: 14px; }
 
+    /* Heading + Manage Loans button stay on ONE row */
     .alp-head {
-      flex-direction: column;
-      align-items: stretch;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-items: center;
+      justify-content: space-between;
       gap: 10px;
-      margin-bottom: 18px;
+      margin-bottom: 16px;
     }
 
-    .alp-subtitle { font-size: 18px; text-align: center; }
+    .alp-subtitle {
+      font-size: 17px;
+      text-align: left;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
     .alp-manage-btn {
-      width: 100%;
-      padding: 12px;
-      min-height: 44px;
+      flex-shrink: 0;
+      width: auto;
+      padding: 8px 12px;
+      min-height: 40px;
+      font-size: 12.5px;
     }
 
     .alp-form { gap: 16px; }
@@ -2076,8 +2089,24 @@ const responsiveCss = `
 
     .alp-wrap textarea { min-height: 0; }
 
+    /* Clearer depth + contrast on phones: lighter cards, visible borders,
+       brighter labels (inline colours need !important to be overridden) */
     .alp-card,
-    .alp-summary-card { padding: 14px; }
+    .alp-summary-card {
+      padding: 14px;
+      background: #1c1c20;
+      border: 1px solid #3f3f46;
+    }
+
+    .alp-wrap label { color: #d4d4d8 !important; }
+
+    .alp-wrap input,
+    .alp-wrap select,
+    .alp-wrap textarea {
+      border: 1px solid #52525b !important;
+    }
+
+    .alp-sum-box { border-color: #3f3f46 !important; }
 
     .alp-summary {
       grid-template-columns: 1fr 1fr;
