@@ -6,7 +6,7 @@ import BillPhotoUpload from "../components/BillPhotoUpload";
 const wordCount = (str = "") => str.trim().split(/\s+/).filter(Boolean).length;
 
 const isMobileScreen = () =>
-  typeof window !== "undefined" && window.innerWidth <= 680;
+  typeof window !== "undefined" && window.innerWidth <= 780;
 
 const AddBillProduct = () => {
   const { user } = useContext(AuthContext);
