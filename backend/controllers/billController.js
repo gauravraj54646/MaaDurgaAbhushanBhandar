@@ -496,9 +496,17 @@ const updateBill = async (req, res) => {
       // photo === undefined -> not sent, leave as is
       // photo === null      -> user removed it
       // photo = {url, ...}  -> new or unchanged photo
-      if (photo !== undefined) {
-        bill.photo = cleanPhoto(photo) || undefined;
-      }
+if (photo !== undefined) {
+  if (photo === null) {
+    bill.photo = undefined;
+  } else {
+    const validPhoto = cleanPhoto(photo);
+    if (!validPhoto) {
+      return res.status(400).json({ message: 'Invalid photo data.' });
+    }
+    bill.photo = validPhoto;
+  }
+}
       // .save() re-runs the pre-validate hook, so totals/tax/balanceDue
       // (and, when payments[] is non-empty, amountPaid/paymentMode too)
       // are recalculated from the updated data.
