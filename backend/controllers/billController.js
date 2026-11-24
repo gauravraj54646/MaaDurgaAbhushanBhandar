@@ -253,7 +253,7 @@ const getBills = async (req, res) => {
     const [bills, total] = await Promise.all([
       Bill.find(filter)
         .select(
-          'billNo billDate billType customerName mobileNo grandTotal paymentStatus balanceDue'
+          'billNo billDate billType customerName mobileNo grandTotal paymentStatus balanceDue photo.url'
         )
         .sort({ [sortField]: sortDirection })
         .skip(skip)

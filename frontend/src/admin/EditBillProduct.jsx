@@ -2,6 +2,7 @@ import React, { useState, useContext, useRef, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, useParams } from "react-router-dom";
 import BillPhotoUpload from "../components/BillPhotoUpload";
+import WhatsAppShare from "../components/WhatsAppShare";
 
 const wordCount = (str = "") => str.trim().split(/\s+/).filter(Boolean).length;
 
@@ -1391,6 +1392,20 @@ const EditBillProduct = () => {
             onChange={(photo) => handleChange("photo", photo)}
             onBusyChange={setPhotoBusy}
           />
+          {formData.photo?.url && (
+  <div style={{ marginTop: "12px" }}>
+    <WhatsAppShare
+      bill={{
+        billNo: formData.billNo,
+        customerName: formData.customerName,
+        mobileNo: formData.mobileNo,
+        grandTotal,
+        balanceDue,
+        photoUrl: formData.photo.url,
+      }}
+    />
+  </div>
+)}
         </SectionCard>
 
         <div className="save-bar">

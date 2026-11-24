@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
+import WhatsAppShare from "../components/WhatsAppShare";
 
 const statusColors = {
   paid: "#22c55e",
@@ -812,6 +813,18 @@ const AdminBillProduct = () => {
                         {bill.paymentStatus}
                       </span>
                     </Td>
+                    <div style={{ marginTop: "12px" }}>
+  <WhatsAppShare
+    bill={{
+      billNo: bill.billNo,
+      customerName: bill.customerName,
+      mobileNo: bill.mobileNo,
+      grandTotal: bill.grandTotal,
+      balanceDue: bill.balanceDue,
+      photoUrl: bill.photo?.url,
+    }}
+  />
+</div>
                     <Td align="right">
                       <button
                         type="button"
