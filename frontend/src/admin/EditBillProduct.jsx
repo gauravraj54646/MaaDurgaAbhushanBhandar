@@ -35,6 +35,8 @@ const EditBillProduct = () => {
   const [errors, setErrors] = useState({});
   const [showConfirm, setShowConfirm] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [customerPhotoBusy, setCustomerPhotoBusy] = useState(false);
+  const uploading = photoBusy || customerPhotoBusy;
 
   // =========================================================
   // LOAD EXISTING BILL
@@ -108,6 +110,9 @@ const EditBillProduct = () => {
           notes: data.notes || "",
           photo: data.photo?.url
             ? { url: data.photo.url, publicId: data.photo.publicId }
+            : null,
+          customerPhoto: data.customerPhoto?.url
+            ? { url: data.customerPhoto.url, publicId: data.customerPhoto.publicId }
             : null,
         });
       } catch (err) {
@@ -460,7 +465,7 @@ const EditBillProduct = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (photoBusy) {
+    if (uploading) {
       alert("Photo is still uploading. Please wait a moment.");
       return;
     }
@@ -543,6 +548,8 @@ const EditBillProduct = () => {
         notes: formData.notes,
         // null = photo removed, object = keep / replace
         photo: formData.photo || null,
+        // null = customer photo removed, object = keep / replace
+        customerPhoto: formData.customerPhoto || null,
       };
 
       const res = await fetch(`/api/bills/${id}`, {
@@ -1384,6 +1391,17 @@ const EditBillProduct = () => {
           <FieldError msg={errors.notes} />
         </div>
 
+        {/* CUSTOMER PHOTO */}
+        <SectionCard>
+          <SectionHeader title="Customer Photo (optional)" />
+          <BillPhotoUpload
+            value={formData.customerPhoto}
+            onChange={(photo) => handleChange("customerPhoto", photo)}
+            onBusyChange={setCustomerPhotoBusy}
+            label="Customer"
+          />
+        </SectionCard>
+
         {/* BILL PHOTO */}
         <SectionCard>
           <SectionHeader title="Bill Photo (optional)" />
@@ -1419,20 +1437,20 @@ const EditBillProduct = () => {
           </div>
           <button
             type="submit"
-            disabled={loading || photoBusy}
+            disabled={loading || uploading}
             style={{
               marginTop: "8px",
               padding: "14px",
               borderRadius: "8px",
               border: "none",
-              background: loading || photoBusy ? "#52525b" : "#f97316",
+              background: loading || uploading ? "#52525b" : "#f97316",
               color: "#fff",
-              cursor: loading || photoBusy ? "not-allowed" : "pointer",
+              cursor: loading || uploading ? "not-allowed" : "pointer",
               fontWeight: "600",
               fontSize: "15px",
             }}
           >
-            {loading ? "Saving..." : photoBusy ? "Uploading photo..." : "Save Changes"}
+            {loading ? "Saving..." : uploading ? "Uploading photo..." : "Save Changes"}
           </button>
         </div>
       </form>
