@@ -144,11 +144,13 @@ const LINE_TYPES = {
 // kind: "num" = plain decimal, "money" = ₹ input
 const LINE_FIELDS = {
   gold: [
+    { key: "name", label: "Item Name", kind: "text" },
     { key: "weight", label: "Weight (g)", kind: "num" },
     { key: "rate", label: "Rate / gram", kind: "money" },
     { key: "making", label: "Making (%)", kind: "num" },
   ],
   silver: [
+    { key: "name", label: "Item Name", kind: "text" },
     { key: "weight", label: "Weight (g)", kind: "num" },
     { key: "rate", label: "Rate / 10 gram", kind: "money" },
     { key: "making", label: "Making / gram", kind: "money" },
@@ -169,6 +171,7 @@ const MAX_HELPER_LINES = 50;
 const newLine = (type) => ({
   id: makeId(),
   type,
+  name: "",
   weight: "",
   rate: "",
   making: "",
@@ -217,12 +220,13 @@ const describeLine = (line, n) => {
   const w = line.weight || 0;
   const r = line.rate || 0;
   const m = line.making || 0;
+  const nm = line.name && line.name.trim() ? ` (${line.name.trim()})` : "";
 
   switch (line.type) {
     case "gold":
-      return `GOLD ${n}: ${w} g x Rs.${r}/g = Rs.${money(c.metal)} + Making ${m}% = Rs.${money(c.making)} => Rs.${money(c.total)}`;
+      return `GOLD ${n}${nm}: ${w} g x Rs.${r}/g = Rs.${money(c.metal)} + Making ${m}% = Rs.${money(c.making)} => Rs.${money(c.total)}`;
     case "silver":
-      return `SILVER ${n}: ${w} g x Rs.${r}/10g = Rs.${money(c.metal)} + Making Rs.${m}/g = Rs.${money(c.making)} => Rs.${money(c.total)}`;
+      return `SILVER ${n}${nm}: ${w} g x Rs.${r}/10g = Rs.${money(c.metal)} + Making Rs.${m}/g = Rs.${money(c.making)} => Rs.${money(c.total)}`;
     case "oldGold":
       return `OLD GOLD ${n}: ${w} g x Rs.${r}/g = - Rs.${money(c.total)}`;
     case "oldSilver":
@@ -298,13 +302,10 @@ const AddBillProduct = () => {
   const [showConfirm, setShowConfirm] = useState(false);
 
   // Receives generated text + total from the Description Helper
-  const applyHelper = ({ text, total, mode }) => {
+  const applyHelper = ({ text, total }) => {
     setFormData((prev) => ({
       ...prev,
-      description:
-        mode === "append" && prev.description.trim()
-          ? `${prev.description.trim()}\n${text}`
-          : text,
+      description: text,
       simpleAmount: total > 0 ? String(round2(total)) : prev.simpleAmount,
     }));
 
@@ -2143,6 +2144,8 @@ const AddBillProduct = () => {
           gap: 12px;
         }
 
+        .helper-full { grid-column: 1 / -1; }
+
         .helper-actions {
           display: flex;
           gap: 10px;
@@ -2498,9 +2501,17 @@ const DescriptionHelper = ({ onApply, defaultOpen = true }) => {
 
                   <div className="helper-grid">
                     {fields.map((f) => (
-                      <div key={f.key}>
+                      <div key={f.key} className={f.kind === "text" ? "helper-full" : undefined}>
                         <label style={smallLabelStyle}>{f.label}</label>
-                        {f.kind === "money" ? (
+                        {f.kind === "text" ? (
+                          <input
+                            type="text"
+                            placeholder="e.g. Necklace, Ring, Payal"
+                            value={line[f.key]}
+                            onChange={(e) => updateLine(line.id, f.key, e.target.value)}
+                            style={inputStyle}
+                          />
+                        ) : f.kind === "money" ? (
                           <MoneyInput
                             placeholder={f.label}
                             value={line[f.key]}
@@ -2612,7 +2623,7 @@ const DescriptionHelper = ({ onApply, defaultOpen = true }) => {
             <button
               type="button"
               disabled={!text}
-              onClick={() => onApply({ text, total, mode: "replace" })}
+              onClick={() => onApply({ text, total })}
               style={{
                 flex: 1,
                 padding: "11px 14px",
@@ -2628,24 +2639,6 @@ const DescriptionHelper = ({ onApply, defaultOpen = true }) => {
               Apply to Description & Amount
             </button>
 
-            <button
-              type="button"
-              disabled={!text}
-              onClick={() => onApply({ text, total, mode: "append" })}
-              style={{
-                flex: 1,
-                padding: "11px 14px",
-                borderRadius: "8px",
-                border: "1px solid #3f3f46",
-                background: "transparent",
-                color: text ? "#e4e4e7" : "#52525b",
-                fontWeight: "600",
-                fontSize: "13.5px",
-                cursor: text ? "pointer" : "not-allowed",
-              }}
-            >
-              Add below existing text
-            </button>
           </div>
         </div>
       )}
