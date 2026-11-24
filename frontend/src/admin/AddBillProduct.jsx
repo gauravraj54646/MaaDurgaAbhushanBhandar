@@ -127,6 +127,7 @@ const emptyForm = () => ({
   soldBy: "",
   notes: "",
   photo: null,
+  customerPhoto: null, // optional photo of the customer
 });
 
 // =========================================================
@@ -276,6 +277,8 @@ const AddBillProduct = () => {
   const personIdFromQuery = new URLSearchParams(location.search).get("personId");
   const [selectedPerson, setSelectedPerson] = useState(selectedPersonFromState);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [customerPhotoBusy, setCustomerPhotoBusy] = useState(false);
+  const uploading = photoBusy || customerPhotoBusy;
   // Changing this key resets the Description Helper's rows
   const [helperKey, setHelperKey] = useState(0);
 
@@ -503,6 +506,9 @@ const AddBillProduct = () => {
         notes: bill.notes || "",
         photo: bill.photo?.url
           ? { url: bill.photo.url, publicId: bill.photo.publicId }
+          : null,
+        customerPhoto: bill.customerPhoto?.url
+          ? { url: bill.customerPhoto.url, publicId: bill.customerPhoto.publicId }
           : null,
       });
 
@@ -957,7 +963,7 @@ const AddBillProduct = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (photoBusy) {
+    if (uploading) {
       alert("Photo is still uploading. Please wait a moment.");
       return;
     }
@@ -1052,6 +1058,7 @@ const AddBillProduct = () => {
         soldBy: formData.soldBy,
         notes: formData.notes,
         photo: formData.photo || null,
+        customerPhoto: formData.customerPhoto || null,
       };
 
       const res = await fetch(
@@ -2033,6 +2040,16 @@ const AddBillProduct = () => {
             BILL PHOTO
         ====================================================== */}
         <SectionCard>
+          <SectionHeader title="Customer Photo (optional)" />
+          <BillPhotoUpload
+            value={formData.customerPhoto}
+            onChange={(photo) => handleChange("customerPhoto", photo)}
+            onBusyChange={setCustomerPhotoBusy}
+            label="Customer"
+          />
+        </SectionCard>
+
+        <SectionCard>
           <SectionHeader title="Bill Photo (optional)" />
           <BillPhotoUpload
             value={formData.photo}
@@ -2047,22 +2064,22 @@ const AddBillProduct = () => {
         <button
           type="submit"
           className="submit-btn"
-          disabled={loading || photoBusy}
+          disabled={loading || uploading}
           style={{
             marginTop: "8px",
             padding: "14px",
             borderRadius: "8px",
             border: "none",
-            background: loading || photoBusy ? "#52525b" : "#f97316",
+            background: loading || uploading ? "#52525b" : "#f97316",
             color: "#fff",
-            cursor: loading || photoBusy ? "not-allowed" : "pointer",
+            cursor: loading || uploading ? "not-allowed" : "pointer",
             fontWeight: "600",
             fontSize: "15px",
           }}
         >
           {loading
             ? "Saving..."
-            : photoBusy
+            : uploading
             ? "Uploading photo..."
             : loadedBillId
             ? "Update Bill"

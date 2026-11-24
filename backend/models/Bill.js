@@ -228,6 +228,12 @@ const billSchema = new mongoose.Schema(
   publicId: { type: String },
 },
 
+    // Optional photo of the customer, taken for this bill
+    customerPhoto: {
+      url: { type: String },
+      publicId: { type: String },
+    },
+
     // ----- Items purchased -----  //
       items: {
       type: [billItemSchema],

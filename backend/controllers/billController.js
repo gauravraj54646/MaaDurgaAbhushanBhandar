@@ -253,7 +253,7 @@ const getBills = async (req, res) => {
     const [bills, total] = await Promise.all([
       Bill.find(filter)
         .select(
-          'billNo billDate billType customerName mobileNo grandTotal paymentStatus balanceDue photo.url'
+          'billNo billDate billType customerName mobileNo grandTotal paymentStatus balanceDue photo.url customerPhoto.url'
         )
         .sort({ [sortField]: sortDirection })
         .skip(skip)
@@ -325,7 +325,7 @@ const createBill = async (req, res) => {
       payments, paymentMode, amountPaid,
       soldBy, notes, personId,
       billType, description, simpleAmount,
-       photo,
+       photo, customerPhoto,
     } = req.body;
 
     const bill = new Bill({
@@ -376,6 +376,7 @@ const createBill = async (req, res) => {
       soldBy,
       notes,
       ...(cleanPhoto(photo) && { photo: cleanPhoto(photo) }),
+      ...(cleanPhoto(customerPhoto) && { customerPhoto: cleanPhoto(customerPhoto) }),
       isDeleted: false,
     });
 
@@ -396,6 +397,7 @@ const createBill = async (req, res) => {
         const bill = new Bill({
           ...req.body,
           photo: cleanPhoto(req.body.photo) || undefined,
+          customerPhoto: cleanPhoto(req.body.customerPhoto) || undefined,
           payments: cleanPayments(req.body.payments),
           billNo: await generateBillNo(),
           isDeleted: false,
@@ -426,7 +428,7 @@ const updateBill = async (req, res) => {
       payments, paymentMode, amountPaid,
       soldBy, notes, isCancelled,
       billType, description, simpleAmount,
-      photo,
+      photo, customerPhoto,
     } = req.body;
 
     const bill = await Bill.findOne({
@@ -437,6 +439,7 @@ const updateBill = async (req, res) => {
     if (bill) {
       const oldBillNo = bill.billNo;
       const oldPhotoId = bill.photo?.publicId;
+      const oldCustomerPhotoId = bill.customerPhoto?.publicId;
       bill.billNo = billNo ? billNo.trim().toUpperCase() : bill.billNo;
       bill.billDate = billDate ?? bill.billDate;
       bill.billType = billType ?? bill.billType;
@@ -507,6 +510,19 @@ if (photo !== undefined) {
     bill.photo = validPhoto;
   }
 }
+      // Customer photo (same rules as photo above)
+      if (customerPhoto !== undefined) {
+        if (customerPhoto === null) {
+          bill.customerPhoto = undefined;
+        } else {
+          const validCustomerPhoto = cleanPhoto(customerPhoto);
+          if (!validCustomerPhoto) {
+            return res.status(400).json({ message: 'Invalid customer photo data.' });
+          }
+          bill.customerPhoto = validCustomerPhoto;
+        }
+      }
+
       // .save() re-runs the pre-validate hook, so totals/tax/balanceDue
       // (and, when payments[] is non-empty, amountPaid/paymentMode too)
       // are recalculated from the updated data.
@@ -515,6 +531,13 @@ if (photo !== undefined) {
      // Delete the old image from Cloudinary only after the bill saved successfully
       if (oldPhotoId && oldPhotoId !== updatedBill.photo?.publicId) {
         await deletePhotoFromCloudinary(oldPhotoId);
+      }
+
+      if (
+        oldCustomerPhotoId &&
+        oldCustomerPhotoId !== updatedBill.customerPhoto?.publicId
+      ) {
+        await deletePhotoFromCloudinary(oldCustomerPhotoId);
       }
 
       // Keep Person.billNumbers in sync if the bill number was edited.
@@ -538,12 +561,15 @@ const deleteBill = async (req, res) => {
 
   if (bill) {
   const photoId = bill.photo?.publicId;
+  const customerPhotoId = bill.customerPhoto?.publicId;
 
   bill.isDeleted = true;
   bill.photo = undefined;
+  bill.customerPhoto = undefined;
   await bill.save();
 
   await deletePhotoFromCloudinary(photoId);
+  await deletePhotoFromCloudinary(customerPhotoId);
   await unlinkBillFromPeople(bill.billNo);
 
   res.json({ message: 'Bill deleted successfully' });
