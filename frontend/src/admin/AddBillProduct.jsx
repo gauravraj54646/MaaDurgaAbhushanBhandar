@@ -129,6 +129,140 @@ const emptyForm = () => ({
   photo: null,
 });
 
+// =========================================================
+// DESCRIPTION HELPER (jewellery lines -> description text + total)
+// =========================================================
+
+const LINE_TYPES = {
+  gold: { label: "Gold", icon: "🥇", sign: 1 },
+  silver: { label: "Silver", icon: "🥈", sign: 1 },
+  oldGold: { label: "Old Gold", icon: "♻️", sign: -1 },
+  oldSilver: { label: "Old Silver", icon: "♻️", sign: -1 },
+  discount: { label: "Discount", icon: "🏷️", sign: -1 },
+};
+
+// kind: "num" = plain decimal, "money" = ₹ input
+const LINE_FIELDS = {
+  gold: [
+    { key: "weight", label: "Weight (g)", kind: "num" },
+    { key: "rate", label: "Rate / gram", kind: "money" },
+    { key: "making", label: "Making (%)", kind: "num" },
+  ],
+  silver: [
+    { key: "weight", label: "Weight (g)", kind: "num" },
+    { key: "rate", label: "Rate / 10 gram", kind: "money" },
+    { key: "making", label: "Making / gram", kind: "money" },
+  ],
+  oldGold: [
+    { key: "weight", label: "Weight (g)", kind: "num" },
+    { key: "rate", label: "Rate / gram", kind: "money" },
+  ],
+  oldSilver: [
+    { key: "weight", label: "Weight (g)", kind: "num" },
+    { key: "rate", label: "Rate / 10 gram", kind: "money" },
+  ],
+  discount: [{ key: "amount", label: "Discount Amount", kind: "money" }],
+};
+
+const MAX_HELPER_LINES = 50;
+
+const newLine = (type) => ({
+  id: makeId(),
+  type,
+  weight: "",
+  rate: "",
+  making: "",
+  amount: "",
+});
+
+const cleanDecimal = (value) => {
+  const cleaned = String(value).replace(/[^0-9.]/g, "");
+  const parts = cleaned.split(".");
+  return parts.length > 2 ? `${parts[0]}.${parts.slice(1).join("")}` : cleaned;
+};
+
+const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+const money = (n) => round2(n).toFixed(2);
+
+const computeLine = (line) => {
+  const w = Number(line.weight || 0);
+  const r = Number(line.rate || 0);
+  const m = Number(line.making || 0);
+  const a = Number(line.amount || 0);
+
+  switch (line.type) {
+    case "gold": {
+      const metal = w * r;
+      const making = metal * (m / 100);
+      return { metal, making, total: metal + making };
+    }
+    case "silver": {
+      const metal = (w * r) / 10;
+      const making = w * m;
+      return { metal, making, total: metal + making };
+    }
+    case "oldGold":
+      return { metal: w * r, making: 0, total: w * r };
+    case "oldSilver":
+      return { metal: (w * r) / 10, making: 0, total: (w * r) / 10 };
+    case "discount":
+      return { metal: a, making: 0, total: a };
+    default:
+      return { metal: 0, making: 0, total: 0 };
+  }
+};
+
+const describeLine = (line, n) => {
+  const c = computeLine(line);
+  const w = line.weight || 0;
+  const r = line.rate || 0;
+  const m = line.making || 0;
+
+  switch (line.type) {
+    case "gold":
+      return `GOLD ${n}: ${w} g x Rs.${r}/g = Rs.${money(c.metal)} + Making ${m}% = Rs.${money(c.making)} => Rs.${money(c.total)}`;
+    case "silver":
+      return `SILVER ${n}: ${w} g x Rs.${r}/10g = Rs.${money(c.metal)} + Making Rs.${m}/g = Rs.${money(c.making)} => Rs.${money(c.total)}`;
+    case "oldGold":
+      return `OLD GOLD ${n}: ${w} g x Rs.${r}/g = - Rs.${money(c.total)}`;
+    case "oldSilver":
+      return `OLD SILVER ${n}: ${w} g x Rs.${r}/10g = - Rs.${money(c.total)}`;
+    case "discount":
+      return `DISCOUNT${n > 1 ? ` ${n}` : ""}: - Rs.${money(c.total)}`;
+    default:
+      return "";
+  }
+};
+
+const buildDescription = (lines) => {
+  const counters = {};
+  const out = [];
+  let additions = 0;
+  let deductions = 0;
+
+  lines.forEach((line) => {
+    const c = computeLine(line);
+    if (c.total <= 0) return; // skip empty rows
+
+    counters[line.type] = (counters[line.type] || 0) + 1;
+    out.push(describeLine(line, counters[line.type]));
+
+    if (LINE_TYPES[line.type].sign > 0) additions += c.total;
+    else deductions += c.total;
+  });
+
+  const total = additions - deductions;
+
+  if (out.length > 0) {
+    const words = total > 0 ? numberToWords(Math.round(total)) : "";
+    out.push(
+      `TOTAL AMOUNT: Rs.${money(Math.max(total, 0))}${words ? ` (${words})` : ""}`
+    );
+  }
+
+  return { text: out.join("\n"), additions, deductions, total };
+};
+
 const AddBillProduct = () => {
   const { user } = useContext(AuthContext) || {};
   const navigate = useNavigate();
@@ -138,6 +272,8 @@ const AddBillProduct = () => {
   const personIdFromQuery = new URLSearchParams(location.search).get("personId");
   const [selectedPerson, setSelectedPerson] = useState(selectedPersonFromState);
   const [photoBusy, setPhotoBusy] = useState(false);
+  // Changing this key resets the Description Helper's rows
+  const [helperKey, setHelperKey] = useState(0);
 
   // Keep the latest router-state person in a ref so the effect below can
   // depend on the person's id only (avoids re-running and overwriting
@@ -160,6 +296,24 @@ const AddBillProduct = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // Receives generated text + total from the Description Helper
+  const applyHelper = ({ text, total, mode }) => {
+    setFormData((prev) => ({
+      ...prev,
+      description:
+        mode === "append" && prev.description.trim()
+          ? `${prev.description.trim()}\n${text}`
+          : text,
+      simpleAmount: total > 0 ? String(round2(total)) : prev.simpleAmount,
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      description: "",
+      simpleAmount: total > 0 ? "" : prev.simpleAmount,
+    }));
+  };
 
   // =========================================================
   // COLLAPSED CARDS (UI only - never sent to the server)
@@ -363,6 +517,7 @@ const AddBillProduct = () => {
       }
 
       setLoadedBillId(bill._id);
+      setHelperKey((k) => k + 1);
       setErrors({});
       setSearchMessage({
         type: "success",
@@ -384,6 +539,7 @@ const AddBillProduct = () => {
     setSearchMessage({ type: "", text: "" });
     setErrors({});
     setCollapsed({});
+    setHelperKey((k) => k + 1);
     setFormData(emptyForm());
   };
 
@@ -723,8 +879,8 @@ const AddBillProduct = () => {
     if (isSimple) {
       if (!formData.description.trim()) {
         errs.description = "Description is required.";
-      } else if (wordCount(formData.description) > 300) {
-        errs.description = "Description must be 300 words or fewer.";
+      } else if (wordCount(formData.description) > 500) {
+        errs.description = "Description must be 500 words or fewer.";
       }
 
       if (formData.simpleAmount === "" || Number(formData.simpleAmount) <= 0) {
@@ -1202,11 +1358,17 @@ const AddBillProduct = () => {
             <SectionHeader title="Bill Details" />
 
             <div style={{ display: "grid", gap: "16px" }}>
+              <DescriptionHelper
+                key={helperKey}
+                defaultOpen={!loadedBillId}
+                onApply={applyHelper}
+              />
+
               <div>
                 <label style={smallLabelStyle}>Description</label>
                 <textarea
                   placeholder="What is this bill for?"
-                  rows="3"
+                  rows="6"
                   value={formData.description}
                   onChange={(e) => handleChange("description", e.target.value)}
                   ref={(el) => (fieldRefs.current.description = el)}
@@ -1968,6 +2130,25 @@ const AddBillProduct = () => {
           outline-offset: 2px;
         }
 
+        /* ---------- Description helper ---------- */
+        .helper-add {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .helper-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+        }
+
+        .helper-actions {
+          display: flex;
+          gap: 10px;
+          margin-top: 12px;
+        }
+
         /* ---------- Tablet ---------- */
         @media (max-width: 1100px) {
           .bill-container { padding: 28px 24px; }
@@ -2072,6 +2253,21 @@ const AddBillProduct = () => {
 
           .full-mobile { grid-column: 1 / -1; }
 
+          /* Description helper on phones */
+          .helper-add {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+          }
+          .helper-add button { width: 100%; padding: 10px 6px !important; }
+
+          .helper-grid {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 10px !important;
+          }
+
+          .helper-actions { flex-direction: column; }
+
           /* Payment: date | amount | mode on ONE row */
           .payment-grid {
             grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.9fr) !important;
@@ -2139,6 +2335,323 @@ const AddBillProduct = () => {
 // =========================================================
 // COMPONENTS
 // =========================================================
+
+// Builder that turns gold / silver / old metal / discount rows into a
+// ready description and a total amount. Rows are UI-only state; only the
+// generated text and total are pushed into the form via onApply.
+const DescriptionHelper = ({ onApply, defaultOpen = true }) => {
+  const [open, setOpen] = useState(defaultOpen);
+  const [lines, setLines] = useState([]);
+
+  const addLine = (type) => {
+    if (lines.length >= MAX_HELPER_LINES) {
+      alert(`Maximum ${MAX_HELPER_LINES} rows are allowed.`);
+      return;
+    }
+    setLines((prev) => [...prev, newLine(type)]);
+  };
+
+  const removeLine = (id) =>
+    setLines((prev) => prev.filter((line) => line.id !== id));
+
+  const updateLine = (id, field, value) =>
+    setLines((prev) =>
+      prev.map((line) => (line.id === id ? { ...line, [field]: value } : line))
+    );
+
+  const { text, additions, deductions, total } = buildDescription(lines);
+
+  // Numbering per type (Gold 1, Gold 2, Silver 1 ...)
+  const typeCounters = {};
+
+  return (
+    <div
+      style={{
+        border: "1px solid #3f3f46",
+        borderRadius: "10px",
+        background: "#09090b",
+        padding: "12px",
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        style={{
+          width: "100%",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "8px",
+          padding: 0,
+          border: "none",
+          background: "transparent",
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
+        <span>
+          <span style={{ color: "#f97316", fontSize: "14px", fontWeight: "700" }}>
+            ✨ Description Helper
+          </span>
+          <span style={{ display: "block", color: "#71717a", fontSize: "12px", marginTop: "2px" }}>
+            Add gold, silver, old metal and discount rows - the description and
+            amount are written for you.
+          </span>
+        </span>
+        <span
+          aria-hidden="true"
+          style={{
+            color: "#f97316",
+            fontSize: "12px",
+            transition: "transform 0.15s ease",
+            transform: open ? "rotate(90deg)" : "rotate(0deg)",
+          }}
+        >
+          ▶
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ marginTop: "12px" }}>
+          {/* ---------- add buttons ---------- */}
+          <div className="helper-add">
+            {Object.keys(LINE_TYPES).map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => addLine(type)}
+                style={{
+                  border: "1px solid #3f3f46",
+                  background: LINE_TYPES[type].sign > 0 ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
+                  color: LINE_TYPES[type].sign > 0 ? "#22c55e" : "#ef4444",
+                  borderRadius: "7px",
+                  padding: "9px 12px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                + {LINE_TYPES[type].icon} {LINE_TYPES[type].label}
+              </button>
+            ))}
+          </div>
+
+          {/* ---------- rows ---------- */}
+          <div style={{ marginTop: "12px" }}>
+            {lines.map((line) => {
+              typeCounters[line.type] = (typeCounters[line.type] || 0) + 1;
+              const meta = LINE_TYPES[line.type];
+              const c = computeLine(line);
+              const fields = LINE_FIELDS[line.type];
+              const isAddition = meta.sign > 0;
+
+              return (
+                <div
+                  key={line.id}
+                  className="row-card"
+                  style={{
+                    ...rowCardStyle,
+                    border: "1px solid #27272a",
+                    borderRadius: "8px",
+                    padding: "10px",
+                    background: "#111113",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginBottom: "10px",
+                    }}
+                  >
+                    <span style={{ color: "#e4e4e7", fontSize: "13px", fontWeight: "700" }}>
+                      {meta.icon} {meta.label}
+                      {line.type !== "discount" || typeCounters[line.type] > 1
+                        ? ` ${typeCounters[line.type]}`
+                        : ""}
+                    </span>
+
+                    <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                      <b
+                        style={{
+                          color: isAddition ? "#22c55e" : "#ef4444",
+                          fontSize: "13px",
+                        }}
+                      >
+                        {isAddition ? "" : "-"}₹{money(c.total)}
+                      </b>
+                      <button
+                        type="button"
+                        onClick={() => removeLine(line.id)}
+                        title="Remove row"
+                        aria-label="Remove row"
+                        style={{ ...deleteButtonStyle, minWidth: "44px" }}
+                      >
+                        🗑
+                      </button>
+                    </span>
+                  </div>
+
+                  <div className="helper-grid">
+                    {fields.map((f) => (
+                      <div key={f.key}>
+                        <label style={smallLabelStyle}>{f.label}</label>
+                        {f.kind === "money" ? (
+                          <MoneyInput
+                            placeholder={f.label}
+                            value={line[f.key]}
+                            onChange={(e) => updateLine(line.id, f.key, e.target.value)}
+                            compact
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder={f.label}
+                            value={line[f.key]}
+                            onChange={(e) =>
+                              updateLine(line.id, f.key, cleanDecimal(e.target.value))
+                            }
+                            style={inputStyle}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {(line.type === "gold" || line.type === "silver") && c.total > 0 && (
+                    <div style={{ marginTop: "8px", color: "#71717a", fontSize: "12px" }}>
+                      Metal ₹{money(c.metal)} + Making ₹{money(c.making)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {lines.length === 0 && (
+              <div style={emptyStyle}>
+                Tap a button above to add a gold, silver, old metal or discount row
+              </div>
+            )}
+          </div>
+
+          {/* ---------- totals ---------- */}
+          {lines.length > 0 && (
+            <div
+              style={{
+                marginTop: "6px",
+                padding: "10px 12px",
+                background: "#111113",
+                border: "1px solid #27272a",
+                borderRadius: "8px",
+                display: "grid",
+                gap: "4px",
+                fontSize: "13px",
+                color: "#a1a1aa",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Gold + Silver</span>
+                <b style={{ color: "#22c55e" }}>₹{money(additions)}</b>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Old metal + Discount</span>
+                <b style={{ color: "#ef4444" }}>-₹{money(deductions)}</b>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  borderTop: "1px solid #27272a",
+                  paddingTop: "6px",
+                  marginTop: "2px",
+                  fontSize: "15px",
+                }}
+              >
+                <span style={{ color: "#e4e4e7", fontWeight: "700" }}>Total Amount</span>
+                <b style={{ color: "#22c55e" }}>₹{money(Math.max(total, 0))}</b>
+              </div>
+              {total < 0 && (
+                <div style={{ color: "#f59e0b", fontSize: "12px" }}>
+                  ⚠ Old metal + discount is higher than gold + silver by ₹
+                  {money(Math.abs(total))}.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ---------- preview ---------- */}
+          {text && (
+            <pre
+              style={{
+                margin: "10px 0 0",
+                padding: "10px 12px",
+                background: "#111113",
+                border: "1px dashed #3f3f46",
+                borderRadius: "8px",
+                color: "#a1a1aa",
+                fontSize: "12px",
+                lineHeight: "1.5",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                fontFamily: "inherit",
+                maxHeight: "180px",
+                overflowY: "auto",
+              }}
+            >
+              {text}
+            </pre>
+          )}
+
+          {/* ---------- actions ---------- */}
+          <div className="helper-actions">
+            <button
+              type="button"
+              disabled={!text}
+              onClick={() => onApply({ text, total, mode: "replace" })}
+              style={{
+                flex: 1,
+                padding: "11px 14px",
+                borderRadius: "8px",
+                border: "none",
+                background: text ? "#f97316" : "#27272a",
+                color: "#fff",
+                fontWeight: "600",
+                fontSize: "13.5px",
+                cursor: text ? "pointer" : "not-allowed",
+              }}
+            >
+              Apply to Description & Amount
+            </button>
+
+            <button
+              type="button"
+              disabled={!text}
+              onClick={() => onApply({ text, total, mode: "append" })}
+              style={{
+                flex: 1,
+                padding: "11px 14px",
+                borderRadius: "8px",
+                border: "1px solid #3f3f46",
+                background: "transparent",
+                color: text ? "#e4e4e7" : "#52525b",
+                fontWeight: "600",
+                fontSize: "13.5px",
+                cursor: text ? "pointer" : "not-allowed",
+              }}
+            >
+              Add below existing text
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ConfirmPublishModal = ({
   customerName,
