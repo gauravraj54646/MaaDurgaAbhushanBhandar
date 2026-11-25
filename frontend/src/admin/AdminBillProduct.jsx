@@ -817,6 +817,7 @@ const AdminBillProduct = () => {
   <WhatsAppShare
     bill={{
       billNo: bill.billNo,
+      billDate: bill.billDate,
       customerName: bill.customerName,
       mobileNo: bill.mobileNo,
       grandTotal: bill.grandTotal,

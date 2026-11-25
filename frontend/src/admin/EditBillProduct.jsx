@@ -1415,6 +1415,7 @@ const EditBillProduct = () => {
     <WhatsAppShare
       bill={{
         billNo: formData.billNo,
+        billDate: formData.billDate,
         customerName: formData.customerName,
         mobileNo: formData.mobileNo,
         grandTotal,

@@ -5,7 +5,7 @@ import {
   shareBillFile,
 } from "../utils/whatsapp";
 
-// bill: { billNo, customerName, mobileNo, grandTotal, balanceDue, photoUrl }
+// bill: { billNo, billDate, customerName, mobileNo, grandTotal, balanceDue, photoUrl }
 const WhatsAppShare = ({ bill }) => {
   const [state, setState] = useState("idle"); // idle | preparing | ready
   const [note, setNote] = useState("");
@@ -52,13 +52,13 @@ const WhatsAppShare = ({ bill }) => {
   };
 
   const photoLabel =
-    state === "preparing" ? "Preparing..." : state === "ready" ? "✅ Share now" : "📤 Send Photo";
+    state === "preparing" ? "Preparing..." : state === "ready" ? "Share now" : "Send Photo";
 
   return (
     <div>
       <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
         <button type="button" onClick={() => openWhatsAppChat(bill)} style={waBtn}>
-          💬 WhatsApp
+          WhatsApp
         </button>
 
         {bill.photoUrl && (
