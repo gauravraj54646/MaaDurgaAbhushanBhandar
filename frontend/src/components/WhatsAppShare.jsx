@@ -1,36 +1,80 @@
-import React, { useState } from "react";
-import { openWhatsAppChat, shareBillPhoto } from "../utils/whatsapp";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  openWhatsAppChat,
+  fetchBillPhotoFile,
+  shareBillFile,
+} from "../utils/whatsapp";
 
 // bill: { billNo, customerName, mobileNo, grandTotal, balanceDue, photoUrl }
 const WhatsAppShare = ({ bill }) => {
-  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState("idle"); // idle | preparing | ready
+  const [note, setNote] = useState("");
+  const fileRef = useRef(null);
 
-  const handleSendPhoto = async () => {
-    setBusy(true);
+  // A different photo means the prepared file is no longer valid
+  useEffect(() => {
+    fileRef.current = null;
+    setState("idle");
+    setNote("");
+  }, [bill.photoUrl]);
+
+  const handlePhotoButton = async () => {
+    // Second tap: share right away, with no await before it
+    if (state === "ready" && fileRef.current) {
+      try {
+        await shareBillFile(fileRef.current, bill);
+      } catch (err) {
+        if (err?.name !== "AbortError") {
+          setNote("Could not open the share sheet. Use the WhatsApp button instead.");
+        }
+      }
+      return;
+    }
+
+    // First tap: download the photo
+    setState("preparing");
+    setNote("");
+
     try {
-      const shared = await shareBillPhoto(bill);
-      if (!shared) {
-        // This browser can't share files, so fall back to the chat link
-        openWhatsAppChat(bill);
+      const file = await fetchBillPhotoFile(bill);
+
+      if (file) {
+        fileRef.current = file;
+        setState("ready");
+      } else {
+        setState("idle");
+        setNote("This browser can't share photos. Use the WhatsApp button (it includes the photo link).");
       }
     } catch (err) {
-      // User closing the share sheet throws AbortError; ignore that
-      if (err?.name !== "AbortError") openWhatsAppChat(bill);
-    } finally {
-      setBusy(false);
+      setState("idle");
+      setNote("Could not load the photo. Check your internet and try again.");
     }
   };
 
-  return (
-    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-      <button type="button" onClick={() => openWhatsAppChat(bill)} style={waBtn}>
-        💬 WhatsApp
-      </button>
+  const photoLabel =
+    state === "preparing" ? "Preparing..." : state === "ready" ? "✅ Share now" : "📤 Send Photo";
 
-      {bill.photoUrl && (
-        <button type="button" onClick={handleSendPhoto} disabled={busy} style={waBtn}>
-          {busy ? "Preparing..." : "📤 Send Photo"}
+  return (
+    <div>
+      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+        <button type="button" onClick={() => openWhatsAppChat(bill)} style={waBtn}>
+          💬 WhatsApp
         </button>
+
+        {bill.photoUrl && (
+          <button
+            type="button"
+            onClick={handlePhotoButton}
+            disabled={state === "preparing"}
+            style={waBtn}
+          >
+            {photoLabel}
+          </button>
+        )}
+      </div>
+
+      {note && (
+        <p style={{ color: "#f59e0b", fontSize: "12px", margin: "8px 0 0" }}>{note}</p>
       )}
     </div>
   );
