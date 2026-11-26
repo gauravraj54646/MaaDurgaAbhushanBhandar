@@ -88,18 +88,43 @@ const EditBillProduct = () => {
             : [];
 
         setFormData({
-          billNo: data.billNo || "",
+          billNo: String(data.billNo || ""),
           billDate: toDateInput(data.billDate),
           billType: data.billType || "jewellery",
           description: data.description || "",
           simpleAmount: data.simpleAmount ? String(data.simpleAmount) : "",
           customerName: data.customerName || "",
-          mobileNo: data.mobileNo || "",
+          mobileNo: String(data.mobileNo || ""),
           address: data.address || "",
           gstin: data.gstin || "",
-          items: (data.items || []).map((i, idx) => ({ id: `existing_${idx}`, ...i })),
+          // Defaults keep inputs controlled even for older bills with missing fields
+          items: (data.items || []).map((i, idx) => ({
+            id: `existing_${idx}`,
+            itemName: "",
+            category: "gold",
+            huid: "",
+            purity: "",
+            hsnCode: "",
+            grossWeight: "",
+            stoneWeight: "",
+            netWeight: "",
+            ratePerGram: "",
+            makingChargeType: "perGram",
+            makingCharge: "",
+            wastagePercent: "",
+            stoneCharge: "",
+            quantity: 1,
+            ...i,
+          })),
           exchangeItems: (data.exchangeItems || []).map((e, idx) => ({
             id: `existing_ex_${idx}`,
+            description: "",
+            category: "gold",
+            grossWeight: "",
+            purity: "",
+            deduction: "",
+            netWeight: "",
+            ratePerGram: "",
             ...e,
           })),
           discount: data.discount ?? "",
@@ -406,7 +431,7 @@ const EditBillProduct = () => {
       }
 
       items.forEach((item, index) => {
-        if (!item.itemName.trim()) {
+        if (!String(item.itemName || "").trim()) {
           errs[`itemName_${index}`] = `Item name is required for Item ${index + 1}.`;
         }
         if (item.grossWeight === "" || Number(item.grossWeight) < 0) {
@@ -441,7 +466,7 @@ const EditBillProduct = () => {
       }
     });
 
-    if (amountPaidValue > grandTotal) {
+    if (amountPaidValue - grandTotal > 0.005) {
       errs.payments = `Total amount paid cannot exceed the grand total of ₹${grandTotal.toFixed(2)}.`;
     }
 
@@ -527,13 +552,13 @@ const EditBillProduct = () => {
           : "mixed";
 
       const submitData = {
-        billNo: formData.billNo.trim(),
+        billNo: String(formData.billNo || "").trim(),
         billDate: formData.billDate,
         billType: formData.billType,
         description: isSimple ? formData.description.trim() : undefined,
         simpleAmount: isSimple ? Number(formData.simpleAmount || 0) : 0,
         customerName: formData.customerName,
-        mobileNo: formData.mobileNo.trim(),
+        mobileNo: String(formData.mobileNo || "").trim(),
         address: formData.address,
         gstin: isSimple ? "" : formData.gstin,
         items: isSimple ? [] : cleanedItems,
@@ -1280,6 +1305,8 @@ const EditBillProduct = () => {
                     style={{ ...inputStyle, cursor: "pointer" }}
                   >
                     <option value="cash">Cash</option>
+                    <option value="old_gold">Purana Sona</option>
+                    <option value="old_silver">Purana Chandi</option>
                     <option value="card">Card</option>
                     <option value="upi">UPI</option>
                     <option value="cheque">Cheque</option>
@@ -1411,20 +1438,20 @@ const EditBillProduct = () => {
             onBusyChange={setPhotoBusy}
           />
           {formData.photo?.url && (
-  <div style={{ marginTop: "12px" }}>
-    <WhatsAppShare
-      bill={{
-        billNo: formData.billNo,
-        billDate: formData.billDate,
-        customerName: formData.customerName,
-        mobileNo: formData.mobileNo,
-        grandTotal,
-        balanceDue,
-        photoUrl: formData.photo.url,
-      }}
-    />
-  </div>
-)}
+            <div style={{ marginTop: "12px" }}>
+              <WhatsAppShare
+                bill={{
+                  billNo: formData.billNo,
+                  billDate: formData.billDate,
+                  customerName: formData.customerName,
+                  mobileNo: formData.mobileNo,
+                  grandTotal,
+                  balanceDue,
+                  photoUrl: formData.photo.url,
+                }}
+              />
+            </div>
+          )}
         </SectionCard>
 
         <div className="save-bar">
@@ -1461,6 +1488,7 @@ const EditBillProduct = () => {
           customerName={formData.customerName}
           grandTotal={grandTotal}
           amountPaid={amountPaidValue}
+          balanceDue={balanceDue}
           loading={loading}
           onCancel={() => setShowConfirm(false)}
           onConfirm={confirmSubmit}
@@ -1590,7 +1618,15 @@ const EditBillProduct = () => {
 // COMPONENTS (mirrors AddBillProduct)
 // =========================================================
 
-const ConfirmSaveModal = ({ customerName, grandTotal, amountPaid, loading, onCancel, onConfirm }) => (
+const ConfirmSaveModal = ({
+  customerName,
+  grandTotal,
+  amountPaid,
+  balanceDue,
+  loading,
+  onCancel,
+  onConfirm,
+}) => (
   <div
     role="dialog"
     aria-modal="true"
@@ -1629,6 +1665,7 @@ const ConfirmSaveModal = ({ customerName, grandTotal, amountPaid, loading, onCan
       <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "22px" }}>
         <ConfirmRow label="Grand Total" value={`₹${grandTotal.toFixed(2)}`} />
         <ConfirmRow label="Amount Paid" value={`₹${amountPaid.toFixed(2)}`} />
+        <ConfirmRow label="Balance Due" value={`₹${balanceDue.toFixed(2)}`} />
       </div>
 
       <div style={{ display: "flex", gap: "10px" }}>

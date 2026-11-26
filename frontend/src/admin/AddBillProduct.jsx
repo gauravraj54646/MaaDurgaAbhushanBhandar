@@ -1888,6 +1888,8 @@ const AddBillProduct = () => {
                         style={{ ...inputStyle, cursor: "pointer" }}
                       >
                         <option value="cash">Cash</option>
+                        <option value="cash">purana sona</option>
+                        <option value="cash">purana chandi</option>
                         <option value="card">Card</option>
                         <option value="upi">UPI</option>
                         <option value="cheque">Cheque</option>
@@ -2715,10 +2717,11 @@ const ConfirmPublishModal = ({
         <ConfirmRow label="Customer" value={customerName || "-"} />
         <ConfirmRow label="Mobile" value={mobileNo || "-"} />
         <ConfirmRow label="Bill Date" value={formatDisplayDate(billDate)} />
-        <ConfirmRow label="Items Subtotal" value={`₹${itemsSubtotal.toFixed(2)}`} />
-        <ConfirmRow label="Exchange Total" value={`-₹${exchangeTotal.toFixed(2)}`} />
+      {/*  <ConfirmRow label="Items Subtotal" value={`₹${itemsSubtotal.toFixed(2)}`} />
+        <ConfirmRow label="Exchange Total" value={`-₹${exchangeTotal.toFixed(2)}`} /> */}
         <ConfirmRow label="Grand Total" value={`₹${grandTotal.toFixed(2)}`} />
         <ConfirmRow label="Amount Paid" value={`₹${amountPaid.toFixed(2)}`} />
+        <ConfirmRow label="Balance Due" value={`₹${balanceDue.toFixed(2)}`} />
       </div>
 
       <div className="modal-actions" style={{ display: "flex", gap: "10px" }}>

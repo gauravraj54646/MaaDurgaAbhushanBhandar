@@ -8,20 +8,18 @@ const Navbar = () => {
   const { user, logout } = useContext(AuthContext);
   const cartItems = useSelector((state) => state.cart.cartItems);
   const navigate = useNavigate();
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const closeMenu = () => setMenuOpen(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const handleLogout = () => {
     logout();
-    closeMenu();
+    setShowLogoutConfirm(false);
     navigate('/login');
   };
 
   return (
     <nav className="navbar">
       <div className="navbar-brand">
-        <Link to="/" onClick={closeMenu}>
+        <Link to="/">
           <img
             src="/ShopNestLogo.png"
             alt="Maa Durga Abhushan Bhandar"
@@ -37,38 +35,70 @@ const Navbar = () => {
         </Link>
       </div>
 
-      <button
-        className="navbar-toggle"
-        onClick={() => setMenuOpen((prev) => !prev)}
-        aria-label="Toggle menu"
-        aria-expanded={menuOpen}
-      >
-        {menuOpen ? '✕' : '☰'}
-      </button>
-
-      <ul className={`navbar-links ${menuOpen ? 'open' : ''}`}>
-      { /* 
-        <li><Link to="/shop" onClick={closeMenu}>Shop</Link></li>
-        <li><Link to="/cart" onClick={closeMenu}>Cart ({cartItems.length})</Link></li>
-      */}
+      <ul className="navbar-links">
+        {/*
+        <li><Link to="/shop">Shop</Link></li>
+        <li><Link to="/cart">Cart ({cartItems.length})</Link></li>
+        */}
         {user ? (
           <>
-            <li><Link to="/profile" onClick={closeMenu}>Hi, {user.name}</Link></li>
+            <li><Link to="/profile">Hi, {user.name}</Link></li>
             {user.role === 'admin' && (
               <>
-                <li><Link to="/admin" onClick={closeMenu}>Admin</Link></li>
-                <li><Link to="/admin/people" onClick={closeMenu}>People</Link></li>
-                <li><Link to="/admin/vyapar" onClick={closeMenu}>Vyapar</Link></li>
-                <li><Link to="/admin/bill" onClick={closeMenu}>Bill</Link></li>
-                <li><Link to="/admin/loan" onClick={closeMenu}>Loan</Link></li>
+                <li><Link to="/admin">Admin</Link></li>
+                <li><Link to="/admin/people">People</Link></li>
+                <li><Link to="/admin/vyapar">Vyapar</Link></li>
+                <li><Link to="/admin/bill">Bill</Link></li>
+                <li><Link to="/admin/loan">Loan</Link></li>
               </>
             )}
-            <li><button onClick={handleLogout} className="btn-logout">Logout</button></li>
+            <li className="navbar-logout-item">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(true)}
+                className="btn-logout"
+              >
+                Logout
+              </button>
+            </li>
           </>
         ) : (
-          <li><Link to="/login" onClick={closeMenu}>Login</Link></li>
+          <li><Link to="/login">Login</Link></li>
         )}
       </ul>
+
+      {showLogoutConfirm && (
+        <div
+          className="logout-overlay"
+          onClick={() => setShowLogoutConfirm(false)}
+        >
+          <div
+            className="logout-dialog"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>Logout?</h3>
+            <p>Are you sure you want to logout?</p>
+            <div className="logout-dialog-actions">
+              <button
+                type="button"
+                className="logout-cancel"
+                onClick={() => setShowLogoutConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="logout-confirm"
+                onClick={handleLogout}
+              >
+                Yes, Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 };

@@ -150,7 +150,7 @@ const paymentSchema = new mongoose.Schema(
     },
     mode: {
       type: String,
-      enum: ["cash", "card", "upi", "cheque", "bank_transfer"],
+      enum: ["cash","purana sona","purana chandi", "card", "upi", "cheque", "bank_transfer"],
       required: true,
       default: "cash",
     },
