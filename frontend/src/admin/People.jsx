@@ -73,7 +73,7 @@ const People = () => {
     phone: "",
     address: "",
     dateOfBirth: "",
-    gender: "prefer_not_to_say",
+    gender: "male",
     extraInfo: "",
     status: "active",
     source: "",
@@ -271,12 +271,12 @@ const People = () => {
 
     setForm({
       customerId: person.customerId || "",
-      name: person.name || "",
+      name: (person.name || "").toUpperCase,
       email: person.email
         ? person.email.replace(/@gmail\.com$/i, "")
         : "",
       phone: person.phone || "",
-      address: person.address || "",
+      address: (person.address || "").toUpperCase,
       dateOfBirth: person.dateOfBirth
         ? formatDateForInput(person.dateOfBirth)
         : "",
@@ -369,7 +369,7 @@ const People = () => {
       const billNumbers = form.billNumbers
         ? form.billNumbers
             .split(",")
-            .map((num) => num.trim().toUpperCase().slice(0, 8))
+            .map((num) => num.trim().toUpperCase().slice(0, 15))
             .filter(Boolean)
         : [];
 
@@ -610,6 +610,83 @@ const People = () => {
       { state: { person } }
     );
 
+      // ============================================================
+  // VERIFY LOAN ID / BILL NUMBER (used by the search buttons)
+  // ============================================================
+
+  const callVerifyApi = async (url) => {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${user?.token}` },
+    });
+
+    const isJson = (res.headers.get("content-type") || "").includes(
+      "application/json"
+    );
+    const data = isJson ? await res.json() : {};
+
+    return { res, isJson, data };
+  };
+
+  const verifyBillNumber = async (billNo) => {
+    const { res, isJson, data } = await callVerifyApi(
+      `/api/bills/by-bill-no/${encodeURIComponent(billNo)}`
+    );
+
+    if (res.status === 401) {
+      return { ok: false, message: "Session expired. Please log in again." };
+    }
+    if (!isJson) {
+      return { ok: false, message: "Could not reach the server. Try again." };
+    }
+    if (res.status === 404) {
+      return { ok: false, message: `Bill ${billNo} was not found. Check the number.` };
+    }
+    if (!res.ok) {
+      return { ok: false, message: data.message || "Could not verify this bill." };
+    }
+
+    // Soft warning if the bill belongs to a different phone number
+    const billPhone = String(data.mobileNo || "").replace(/\D/g, "").slice(-10);
+    const formPhone = form.phone.replace(/\D/g, "");
+    const mismatch =
+      formPhone.length === 10 && billPhone && billPhone !== formPhone;
+
+    return {
+      ok: true,
+      message: `Added: ${data.customerName || "Customer"} (${data.mobileNo || "no mobile"})`,
+      warning: mismatch
+        ? "Note: this bill's mobile number is different from this person's phone."
+        : "",
+    };
+  };
+
+  const verifyLoanId = async (loanId) => {
+    const { res, isJson, data } = await callVerifyApi(
+      `/api/loans/by-loan-id/${encodeURIComponent(loanId)}`
+    );
+
+    if (res.status === 401) {
+      return { ok: false, message: "Session expired. Please log in again." };
+    }
+    // HTML back means the route doesn't exist on the server yet
+    if (!isJson) {
+      return { ok: false, message: "Loan check is not available yet (server route missing)." };
+    }
+    if (res.status === 404) {
+      return { ok: false, message: `Loan ${loanId} was not found. Check the ID.` };
+    }
+    if (!res.ok) {
+      return { ok: false, message: data.message || "Could not verify this loan." };
+    }
+
+    const name = data.customerName || data.name || "";
+    return {
+      ok: true,
+      message: name ? `Added: ${name}` : `Loan ${loanId} added`,
+      warning: "",
+    };
+  };
+
   // ============================================================
   // PROTECTION
   // ============================================================
@@ -699,8 +776,8 @@ const People = () => {
                 target: {
                   name: "name",
                   value: e.target.value
-                    .toLowerCase()
-                    .replace(/\b\w/g, (char) => char.toUpperCase()),
+                    .toUpperCase()
+                   // .replace(/\b\w/g, (char) => char.toUpperCase()),
                 },
               })
             }
@@ -791,15 +868,6 @@ const People = () => {
             inputMode="numeric"
           />
 
-          {/* DATE OF BIRTH */}
-
-          <FormField
-            label="Date of Birth"
-            name="dateOfBirth"
-            value={form.dateOfBirth}
-            onChange={handleChange}
-            type="date"
-          />
 
           {/* GENDER */}
 
@@ -823,34 +891,7 @@ const People = () => {
             </select>
           </div>
 
-          {/* STATUS */}
-
-          <div>
-            <label style={labelStyle}>
-              Status
-            </label>
-
-            <select
-              name="status"
-              value={form.status}
-              onChange={handleChange}
-              style={inputStyle}
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
-
-          {/* SOURCE */}
-
-          <FormField
-            label="Source"
-            name="source"
-            value={form.source}
-            onChange={handleChange}
-            placeholder="Where did this person come from?"
-          />
+        
 
           {/* PHOTO */}
 
@@ -880,30 +921,21 @@ const People = () => {
             <textarea
               name="address"
               value={form.address}
-              onChange={handleChange}
+              onChange={(e) =>
+                handleChange({
+                  target: {
+                    name: "address",
+                    value: e.target.value.toUpperCase(),
+                  },
+                })
+              }
               placeholder="Full address"
               rows={3}
               style={textareaStyle}
             />
           </div>
 
-          {/* PREFERENCES */}
-
-          <div style={fullWidthStyle}>
-            <label style={labelStyle}>
-              Preferences
-            </label>
-
-            <textarea
-              name="extraInfo"
-              value={form.extraInfo}
-              onChange={handleChange}
-              placeholder="Additional information"
-              rows={3}
-              style={textareaStyle}
-            />
-          </div>
-
+       
           {/* LOAN & BILL */}
 
           <div style={fullWidthStyle}>
@@ -934,17 +966,17 @@ const People = () => {
                   Loan IDs
                 </label>
 
-                <MultiEntryField
+                              <MultiEntryField
                   value={form.loanIds}
                   onChange={(value) =>
                     handleChange({
-                      target: {
-                        name: "loanIds",
-                        value,
-                      },
+                      target: { name: "loanIds", value },
                     })
                   }
-                  placeholder="Loan ID (max 8 chars)"
+                  placeholder="Loan ID"
+                  maxLength={8}
+                  itemLabel="Loan ID"
+                  verify={verifyLoanId}
                 />
               </div>
 
@@ -960,20 +992,75 @@ const People = () => {
                   Bill Numbers
                 </label>
 
-                <MultiEntryField
+                               <MultiEntryField
                   value={form.billNumbers}
                   onChange={(value) =>
                     handleChange({
-                      target: {
-                        name: "billNumbers",
-                        value,
-                      },
+                      target: { name: "billNumbers", value },
                     })
                   }
-                  placeholder="Bill number (max 8 chars)"
+                  placeholder="Bill number"
+                  maxLength={15}
+                  itemLabel="Bill No."
+                  verify={verifyBillNumber}
                 />
               </div>
             </div>
+          </div>
+                    {/* DATE OF BIRTH */}
+
+          <FormField
+            label="Date of Birth"
+            name="dateOfBirth"
+            value={form.dateOfBirth}
+            onChange={handleChange}
+            type="date"
+          />
+
+  {/* STATUS */}
+
+          <div>
+            <label style={labelStyle}>
+              Status
+            </label>
+
+            <select
+              name="status"
+              value={form.status}
+              onChange={handleChange}
+              style={inputStyle}
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+
+          {/* SOURCE */}
+
+          <FormField
+            label="Source"
+            name="source"
+            value={form.source}
+            onChange={handleChange}
+            placeholder="Where did this person come from?"
+          />
+
+             {/* PREFERENCES */}
+
+          <div style={fullWidthStyle}>
+            <label style={labelStyle}>
+              Preferences
+            </label>
+
+            <textarea
+              name="extraInfo"
+              value={form.extraInfo}
+              onChange={handleChange}
+              placeholder="Additional information"
+              rows={3}
+              style={textareaStyle}
+            />
           </div>
 
           {/* TAGS */}
@@ -1967,8 +2054,17 @@ const Chip = ({ active, onClick, children }) => (
 // Each entry: uppercase, max 8 characters, added via "+" button
 // ============================================================
 
-const MultiEntryField = ({ value, onChange, placeholder }) => {
+const MultiEntryField = ({
+  value,
+  onChange,
+  placeholder,
+  maxLength = 8,
+  itemLabel = "ID",
+  verify,
+}) => {
   const [inputValue, setInputValue] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [feedback, setFeedback] = useState(null); // { type: "ok" | "warn" | "error", text }
 
   const entries = value
     ? value
@@ -1977,31 +2073,71 @@ const MultiEntryField = ({ value, onChange, placeholder }) => {
         .filter(Boolean)
     : [];
 
-  const addEntry = () => {
-    const cleaned = inputValue
+  const clean = (text) =>
+    text
       .toUpperCase()
       .replace(/[^A-Z0-9]/g, "")
-      .slice(0, 8);
+      .slice(0, maxLength);
 
-    if (cleaned && !entries.includes(cleaned)) {
-      onChange([...entries, cleaned].join(", "));
+  const handleSearch = async () => {
+    if (checking) return;
+
+    const cleaned = clean(inputValue);
+
+    if (!cleaned) {
+      setFeedback({ type: "error", text: `Enter a ${itemLabel} first.` });
+      return;
     }
 
-    setInputValue("");
+    if (entries.includes(cleaned)) {
+      setFeedback({ type: "error", text: `${cleaned} is already added.` });
+      return;
+    }
+
+    setChecking(true);
+    setFeedback(null);
+
+    try {
+      const result = verify ? await verify(cleaned) : { ok: true, message: "" };
+
+      if (result.ok) {
+        onChange([...entries, cleaned].join(", "));
+        setInputValue("");
+        setFeedback({
+          type: result.warning ? "warn" : "ok",
+          text: [result.message, result.warning].filter(Boolean).join("\n"),
+        });
+      } else {
+        setFeedback({ type: "error", text: result.message });
+      }
+    } catch (err) {
+      setFeedback({
+        type: "error",
+        text: "Could not verify. Check your internet and try again.",
+      });
+    } finally {
+      setChecking(false);
+    }
   };
 
   const removeEntry = (entry) => {
-    onChange(
-      entries.filter((existing) => existing !== entry).join(", ")
-    );
+    onChange(entries.filter((existing) => existing !== entry).join(", "));
+    setFeedback(null);
   };
 
   const handleKeyDown = (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
-      addEntry();
+      handleSearch();
     }
   };
+
+  const feedbackColor =
+    feedback?.type === "ok"
+      ? "#22c55e"
+      : feedback?.type === "warn"
+      ? "#f59e0b"
+      : "#ef4444";
 
   return (
     <div>
@@ -2009,36 +2145,50 @@ const MultiEntryField = ({ value, onChange, placeholder }) => {
         style={{
           display: "flex",
           gap: "8px",
-          marginBottom: entries.length ? "8px" : 0,
+          marginBottom: entries.length || feedback ? "8px" : 0,
         }}
       >
         <input
           type="text"
           value={inputValue}
-          onChange={(event) =>
-            setInputValue(
-              event.target.value
-                .toUpperCase()
-                .replace(/[^A-Z0-9]/g, "")
-                .slice(0, 8)
-            )
-          }
+          onChange={(event) => {
+            setInputValue(clean(event.target.value));
+            if (feedback) setFeedback(null);
+          }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          maxLength={8}
+          maxLength={maxLength}
+          disabled={checking}
           style={{ ...inputStyle, flex: 1 }}
         />
 
         <button
           type="button"
-          onClick={addEntry}
-          title="Add"
-          aria-label="Add"
-          style={multiEntryAddButtonStyle}
+          onClick={handleSearch}
+          disabled={checking}
+          title={`Search and add ${itemLabel}`}
+          aria-label={`Search and add ${itemLabel}`}
+          style={{
+            ...multiEntryAddButtonStyle,
+            ...(checking ? { background: "#52525b", cursor: "not-allowed" } : {}),
+          }}
         >
-          +
+          {checking ? "…" : "🔍"}
         </button>
       </div>
+
+      {feedback && (
+        <div
+          style={{
+            color: feedbackColor,
+            fontSize: "0.78rem",
+            marginBottom: entries.length ? "8px" : 0,
+            whiteSpace: "pre-line",
+          }}
+        >
+          {feedback.text}
+        </div>
+      )}
 
       {entries.length > 0 && (
         <div

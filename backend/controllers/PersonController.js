@@ -5,6 +5,7 @@ const cloudinary = require("cloudinary").v2;
 
 const Person = require("../models/Person");
 const User = require("../models/User");
+const Bill = require("../models/Bill");
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -55,13 +56,27 @@ const cleanPhoto = (photo) => {
   return { url: photo.url, publicId: photo.publicId };
 };
 
-// Best-effort delete. A failure here should never break the request.
-const deletePhotoFromCloudinary = async (publicId) => {
+// Deletes the image only if no bill or person still uses it. A person's
+// photo can be copied onto a bill as the customer photo, so both can point
+// to the same Cloudinary image. Best-effort: never breaks the request.
+const deletePhotoIfUnused = async (publicId) => {
   if (!publicId) return;
   try {
+    const [usedByBill, usedByPerson] = await Promise.all([
+      Bill.exists({
+        $or: [
+          { "photo.publicId": publicId },
+          { "customerPhoto.publicId": publicId },
+        ],
+      }),
+      Person.exists({ "photo.publicId": publicId }),
+    ]);
+
+    if (usedByBill || usedByPerson) return;
+
     await cloudinary.uploader.destroy(publicId);
   } catch (err) {
-    console.error("Cloudinary delete failed:", err.message);
+    console.error("Cloudinary cleanup failed:", err.message);
   }
 };
 
@@ -384,9 +399,9 @@ const createPerson = asyncHandler(async (req, res) => {
     res.status(201).json(person);
   } catch (err) {
     // The photo was uploaded but the person was not saved -> don't leave
-    // an orphan image in Cloudinary.
+    // an orphan image in Cloudinary (unless something else uses it).
     if (clean.photo?.publicId) {
-      await deletePhotoFromCloudinary(clean.photo.publicId);
+      await deletePhotoIfUnused(clean.photo.publicId);
     }
     rethrowDuplicate(err, res);
   }
@@ -447,14 +462,15 @@ const updatePerson = asyncHandler(async (req, res) => {
   } catch (err) {
     // New photo was uploaded but the save failed -> remove the orphan
     if (clean.photo?.publicId && clean.photo.publicId !== oldPhotoId) {
-      await deletePhotoFromCloudinary(clean.photo.publicId);
+      await deletePhotoIfUnused(clean.photo.publicId);
     }
     rethrowDuplicate(err, res);
   }
 
-  // Delete the old image only after the person saved successfully
+  // Delete the old image only after the person saved successfully,
+  // and only if no bill or person still uses it
   if (oldPhotoId && oldPhotoId !== updatedPerson.photo?.publicId) {
-    await deletePhotoFromCloudinary(oldPhotoId);
+    await deletePhotoIfUnused(oldPhotoId);
   }
 
   res.status(200).json(updatedPerson);
@@ -502,8 +518,9 @@ const deletePerson = asyncHandler(async (req, res) => {
 
   await person.deleteOne();
 
-  // Remove the photo from Cloudinary after the person is gone
-  await deletePhotoFromCloudinary(photoId);
+  // Remove the photo from Cloudinary after the person is gone,
+  // unless a bill still uses the same image
+  await deletePhotoIfUnused(photoId);
 
   // TODO (optional): clean up family-tree relations for this person here.
 
