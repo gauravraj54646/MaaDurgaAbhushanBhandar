@@ -271,12 +271,12 @@ const People = () => {
 
     setForm({
       customerId: person.customerId || "",
-      name: (person.name || "").toUpperCase,
+      name: (person.name || "").toUpperCase(),
       email: person.email
         ? person.email.replace(/@gmail\.com$/i, "")
         : "",
       phone: person.phone || "",
-      address: (person.address || "").toUpperCase,
+      address: (person.address || "").toUpperCase(),
       dateOfBirth: person.dateOfBirth
         ? formatDateForInput(person.dateOfBirth)
         : "",
@@ -587,7 +587,7 @@ const People = () => {
     );
 
   const goToBills = (person) => {
-    const billNumbers = person.billNumbers
+    const billNumbers = (person.billNumbers || [])
       .filter(Boolean)
       .map((num) => String(num).trim().toUpperCase());
 
@@ -610,7 +610,7 @@ const People = () => {
       { state: { person } }
     );
 
-      // ============================================================
+  // ============================================================
   // VERIFY LOAN ID / BILL NUMBER (used by the search buttons)
   // ============================================================
 
@@ -775,9 +775,7 @@ const People = () => {
               handleChange({
                 target: {
                   name: "name",
-                  value: e.target.value
-                    .toUpperCase()
-                   // .replace(/\b\w/g, (char) => char.toUpperCase()),
+                  value: e.target.value.toUpperCase(),
                 },
               })
             }
@@ -868,7 +866,6 @@ const People = () => {
             inputMode="numeric"
           />
 
-
           {/* GENDER */}
 
           <div>
@@ -891,8 +888,6 @@ const People = () => {
             </select>
           </div>
 
-        
-
           {/* PHOTO */}
 
           <div style={fullWidthStyle}>
@@ -903,9 +898,7 @@ const People = () => {
             <BillPhotoUpload
               value={form.photo}
               onChange={(photo) =>
-                handleChange({
-                  target: { name: "photo", value: photo },
-                })
+                setForm((previous) => ({ ...previous, photo }))
               }
               onBusyChange={setPhotoBusy}
             />
@@ -935,7 +928,6 @@ const People = () => {
             />
           </div>
 
-       
           {/* LOAN & BILL */}
 
           <div style={fullWidthStyle}>
@@ -966,7 +958,7 @@ const People = () => {
                   Loan IDs
                 </label>
 
-                              <MultiEntryField
+                <MultiEntryField
                   value={form.loanIds}
                   onChange={(value) =>
                     handleChange({
@@ -992,7 +984,7 @@ const People = () => {
                   Bill Numbers
                 </label>
 
-                               <MultiEntryField
+                <MultiEntryField
                   value={form.billNumbers}
                   onChange={(value) =>
                     handleChange({
@@ -1007,7 +999,8 @@ const People = () => {
               </div>
             </div>
           </div>
-                    {/* DATE OF BIRTH */}
+
+          {/* DATE OF BIRTH */}
 
           <FormField
             label="Date of Birth"
@@ -1017,7 +1010,7 @@ const People = () => {
             type="date"
           />
 
-  {/* STATUS */}
+          {/* STATUS */}
 
           <div>
             <label style={labelStyle}>
@@ -1046,7 +1039,7 @@ const People = () => {
             placeholder="Where did this person come from?"
           />
 
-             {/* PREFERENCES */}
+          {/* PREFERENCES */}
 
           <div style={fullWidthStyle}>
             <label style={labelStyle}>
@@ -1709,281 +1702,275 @@ const People = () => {
 
   return (
     <>
-    <div style={containerStyle}>
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
+      <div style={containerStyle}>
+        {/* HEADER */}
 
-      <div style={headerStyle}>
-        <div>
-          <h2 style={titleStyle}>
-            People Directory
-          </h2>
+        <div style={headerStyle}>
+          <div>
+            <h2 style={titleStyle}>
+              People Directory
+            </h2>
 
-          <p style={subtitleStyle}>
-            Manage people and their family
-            relationships.
-          </p>
+            <p style={subtitleStyle}>
+              Manage people and their family
+              relationships.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={openAddForm}
+            style={primaryButtonStyle}
+          >
+            + Add Person
+          </button>
         </div>
 
-        <button
-          type="button"
-          onClick={openAddForm}
-          style={primaryButtonStyle}
-        >
-          + Add Person
-        </button>
-      </div>
+        {messages}
 
-      {messages}
+        {formCard}
 
-      {formCard}
+        {/* SEARCH / SUMMARY */}
 
-      {/* ======================================================
-          SEARCH / SUMMARY
-      ====================================================== */}
+        <div style={toolbarStyle}>
+          <div style={searchWrapperStyle}>
+            <span style={searchIconStyle}>
+              🔎
+            </span>
 
-      <div style={toolbarStyle}>
-        <div style={searchWrapperStyle}>
-          <span style={searchIconStyle}>
-            🔎
-          </span>
+            <input
+              type="text"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Search by name, customer ID or phone number..."
+              style={searchInputStyle}
+            />
+          </div>
 
-          <input
-            type="text"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
-            placeholder="Search by name, customer ID or phone number..."
-            style={searchInputStyle}
-          />
+          <div style={countStyle}>
+            Showing{" "}
+            <strong>{people.length}</strong>{" "}
+            of{" "}
+            <strong>{totalPeople}</strong>{" "}
+            people
+          </div>
         </div>
 
-        <div style={countStyle}>
-          Showing{" "}
-          <strong>{people.length}</strong>{" "}
-          of{" "}
-          <strong>{totalPeople}</strong>{" "}
-          people
-        </div>
-      </div>
-
-      {loading && (
-        <div style={loadingStyle}>
-          Loading people...
-        </div>
-      )}
-
-      {emptyState}
-
-      {/* ======================================================
-          PEOPLE TABLE
-      ====================================================== */}
-
-      {!loading &&
-        people.length > 0 && (
-          <div style={tableContainerStyle}>
-            <table style={tableStyle}>
-              <thead>
-                <tr style={tableRowStyle}>
-                  <th style={thStyle}>PERSON</th>
-                  <th style={thStyle}>CUSTOMER ID</th>
-                  <th style={thStyle}>CONTACT</th>
-                  <th style={thStyle}>STATUS</th>
-                  <th style={thStyle}>SOURCE</th>
-                  <th style={thStyle}>LOAN</th>
-                  <th style={thStyle}>BILL</th>
-                  <th
-                    style={{
-                      ...thStyle,
-                      textAlign: "right",
-                    }}
-                  >
-                    ACTIONS
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {people.map(
-                  (person) => (
-                    <tr
-                      key={person._id}
-                      style={tableRowStyle}
-                    >
-                      {/* PERSON */}
-
-                      <td style={tdStyle}>
-                        <div style={personCellStyle}>
-                          <PersonAvatar person={person} />
-
-                          <div>
-                            <CopyableText text={person.name} label="name">
-                              <span style={personNameStyle}>{person.name}</span>
-                            </CopyableText>
-
-                            {person.email && (
-                              <div style={secondaryTextStyle}>
-                                {person.email}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* CUSTOMER ID */}
-
-                      <td style={tdStyle}>
-                        {person.customerId ? (
-                          <CopyableText text={person.customerId} label="Customer ID">
-                            <span style={customerIdBadgeStyle}>{person.customerId}</span>
-                          </CopyableText>
-                        ) : (
-                          <span style={mutedTextStyle}>—</span>
-                        )}
-                      </td>
-
-                      {/* CONTACT */}
-
-                      <td style={tdStyle}>
-                        {person.phone ? (
-                          <CopyableText text={person.phone} label="phone number">
-                            <span>📞 {person.phone}</span>
-                          </CopyableText>
-                        ) : (
-                          <span style={mutedTextStyle}>No phone</span>
-                        )}
-                      </td>
-
-                      {/* STATUS */}
-
-                      <td style={tdStyle}>
-                        <StatusBadge status={person.status} />
-                      </td>
-
-                      {/* SOURCE */}
-
-                      <td style={tdStyle}>
-                        {person.source || (
-                          <span style={mutedTextStyle}>—</span>
-                        )}
-                      </td>
-
-                      {/* LOAN */}
-
-                      <td style={tdStyle}>
-                        {person.hasLoan ? (
-                          <button
-                            type="button"
-                            onClick={() => goToLoans(person)}
-                            style={{
-                              ...loanBadgeStyle,
-                              border: "none",
-                              cursor: "pointer",
-                            }}
-                            title={`View loans for ${person.customerId}`}
-                          >
-                            Loan
-                            {Array.isArray(person.loanIds) && person.loanIds.length > 0
-                              ? ` (${person.loanIds.length})`
-                              : ""}
-                          </button>
-                        ) : (
-                          <span style={mutedTextStyle}>—</span>
-                        )}
-                      </td>
-
-                      {/* BILL */}
-
-                      <td style={tdStyle}>
-                        {Array.isArray(person.billNumbers) &&
-                        person.billNumbers.length > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => goToBills(person)}
-                            style={{
-                              ...billBadgeStyle,
-                              border: "none",
-                              cursor: "pointer",
-                            }}
-                            title="Click to view all bills"
-                          >
-                            Bill ({person.billNumbers.length})
-                          </button>
-                        ) : (
-                          <span style={mutedTextStyle}>—</span>
-                        )}
-                      </td>
-
-                      {/* ACTIONS */}
-
-                      <td
-                        style={{
-                          ...tdStyle,
-                          textAlign: "right",
-                        }}
-                      >
-                        <div style={actionsStyle}>
-                          <button
-                            type="button"
-                            onClick={() => goToAddLoan(person)}
-                            style={addLoanButtonStyle}
-                            title={`Add loan for ${person.name}`}
-                          >
-                            + Loan
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => goToAddBill(person)}
-                            style={addBillButtonStyle}
-                            title={`Add bill for ${person.name}`}
-                          >
-                            + Bill
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => openFamilyTree(person)}
-                            style={treeButtonStyle}
-                          >
-                            🌳 Tree
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => openEditForm(person)}
-                            style={editButtonStyle}
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => openDeleteModal(person)}
-                            style={deleteButtonStyle}
-                            title="Delete"
-                            aria-label="Delete"
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                )}
-              </tbody>
-            </table>
+        {loading && (
+          <div style={loadingStyle}>
+            Loading people...
           </div>
         )}
 
-      {pagination}
-    </div>
+        {emptyState}
 
-    {deleteModal}
-    {styleTag}
+        {/* PEOPLE TABLE */}
+
+        {!loading &&
+          people.length > 0 && (
+            <div style={tableContainerStyle}>
+              <table style={tableStyle}>
+                <thead>
+                  <tr style={tableRowStyle}>
+                    <th style={thStyle}>PERSON</th>
+                    <th style={thStyle}>CUSTOMER ID</th>
+                    <th style={thStyle}>CONTACT</th>
+                    <th style={thStyle}>STATUS</th>
+                    <th style={thStyle}>SOURCE</th>
+                    <th style={thStyle}>LOAN</th>
+                    <th style={thStyle}>BILL</th>
+                    <th
+                      style={{
+                        ...thStyle,
+                        textAlign: "right",
+                      }}
+                    >
+                      ACTIONS
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {people.map(
+                    (person) => (
+                      <tr
+                        key={person._id}
+                        style={tableRowStyle}
+                      >
+                        {/* PERSON */}
+
+                        <td style={tdStyle}>
+                          <div style={personCellStyle}>
+                            <PersonAvatar person={person} />
+
+                            <div>
+                              <CopyableText text={person.name} label="name">
+                                <span style={personNameStyle}>{person.name}</span>
+                              </CopyableText>
+
+                              {person.email && (
+                                <div style={secondaryTextStyle}>
+                                  {person.email}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* CUSTOMER ID */}
+
+                        <td style={tdStyle}>
+                          {person.customerId ? (
+                            <CopyableText text={person.customerId} label="Customer ID">
+                              <span style={customerIdBadgeStyle}>{person.customerId}</span>
+                            </CopyableText>
+                          ) : (
+                            <span style={mutedTextStyle}>—</span>
+                          )}
+                        </td>
+
+                        {/* CONTACT */}
+
+                        <td style={tdStyle}>
+                          {person.phone ? (
+                            <CopyableText text={person.phone} label="phone number">
+                              <span>📞 {person.phone}</span>
+                            </CopyableText>
+                          ) : (
+                            <span style={mutedTextStyle}>No phone</span>
+                          )}
+                        </td>
+
+                        {/* STATUS */}
+
+                        <td style={tdStyle}>
+                          <StatusBadge status={person.status} />
+                        </td>
+
+                        {/* SOURCE */}
+
+                        <td style={tdStyle}>
+                          {person.source || (
+                            <span style={mutedTextStyle}>—</span>
+                          )}
+                        </td>
+
+                        {/* LOAN */}
+
+                        <td style={tdStyle}>
+                          {person.hasLoan ? (
+                            <button
+                              type="button"
+                              onClick={() => goToLoans(person)}
+                              style={{
+                                ...loanBadgeStyle,
+                                border: "none",
+                                cursor: "pointer",
+                              }}
+                              title={`View loans for ${person.customerId}`}
+                            >
+                              Loan
+                              {Array.isArray(person.loanIds) && person.loanIds.length > 0
+                                ? ` (${person.loanIds.length})`
+                                : ""}
+                            </button>
+                          ) : (
+                            <span style={mutedTextStyle}>—</span>
+                          )}
+                        </td>
+
+                        {/* BILL */}
+
+                        <td style={tdStyle}>
+                          {Array.isArray(person.billNumbers) &&
+                          person.billNumbers.length > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => goToBills(person)}
+                              style={{
+                                ...billBadgeStyle,
+                                border: "none",
+                                cursor: "pointer",
+                              }}
+                              title="Click to view all bills"
+                            >
+                              Bill ({person.billNumbers.length})
+                            </button>
+                          ) : (
+                            <span style={mutedTextStyle}>—</span>
+                          )}
+                        </td>
+
+                        {/* ACTIONS */}
+
+                        <td
+                          style={{
+                            ...tdStyle,
+                            textAlign: "right",
+                          }}
+                        >
+                          <div style={actionsStyle}>
+                            <button
+                              type="button"
+                              onClick={() => goToAddLoan(person)}
+                              style={addLoanButtonStyle}
+                              title={`Add loan for ${person.name}`}
+                            >
+                              + Loan
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => goToAddBill(person)}
+                              style={addBillButtonStyle}
+                              title={`Add bill for ${person.name}`}
+                            >
+                              + Bill
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => openFamilyTree(person)}
+                              style={treeButtonStyle}
+                            >
+                              🌳 Tree
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => openEditForm(person)}
+                              style={editButtonStyle}
+                            >
+                              Edit
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => openDeleteModal(person)}
+                              style={deleteButtonStyle}
+                              title="Delete"
+                              aria-label="Delete"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+        {pagination}
+      </div>
+
+      {deleteModal}
+      {styleTag}
     </>
   );
 };
@@ -2051,7 +2038,6 @@ const Chip = ({ active, onClick, children }) => (
 
 // ============================================================
 // MULTI ENTRY FIELD (used for Loan IDs / Bill Numbers)
-// Each entry: uppercase, max 8 characters, added via "+" button
 // ============================================================
 
 const MultiEntryField = ({
