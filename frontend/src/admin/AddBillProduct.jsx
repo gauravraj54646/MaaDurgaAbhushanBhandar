@@ -899,7 +899,7 @@ const AddBillProduct = () => {
       }
 
       formData.items.forEach((item, index) => {
-        if (!item.itemName.trim()) {
+        if (!String(item.itemName || "").trim()) {
           errs[`itemName_${index}`] = `Item name is required for Item ${index + 1}.`;
         }
 
@@ -1037,14 +1037,16 @@ const AddBillProduct = () => {
           : "mixed";
 
       const submitData = {
-        ...(formData.billNo.trim() ? { billNo: formData.billNo.trim() } : {}),
+        ...(String(formData.billNo || "").trim()
+          ? { billNo: String(formData.billNo).trim() }
+          : {}),
         ...(selectedPerson?._id ? { personId: selectedPerson._id } : {}),
         billDate: formData.billDate,
         billType: formData.billType,
         description: isSimple ? formData.description.trim() : undefined,
         simpleAmount: isSimple ? Number(formData.simpleAmount || 0) : 0,
         customerName: formData.customerName,
-        mobileNo: formData.mobileNo.trim(),
+        mobileNo: String(formData.mobileNo || "").trim(),
         address: formData.address,
         gstin: isSimple ? "" : formData.gstin,
         items: isSimple ? [] : cleanedItems,
@@ -1829,7 +1831,7 @@ const AddBillProduct = () => {
           {formData.payments.map((payment, index) => {
             const key = `pay_${payment.id}`;
             const isCollapsed = Boolean(collapsed[key]);
-            const modeLabel = String(payment.mode || "").replace("_", " ");
+            const modeLabel = String(payment.mode || "").replace(/_/g, " ");
 
             return (
               <div
@@ -1888,8 +1890,8 @@ const AddBillProduct = () => {
                         style={{ ...inputStyle, cursor: "pointer" }}
                       >
                         <option value="cash">Cash</option>
-                        <option value="cash">purana sona</option>
-                        <option value="cash">purana chandi</option>
+                        <option value="old_gold">Purana Sona</option>
+                        <option value="old_silver">Purana Chandi</option>
                         <option value="card">Card</option>
                         <option value="upi">UPI</option>
                         <option value="cheque">Cheque</option>
@@ -2098,10 +2100,9 @@ const AddBillProduct = () => {
           customerName={formData.customerName}
           mobileNo={formData.mobileNo}
           billDate={formData.billDate}
-          itemsSubtotal={itemsSubtotal}
-          exchangeTotal={exchangeTotal}
           grandTotal={grandTotal}
           amountPaid={amountPaidValue}
+          balanceDue={balanceDue}
           loading={loading}
           onCancel={() => setShowConfirm(false)}
           onConfirm={confirmSubmit}
@@ -2657,7 +2658,6 @@ const DescriptionHelper = ({ onApply, defaultOpen = true }) => {
             >
               Apply to Description & Amount
             </button>
-
           </div>
         </div>
       )}
@@ -2669,10 +2669,9 @@ const ConfirmPublishModal = ({
   customerName,
   mobileNo,
   billDate,
-  itemsSubtotal,
-  exchangeTotal,
   grandTotal,
   amountPaid,
+  balanceDue,
   loading,
   onCancel,
   onConfirm,
@@ -2717,8 +2716,6 @@ const ConfirmPublishModal = ({
         <ConfirmRow label="Customer" value={customerName || "-"} />
         <ConfirmRow label="Mobile" value={mobileNo || "-"} />
         <ConfirmRow label="Bill Date" value={formatDisplayDate(billDate)} />
-      {/*  <ConfirmRow label="Items Subtotal" value={`₹${itemsSubtotal.toFixed(2)}`} />
-        <ConfirmRow label="Exchange Total" value={`-₹${exchangeTotal.toFixed(2)}`} /> */}
         <ConfirmRow label="Grand Total" value={`₹${grandTotal.toFixed(2)}`} />
         <ConfirmRow label="Amount Paid" value={`₹${amountPaid.toFixed(2)}`} />
         <ConfirmRow label="Balance Due" value={`₹${balanceDue.toFixed(2)}`} />
