@@ -428,8 +428,7 @@ const AdminBillProduct = () => {
       {/* FILTERS: MOBILE (single search box + chips) */}
       {!isMultipleBillView && isMobile && (
         <div style={{ marginBottom: "12px" }}>
-          <input
-            type="text"
+          <SearchInput
             inputMode={searchMode === "mobile" ? "numeric" : "text"}
             placeholder={
               searchMode === "name"
@@ -440,7 +439,6 @@ const AdminBillProduct = () => {
             }
             value={mobileSearchValue}
             onChange={(e) => handleMobileSearch(e.target.value)}
-            style={{ ...inputStyle, width: "100%" }}
           />
 
           {/* Search by: Name / Bill No / Mobile */}
@@ -492,19 +490,18 @@ const AdminBillProduct = () => {
             marginBottom: "14px",
           }}
         >
-          <input
-            type="text"
+          <SearchInput
+            wrapperStyle={{ flex: "2 1 220px" }}
             placeholder="Search by customer name"
             value={nameSearch}
             onChange={(e) => {
               setNameSearch(e.target.value);
               setPage(1);
             }}
-            style={{ ...inputStyle, flex: "2 1 220px" }}
           />
 
-          <input
-            type="text"
+          <SearchInput
+            wrapperStyle={{ flex: "1 1 160px" }}
             placeholder="Search by bill no."
             value={billNoSearch}
             onChange={(e) => {
@@ -513,11 +510,10 @@ const AdminBillProduct = () => {
               );
               setPage(1);
             }}
-            style={{ ...inputStyle, flex: "1 1 160px" }}
           />
 
-          <input
-            type="text"
+          <SearchInput
+            wrapperStyle={{ flex: "1 1 160px" }}
             inputMode="numeric"
             placeholder="Search by mobile no."
             value={mobileSearch}
@@ -525,7 +521,6 @@ const AdminBillProduct = () => {
               setMobileSearch(e.target.value.replace(/\D/g, "").slice(0, 10));
               setPage(1);
             }}
-            style={{ ...inputStyle, flex: "1 1 160px" }}
           />
 
           <select
@@ -742,7 +737,7 @@ const AdminBillProduct = () => {
             overflowX: "auto",
           }}
         >
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "800px" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}>
             <thead>
               <tr style={{ background: "#111113" }}>
                 <Th>Bill No.</Th>
@@ -752,6 +747,7 @@ const AdminBillProduct = () => {
                 <SortableTh label="Grand Total" field="grandTotal" sortBy={sortBy} sortOrder={sortOrder} onClick={toggleSort} align="right" />
                 <Th align="right">Balance Due</Th>
                 <Th>Status</Th>
+                <Th>Share</Th>
                 <Th align="right">Actions</Th>
               </tr>
             </thead>
@@ -759,7 +755,7 @@ const AdminBillProduct = () => {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={8} style={emptyCellStyle}>
+                  <td colSpan={9} style={emptyCellStyle}>
                     Loading bills...
                   </td>
                 </tr>
@@ -767,7 +763,7 @@ const AdminBillProduct = () => {
 
               {!loading && bills.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={emptyCellStyle}>
+                  <td colSpan={9} style={emptyCellStyle}>
                     No bills found.
                   </td>
                 </tr>
@@ -813,19 +809,21 @@ const AdminBillProduct = () => {
                         {bill.paymentStatus}
                       </span>
                     </Td>
-                    <div style={{ marginTop: "12px" }}>
-  <WhatsAppShare
-    bill={{
-      billNo: bill.billNo,
-      billDate: bill.billDate,
-      customerName: bill.customerName,
-      mobileNo: bill.mobileNo,
-      grandTotal: bill.grandTotal,
-      balanceDue: bill.balanceDue,
-      photoUrl: bill.photo?.url,
-    }}
-  />
-</div>
+
+                    <Td>
+                      <WhatsAppShare
+                        bill={{
+                          billNo: bill.billNo,
+                          billDate: bill.billDate,
+                          customerName: bill.customerName,
+                          mobileNo: bill.mobileNo,
+                          grandTotal: bill.grandTotal,
+                          balanceDue: bill.balanceDue,
+                          photoUrl: bill.photo?.url,
+                        }}
+                      />
+                    </Td>
+
                     <Td align="right">
                       <button
                         type="button"
@@ -1058,6 +1056,18 @@ const CopyableText = ({ text, label, children }) => {
 // SMALL COMPONENTS
 // =========================================================
 
+// Text input with a 🔎 icon on the left
+const SearchInput = ({ wrapperStyle, ...props }) => (
+  <div style={{ position: "relative", ...wrapperStyle }}>
+    <span style={searchIconStyle}>🔎</span>
+    <input
+      type="text"
+      {...props}
+      style={{ ...inputStyle, width: "100%", paddingLeft: "38px" }}
+    />
+  </div>
+);
+
 const Chip = ({ active, onClick, color, children }) => {
   const c = color || "#f97316";
 
@@ -1142,6 +1152,15 @@ const FieldError = ({ msg }) =>
 // =========================================================
 // STYLES
 // =========================================================
+
+const searchIconStyle = {
+  position: "absolute",
+  left: "12px",
+  top: "50%",
+  transform: "translateY(-50%)",
+  fontSize: "14px",
+  pointerEvents: "none",
+};
 
 const emptyCellStyle = {
   padding: "30px",
