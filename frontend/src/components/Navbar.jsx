@@ -1,4 +1,5 @@
 import React, { useContext, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { useSelector } from 'react-redux';
@@ -15,6 +16,39 @@ const Navbar = () => {
     setShowLogoutConfirm(false);
     navigate('/login');
   };
+
+  // Build the link list, then drop Logout into the middle of it
+  const links = user
+    ? [
+        <li key="profile"><Link to="/profile">Hi, {user.name}</Link></li>,
+        ...(user.role === 'admin'
+          ? [
+              <li key="admin"><Link to="/admin">Admin</Link></li>,
+              <li key="people"><Link to="/admin/people">People</Link></li>,
+              <li key="vyapar"><Link to="/admin/vyapar">Vyapar</Link></li>,
+              <li key="bill"><Link to="/admin/bill">Bill</Link></li>,
+              <li key="loan"><Link to="/admin/loan">Loan</Link></li>,
+            ]
+          : []),
+      ]
+    : [];
+
+  const logoutItem = user ? (
+    <li key="logout" className="navbar-logout-item">
+      <button
+        type="button"
+        onClick={() => setShowLogoutConfirm(true)}
+        className="btn-logout"
+      >
+        Logout
+      </button>
+    </li>
+  ) : null;
+
+  const middle = Math.ceil(links.length / 2);
+  const menuItems = logoutItem
+    ? [...links.slice(0, middle), logoutItem, ...links.slice(middle)]
+    : links;
 
   return (
     <nav className="navbar">
@@ -40,65 +74,43 @@ const Navbar = () => {
         <li><Link to="/shop">Shop</Link></li>
         <li><Link to="/cart">Cart ({cartItems.length})</Link></li>
         */}
-        {user ? (
-          <>
-            <li><Link to="/profile">Hi, {user.name}</Link></li>
-            {user.role === 'admin' && (
-              <>
-                <li><Link to="/admin">Admin</Link></li>
-                <li><Link to="/admin/people">People</Link></li>
-                <li><Link to="/admin/vyapar">Vyapar</Link></li>
-                <li><Link to="/admin/bill">Bill</Link></li>
-                <li><Link to="/admin/loan">Loan</Link></li>
-              </>
-            )}
-            <li className="navbar-logout-item">
-              <button
-                type="button"
-                onClick={() => setShowLogoutConfirm(true)}
-                className="btn-logout"
-              >
-                Logout
-              </button>
-            </li>
-          </>
-        ) : (
-          <li><Link to="/login">Login</Link></li>
-        )}
+        {user ? menuItems : <li><Link to="/login">Login</Link></li>}
       </ul>
 
-      {showLogoutConfirm && (
-        <div
-          className="logout-overlay"
-          onClick={() => setShowLogoutConfirm(false)}
-        >
+      {showLogoutConfirm &&
+        createPortal(
           <div
-            className="logout-dialog"
-            role="dialog"
-            aria-modal="true"
-            onClick={(e) => e.stopPropagation()}
+            className="logout-overlay"
+            onClick={() => setShowLogoutConfirm(false)}
           >
-            <h3>Logout?</h3>
-            <p>Are you sure you want to logout?</p>
-            <div className="logout-dialog-actions">
-              <button
-                type="button"
-                className="logout-cancel"
-                onClick={() => setShowLogoutConfirm(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="logout-confirm"
-                onClick={handleLogout}
-              >
-                Yes, Logout
-              </button>
+            <div
+              className="logout-dialog"
+              role="dialog"
+              aria-modal="true"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3>Logout?</h3>
+              <p>Are you sure you want to logout?</p>
+              <div className="logout-dialog-actions">
+                <button
+                  type="button"
+                  className="logout-cancel"
+                  onClick={() => setShowLogoutConfirm(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="logout-confirm"
+                  onClick={handleLogout}
+                >
+                  Yes, Logout
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </nav>
   );
 };
