@@ -1,32 +1,45 @@
+/* Fonts used by the navbar, footer and Home page (must stay first in the file) */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Jost:wght@400;500;600&display=swap');
+
+:root {
+  --mdab-maroon-900: #3d0a14;
+  --mdab-maroon-800: #5a0f1f;
+  --mdab-maroon-700: #7b1428;
+  --mdab-gold-500: #c9a24b;
+  --mdab-gold-300: #e6c675;
+  --mdab-cream: #fbf4e8;
+}
+
 .navbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 18px 50px;
-  background: rgba(9, 9, 11, 0.8);
+  padding: 16px 50px;
+  background: linear-gradient(135deg, rgba(61, 10, 20, 0.97), rgba(90, 15, 31, 0.97));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 2px solid var(--mdab-gold-500);
   position: sticky;
   top: 0;
   z-index: 1000;
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  font-family: 'Jost', system-ui, sans-serif;
 }
 
 .navbar-brand a {
+  font-family: 'Cormorant Garamond', Georgia, serif;
   font-size: 28px;
   font-weight: 700;
-  color: #fff;
-  letter-spacing: -1px;
+  color: var(--mdab-cream);
+  letter-spacing: 0.2px;
   display: flex;
   align-items: center;
   gap: 10px;
-  text-shadow: 0 2px 10px rgba(249, 115, 22, 0.3);
 }
 
 .navbar-brand a::after {
   content: '.';
-  color: #f97316;
+  color: var(--mdab-gold-300);
   font-size: 36px;
 }
 
@@ -39,15 +52,16 @@
   padding: 0;
 }
 
-.navbar-links a, .navbar-links span {
+.navbar-links a,
+.navbar-links span {
   font-size: 15px;
   font-weight: 500;
-  color: #a1a1aa;
+  color: #f1e3c8;
   position: relative;
 }
 
 .navbar-links a:hover {
-  color: #fff;
+  color: var(--mdab-gold-300);
 }
 
 .navbar-links a::after {
@@ -57,7 +71,7 @@
   height: 2px;
   bottom: -6px;
   left: 0;
-  background: #f97316;
+  background: var(--mdab-gold-300);
   transition: width 0.3s ease;
   border-radius: 2px;
 }
@@ -66,21 +80,29 @@
   width: 100%;
 }
 
+.navbar a:focus-visible,
+.navbar button:focus-visible {
+  outline: 2px solid var(--mdab-gold-300);
+  outline-offset: 3px;
+}
+
 .btn-logout {
   background: transparent;
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--mdab-gold-300);
+  border: 1px solid rgba(230, 198, 117, 0.55);
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   font-weight: 600;
   font-family: inherit;
-  transition: all 0.3s ease;
+  letter-spacing: 0.04em;
+  transition: all 0.25s ease;
 }
 
 .btn-logout:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: #ef4444;
+  background: var(--mdab-gold-300);
+  border-color: var(--mdab-gold-300);
+  color: var(--mdab-maroon-900);
   transform: translateY(-1px);
 }
 
@@ -88,7 +110,7 @@
 .logout-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(30, 4, 10, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -97,26 +119,30 @@
 }
 
 .logout-dialog {
-  background: #18181b;
-  color: #fff;
+  background: var(--mdab-cream);
+  color: var(--mdab-maroon-900);
   width: 100%;
   max-width: 320px;
-  border-radius: 14px;
-  padding: 22px 20px;
+  border-radius: 8px;
+  padding: 24px 20px;
   text-align: center;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--mdab-gold-500);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
+  font-family: 'Jost', system-ui, sans-serif;
 }
 
 .logout-dialog h3 {
   margin: 0 0 8px;
-  font-size: 18px;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--mdab-maroon-800);
 }
 
 .logout-dialog p {
   margin: 0 0 20px;
   font-size: 14px;
-  color: #a1a1aa;
+  color: #6b5a5d;
 }
 
 .logout-dialog-actions {
@@ -127,7 +153,7 @@
 .logout-dialog-actions button {
   flex: 1;
   padding: 11px;
-  border-radius: 8px;
+  border-radius: 4px;
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
@@ -135,15 +161,19 @@
 }
 
 .logout-cancel {
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--mdab-maroon-800);
+  border: 1px solid var(--mdab-gold-500);
 }
 
 .logout-confirm {
-  background: #ef4444;
+  background: var(--mdab-maroon-700);
   color: #fff;
-  border: 1px solid #ef4444;
+  border: 1px solid var(--mdab-maroon-700);
+}
+
+.logout-confirm:hover {
+  background: var(--mdab-maroon-800);
 }
 
 /* ---------- tablet ---------- */
@@ -167,14 +197,14 @@
   }
 
   .navbar-brand a {
-    font-size: 20px;
-    letter-spacing: -0.5px;
+    font-size: 22px;
+    letter-spacing: 0;
     gap: 6px;
     justify-content: center;
   }
 
   .navbar-brand a::after {
-    font-size: 26px;
+    font-size: 28px;
     line-height: 0;
   }
 
@@ -185,10 +215,8 @@
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     white-space: nowrap;
-    padding: 0 0 8px;
+    padding: 0 12px 8px;
     margin: 0 -12px;
-    padding-left: 12px;
-    padding-right: 12px;
   }
 
   .navbar-links::-webkit-scrollbar {
@@ -203,13 +231,14 @@
   .navbar-links span {
     display: block;
     font-size: 13px;
-    padding: 6px 10px;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.04);
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(230, 198, 117, 0.25);
   }
 
   .navbar-links a:active {
-    background: rgba(249, 115, 22, 0.15);
+    background: rgba(230, 198, 117, 0.25);
     color: #fff;
   }
 
@@ -222,13 +251,12 @@
   .navbar-logout-item {
     margin-left: auto;
     padding-left: 14px;
-    border-left: 1px solid rgba(255, 255, 255, 0.15);
+    border-left: 1px solid rgba(230, 198, 117, 0.35);
   }
 
   .btn-logout {
     padding: 6px 12px;
     font-size: 12px;
-    opacity: 0.85;
   }
 
   .btn-logout:hover {

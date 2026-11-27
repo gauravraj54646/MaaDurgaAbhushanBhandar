@@ -62,7 +62,7 @@ const Navbar = () => {
               width: '36px',
               borderRadius: '8px',
               objectFit: 'cover',
-              filter: 'drop-shadow(0 2px 8px rgba(249, 115, 22, 0.35))',
+              filter: 'drop-shadow(0 2px 8px rgba(230, 198, 117, 0.45))',
             }}
           />
           <span>Maa Durga Abhushan Bhandar</span>
