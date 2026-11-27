@@ -356,7 +356,7 @@ const AddBillProduct = () => {
         ...prev,
         customerName: (person.name || "").toUpperCase(),
         mobileNo: person.phone || "",
-        address: person.address || "",
+        address: (person.address || "").toUpperCase(),
       }));
     };
 
@@ -1338,7 +1338,7 @@ const AddBillProduct = () => {
               type="text"
               placeholder="Address (optional)"
               value={formData.address}
-              onChange={(e) => handleChange("address", e.target.value)}
+              onChange={(e) => handleChange("address", e.target.value.toUpperCase())}
               ref={(el) => (fieldRefs.current.address = el)}
               style={inputStyle}
             />

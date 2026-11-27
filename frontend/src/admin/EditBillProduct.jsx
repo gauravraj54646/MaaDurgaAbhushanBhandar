@@ -418,8 +418,8 @@ const EditBillProduct = () => {
     if (isSimple) {
       if (!formData.description.trim()) {
         errs.description = "Description is required.";
-      } else if (wordCount(formData.description) > 300) {
-        errs.description = "Description must be 300 words or fewer.";
+      } else if (wordCount(formData.description) > 500) {
+        errs.description = "Description must be 500 words or fewer.";
       }
 
       if (formData.simpleAmount === "" || Number(formData.simpleAmount) <= 0) {

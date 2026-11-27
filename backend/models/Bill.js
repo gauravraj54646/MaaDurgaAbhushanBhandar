@@ -150,7 +150,7 @@ const paymentSchema = new mongoose.Schema(
     },
     mode: {
       type: String,
-      enum: ["cash","purana sona","purana chandi", "card", "upi", "cheque", "bank_transfer"],
+      enum: ["cash","old_gold", "old_silver", "card", "upi", "cheque", "bank_transfer"],
       required: true,
       default: "cash",
     },
@@ -183,8 +183,8 @@ const billSchema = new mongoose.Schema(
       type: String,
       trim: true,
       validate: {
-        validator: (v) => !v || v.trim().split(/\s+/).filter(Boolean).length <= 300,
-        message: "Description must be 300 words or fewer.",
+        validator: (v) => !v || v.trim().split(/\s+/).filter(Boolean).length <= 500,
+        message: "Description must be 500 words or fewer.",
       },
     },
     simpleAmount: {
@@ -318,7 +318,7 @@ const billSchema = new mongoose.Schema(
     },
     paymentMode: {
       type: String,
-      enum: ["cash", "card", "upi", "cheque", "bank_transfer", "mixed"],
+      enum: ["cash", "card", "upi", "cheque", "bank_transfer","old_gold", "old_silver", "mixed"],
       default: "cash",
     },
     amountPaid: {
