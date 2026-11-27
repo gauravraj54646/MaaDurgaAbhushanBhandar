@@ -85,10 +85,7 @@ const Home = () => {
       {/* ================= CATEGORIES ================= */}
       <section className="hm-section">
         <div className="hm-container">
-          <SectionHeading
-            small="Browse"
-            title="Shop by Category"
-          />
+          <SectionHeading small="Browse" title="Shop by Category" />
 
           <div className="hm-cat-grid">
             {CATEGORIES.map((cat) => (
@@ -161,6 +158,20 @@ const Home = () => {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Jost:wght@400;500;600&display=swap');
 
+        /* ---------- Remove side space (applies only while Home is open) ---------- */
+        html, body {
+          margin: 0;
+          padding: 0;
+          overflow-x: hidden;
+        }
+        #root {
+          width: 100% !important;
+          max-width: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          text-align: initial !important;
+        }
+
         .hm-page {
           --maroon-900: #3d0a14;
           --maroon-800: #5a0f1f;
@@ -173,9 +184,14 @@ const Home = () => {
 
           font-family: 'Jost', system-ui, sans-serif;
           color: var(--ink);
-          width: 100%;
-          overflow-x: hidden;
           background: var(--cream);
+          box-sizing: border-box;
+
+          /* Full-bleed: reach both screen edges even inside a narrow parent */
+          width: 100vw;
+          margin-left: calc(50% - 50vw);
+          margin-right: calc(50% - 50vw);
+          overflow-x: hidden;
         }
 
         .hm-container {
